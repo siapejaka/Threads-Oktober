@@ -140,6 +140,93 @@ function getSheetDataRows(sheetName) {
 // CORE DATA LOADERS & SETTINGS
 // ==========================================
 
+// ==========================================
+// MODUL SINKRONISASI AKUN AUTO-FETCH
+// ==========================================
+
+function syncThreadsAccount(payload) {
+  var token = '';
+  if (typeof payload === 'string') {
+    token = payload.trim();
+  } else if (payload && payload.access_token) {
+    token = String(payload.access_token).trim();
+  }
+
+  if (!token) {
+    throw new Error('User Access Token tidak boleh kosong.');
+  }
+
+  var url = 'https://graph.threads.net/v1.0/me?fields=id,username,name,threads_profile_picture_url&access_token=' + encodeURIComponent(token);
+  var response;
+  try {
+    response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  } catch (netErr) {
+    throw new Error('Gagal menghubungi Meta Graph API: ' + netErr.message);
+  }
+
+  var json;
+  try {
+    json = JSON.parse(response.getContentText());
+  } catch (parseErr) {
+    throw new Error('Format balasan Meta API tidak valid.');
+  }
+
+  if (json.error) {
+    var errMsg = json.error.message || 'Token tidak valid atau kedaluwarsa';
+    throw new Error('Meta API Error: ' + errMsg);
+  }
+
+  var threadsUserId = json.id;
+  if (!threadsUserId) {
+    throw new Error('Tidak dapat menemukan Threads User ID dari token.');
+  }
+
+  var username = json.username || '';
+  var displayName = json.name || username || ('Threads-' + String(threadsUserId).slice(-4));
+  var profilePic = json.threads_profile_picture_url || '';
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Accounts');
+  if (!sheet) {
+    sheet = ss.insertSheet('Accounts');
+    sheet.getRange(1, 1, 1, 8).setValues([['id', 'account_name', 'username', 'threads_user_id', 'access_token', 'profile_pic_url', 'token_expires_at', 'status']]);
+  }
+
+  var existingAccounts = getSheetDataRows('Accounts');
+  var found = existingAccounts.find(function(a) {
+    return String(a.threads_user_id) === String(threadsUserId);
+  });
+
+  var expireDate = new Date();
+  expireDate.setDate(expireDate.getDate() + 60);
+
+  if (found) {
+    sheet.getRange(found._rowNumber, 2, 1, 7).setValues([[
+      displayName,
+      username,
+      threadsUserId,
+      token,
+      profilePic,
+      expireDate,
+      'ACTIVE'
+    ]]);
+    return { account_id: found.id, status: 'updated', username: username, name: displayName };
+  } else {
+    var accId = 'ACC-' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMdd-HHmmss');
+    sheet.appendRow([
+      accId,
+      displayName,
+      username,
+      threadsUserId,
+      token,
+      profilePic,
+      expireDate,
+      'ACTIVE'
+    ]);
+    return { account_id: accId, status: 'created', username: username, name: displayName };
+  }
+}
+
 function getDashboardData() {
   var accounts = getSheetDataRows('Accounts');
   var products = getSheetDataRows('Products');
