@@ -16,6 +16,14 @@ function doPost(e) {
 
     if (action === 'getDashboardData') {
       result = getDashboardData();
+    } else if (action === 'syncThreadsAccount') {
+      result = syncThreadsAccount(payload);
+    } else if (action === 'saveProduct') {
+      result = saveProduct(payload);
+    } else if (action === 'deleteProduct') {
+      result = deleteProduct(payload);
+    } else if (action === 'uploadMediaToCloudinaryBackend') {
+      result = uploadMediaToCloudinaryBackend(payload);
     } else if (action === 'generateHooksWithAI') {
       result = generateHooksWithAI(payload);
     } else if (action === 'savePostToQueue') {
@@ -61,7 +69,9 @@ function doPost(e) {
 function setupDatabase() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var schemas = {
-    'Accounts': ['id', 'account_name', 'threads_user_id', 'access_token', 'token_expires_at', 'status'],
+    'Accounts': ['id', 'account_name', 'username', 'threads_user_id', 'access_token', 'profile_pic_url', 'token_expires_at', 'status'],
+    'Products': ['product_id', 'product_name', 'category', 'description', 'affiliate_url', 'created_at'],
+    'Product_Media': ['media_id', 'product_id', 'review_group', 'media_type', 'cloudinary_url', 'uploaded_at'],
     'MediaVault': ['media_id', 'cloudinary_url', 'media_type', 'md5_hash', 'last_used_at', 'tags'],
     'PostsQueue': ['queue_id', 'account_id', 'root_text', 'media_urls', 'affiliate_url', 'sub_id', 'scheduled_at', 'published_threads_id', 'views_threshold', 'current_views', 'status', 'error_log'],
     'HookSwipeFile': ['hook_id', 'category', 'hook_text', 'performance_score'],
@@ -132,14 +142,22 @@ function getSheetDataRows(sheetName) {
 
 function getDashboardData() {
   var accounts = getSheetDataRows('Accounts');
+  var products = getSheetDataRows('Products');
+  var productMedia = getSheetDataRows('Product_Media');
   var rawMedia = getSheetDataRows('MediaVault');
   var rawQueue = getSheetDataRows('PostsQueue');
   var rawInbox = getSheetDataRows('InboxCache');
   var rawSettings = getSheetDataRows('AppSettings');
 
   var settings = {};
+  var props = PropertiesService.getScriptProperties();
+  ['gemini_api_key', 'cloudinary_cloud_name', 'cloudinary_upload_preset', 'cloudinary_api_key', 'cloudinary_api_secret', 'default_views_threshold'].forEach(function(k) {
+    var pVal = props.getProperty(k);
+    if (pVal) { settings[k] = pVal; }
+  });
+
   rawSettings.forEach(function(row) {
-    if (row.key) { settings[row.key] = row.value; }
+    if (row.key && !settings[row.key]) { settings[row.key] = row.value; }
   });
 
   // Calculate Media Cooldown (14 Days)

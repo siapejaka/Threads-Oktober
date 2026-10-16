@@ -64,6 +64,20 @@
           <span>Composer & Hook</span>
         </button>
 
+        <button @click="currentTab = 'products'"
+                :class="currentTab === 'products' ? 'bg-slate-800 text-emerald-400 font-semibold' : 'text-slate-300 hover:bg-slate-800/60'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
+          <i class="icon-shopping-bag text-lg"></i>
+          <span>Master Produk Shopee</span>
+        </button>
+
+        <button @click="currentTab = 'media_reviews'"
+                :class="currentTab === 'media_reviews' ? 'bg-slate-800 text-emerald-400 font-semibold' : 'text-slate-300 hover:bg-slate-800/60'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
+          <i class="icon-film text-lg"></i>
+          <span>Sesi Ulasan & Media</span>
+        </button>
+
         <button @click="currentTab = 'vault'"
                 :class="currentTab === 'vault' ? 'bg-slate-800 text-emerald-400 font-semibold' : 'text-slate-300 hover:bg-slate-800/60'"
                 class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
@@ -171,9 +185,25 @@
                 <p class="text-xs text-slate-400 mt-1">Hanya menampilkan media bersertifikat FRESH (bebas cooldown 14 hari).</p>
               </div>
 
-              <!-- Shopee Affiliate URL -->
+              <!-- Shopee Affiliate URL & Product Quick Pick -->
               <div class="border-t border-slate-200 pt-4 space-y-3">
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Konversi Afiliasi</h4>
+                <div class="flex items-center justify-between">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Konversi Afiliasi</h4>
+                  <template x-if="products.length > 0">
+                    <button @click="showProductSelect = !showProductSelect" class="text-xs text-emerald-600 hover:text-emerald-700 font-semibold">Pilih dari Master Produk</button>
+                  </template>
+                </div>
+
+                <div x-show="showProductSelect" class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-1">Pilih Produk</label>
+                  <select @change="applyProductToComposer($event.target.value)" class="w-full text-xs border border-slate-300 rounded p-1.5 bg-white">
+                    <option value="">-- Pilih Produk Terdaftar --</option>
+                    <template x-for="p in products" :key="p.product_id">
+                      <option :value="p.product_id" x-text="p.product_id + ' - ' + p.product_name"></option>
+                    </template>
+                  </select>
+                </div>
+
                 <div>
                   <label class="block text-xs font-semibold text-slate-600 mb-1">Tautan Shopee Produk</label>
                   <input type="text" x-model="composer.affiliate_url" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="https://shope.ee/xxxxxx atau https://shopee.co.id/product-i.xxx">
@@ -261,6 +291,155 @@
               </div>
 
             </div>
+          </div>
+        </section>
+
+        <!-- TAB: MASTER PRODUK SHOPEE AFFILIATE -->
+        <section x-show="currentTab === 'products'" class="space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Form Input Produk -->
+            <div class="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
+              <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <i class="icon-plus-circle text-emerald-600"></i> Tambah Produk Afiliasi
+              </h3>
+
+              <div class="space-y-3 text-xs">
+                <div>
+                  <label class="block font-semibold text-slate-600 mb-1">Nama Produk</label>
+                  <input type="text" x-model="newProduct.product_name" class="w-full border border-slate-300 rounded-lg p-2.5" placeholder="Contoh: Wajan Granit Anti Lengket 24cm">
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-600 mb-1">Kategori</label>
+                  <input type="text" x-model="newProduct.category" class="w-full border border-slate-300 rounded-lg p-2.5" placeholder="Contoh: Dapur & Masak / Fashion / Skincare">
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-600 mb-1">Link Shopee Affiliate Asli / Custom</label>
+                  <input type="text" x-model="newProduct.affiliate_url" class="w-full border border-slate-300 rounded-lg p-2.5" placeholder="https://shope.ee/...">
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-600 mb-1">Deskripsi & Keunggulan (Acuan AI Hook)</label>
+                  <textarea x-model="newProduct.description" rows="4" class="w-full border border-slate-300 rounded-lg p-2.5" placeholder="Poin keunggulan produk: anti gosong, lapisan 5 layer german stone, mudah dicuci..."></textarea>
+                </div>
+                <button @click="saveNewProduct()" :disabled="loadingProduct" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition disabled:opacity-50">
+                  <i class="icon-save text-xs" :class="loadingProduct ? 'animate-spin' : ''"></i>
+                  <span>Simpan Master Produk</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- List Master Produk -->
+            <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+              <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="font-bold text-slate-800 text-sm">Daftar Produk Shopee</h3>
+                <span class="text-xs text-slate-400" x-text="products.length + ' Produk Tersimpan'"></span>
+              </div>
+              <div class="overflow-x-auto flex-1">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
+                    <tr>
+                      <th class="p-3">ID & Produk</th>
+                      <th class="p-3">Kategori</th>
+                      <th class="p-3">Link Shopee</th>
+                      <th class="p-3 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    <template x-for="p in products" :key="p.product_id">
+                      <tr class="hover:bg-slate-50/80 transition">
+                        <td class="p-3">
+                          <span class="font-bold text-slate-800" x-text="p.product_id"></span>
+                          <div class="text-slate-600 font-medium truncate max-w-xs" x-text="p.product_name"></div>
+                        </td>
+                        <td class="p-3">
+                          <span class="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-600 font-medium" x-text="p.category || '-'"></span>
+                        </td>
+                        <td class="p-3 max-w-xs truncate">
+                          <a :href="p.affiliate_url" target="_blank" class="text-emerald-600 hover:underline font-mono text-[11px]" x-text="p.affiliate_url"></a>
+                        </td>
+                        <td class="p-3 text-right space-x-2">
+                          <button @click="loadProductIntoComposer(p)" class="text-emerald-700 hover:text-emerald-900 font-semibold">Tulis Post</button>
+                          <button @click="deleteProduct(p.product_id)" class="text-red-500 hover:text-red-700">Hapus</button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB: SESI ULASAN & MULTI-MEDIA LOCAL UPLOAD -->
+        <section x-show="currentTab === 'media_reviews'" class="space-y-6">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <h3 class="font-bold text-slate-800 text-base">Multi-Media Local Upload & Sesi Ulasan (Cloudinary)</h3>
+                <p class="text-xs text-slate-500">Unggah kumpulan gambar atau video ulasan dari drive lokal. Sistem memberikan ID Sesi Ulasan unik (REV-ID) untuk pengelompokan.</p>
+              </div>
+            </div>
+
+            <!-- Upload Box & Inputs -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Tautkan ke Produk (Opsional)</label>
+                <select x-model="uploadSession.product_id" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50">
+                  <option value="">-- Tanpa Tautan Produk --</option>
+                  <template x-for="p in products" :key="p.product_id">
+                    <option :value="p.product_id" x-text="p.product_id + ' - ' + p.product_name"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">ID Sesi Ulasan Custom (Opsional)</label>
+                <input type="text" x-model="uploadSession.custom_rev_id" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50" placeholder="Kosongkan untuk auto REV-001">
+              </div>
+              <div class="flex items-end">
+                <input type="file" id="multiFileInput" multiple accept="image/*,video/*" class="hidden" @change="handleMultiFilesSelected($event)">
+                <button @click="document.getElementById('multiFileInput').click()" :disabled="loadingBatchUpload" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition disabled:opacity-50">
+                  <i class="icon-upload text-sm" :class="loadingBatchUpload ? 'animate-spin' : ''"></i>
+                  <span x-text="loadingBatchUpload ? 'Mengunggah ke Cloudinary...' : 'Pilih File Lokal (Multi-File)'"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grouped Gallery by Review Session -->
+          <div class="space-y-6">
+            <template x-for="(groupMedia, revId) in groupedProductMedia" :key="revId">
+              <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-1 bg-slate-900 text-white rounded-md text-xs font-bold font-mono" x-text="revId"></span>
+                    <span class="text-xs text-slate-500 font-medium" x-text="groupMedia.length + ' media file'"></span>
+                  </div>
+                  <button @click="selectMediaGroupForComposer(groupMedia)" class="px-3 py-1 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-700 rounded text-xs font-semibold flex items-center gap-1 transition">
+                    <i class="icon-check-square text-xs"></i> Pilih untuk Post Composer
+                  </button>
+                </div>
+
+                <!-- Media items in session -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  <template x-for="m in groupMedia" :key="m.media_id">
+                    <div class="rounded-lg overflow-hidden border border-slate-200 bg-slate-50 relative group">
+                      <template x-if="m.media_type === 'IMAGE'">
+                        <img :src="m.cloudinary_url" class="h-28 w-full object-cover">
+                      </template>
+                      <template x-if="m.media_type === 'VIDEO'">
+                        <div class="h-28 flex flex-col items-center justify-center text-slate-400 bg-slate-900 text-white">
+                          <i class="icon-video text-2xl"></i>
+                          <span class="text-[9px] mt-1 uppercase">Video</span>
+                        </div>
+                      </template>
+                      <div class="p-1.5 bg-white text-[10px] flex items-center justify-between">
+                        <span class="font-mono text-slate-400 truncate" x-text="m.media_id"></span>
+                        <button @click="copyToClipboard(m.cloudinary_url)" class="text-slate-600 hover:text-slate-900 font-medium"><i class="icon-copy"></i></button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
           </div>
         </section>
 
@@ -481,11 +660,11 @@
         <section x-show="currentTab === 'accounts'" class="space-y-6">
           <div class="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <div>
-              <h3 class="font-bold text-slate-800 text-base">Manajemen Akun Meta Threads</h3>
-              <p class="text-xs text-slate-500">Monitor kesehatan token OAuth 60 hari dan rotasi multitenant akun.</p>
+              <h3 class="font-bold text-slate-800 text-base">Manajemen Akun Meta Threads (Auto-Fetch Sync)</h3>
+              <p class="text-xs text-slate-500">Cukup masukkan User Access Token Threads. Sistem otomatis menarik username, nama profil, dan avatar via Graph API.</p>
             </div>
             <button @click="openAccountModal()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-2">
-              <i class="icon-plus"></i> Tambah Akun
+              <i class="icon-plus"></i> Tambah Akun via Token
             </button>
           </div>
 
@@ -494,12 +673,17 @@
               <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
                 <div class="flex items-start justify-between">
                   <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold">
-                      <i class="icon-at-sign"></i>
-                    </div>
+                    <template x-if="acc.profile_pic_url">
+                      <img :src="acc.profile_pic_url" class="w-10 h-10 rounded-full object-cover border border-slate-200">
+                    </template>
+                    <template x-if="!acc.profile_pic_url">
+                      <div class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold">
+                        <i class="icon-at-sign"></i>
+                      </div>
+                    </template>
                     <div>
                       <h4 class="font-bold text-sm text-slate-800" x-text="acc.account_name"></h4>
-                      <p class="text-xs text-slate-400" x-text="'@' + acc.threads_user_id"></p>
+                      <p class="text-xs text-slate-400" x-text="'@' + (acc.username || acc.threads_user_id)"></p>
                     </div>
                   </div>
                   <span :class="acc.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'" class="px-2 py-0.5 rounded text-[10px] font-bold" x-text="acc.status"></span>
@@ -570,33 +754,31 @@
     </div>
   </div>
 
-  <!-- MODAL: ADD ACCOUNT -->
+  <!-- MODAL: ADD ACCOUNT VIA AUTO-FETCH -->
   <div x-show="showAccountModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
     <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
       <div class="flex items-center justify-between border-b border-slate-200 pb-3">
-        <h3 class="font-bold text-slate-800 text-sm">Hubungkan Akun Meta Threads</h3>
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i class="icon-refresh-cw text-emerald-600"></i> Auto-Fetch Akun Threads
+        </h3>
         <button @click="showAccountModal = false" class="text-slate-400 hover:text-slate-600"><i class="icon-x"></i></button>
       </div>
 
       <div class="space-y-3 text-xs">
+        <p class="text-slate-500">Cukup tempel User Access Token Threads. Sistem akan memanggil Graph API untuk mengambil ID, Username, Nama, dan Foto Profil secara otomatis.</p>
         <div>
-          <label class="block font-semibold text-slate-600 mb-1">Nama Profil Akun</label>
-          <input type="text" x-model="newAccount.account_name" class="w-full border border-slate-300 rounded-lg p-2.5" placeholder="Contoh: Affiliate Lifestyle ID">
-        </div>
-        <div>
-          <label class="block font-semibold text-slate-600 mb-1">Threads User ID / Username</label>
-          <input type="text" x-model="newAccount.threads_user_id" class="w-full border border-slate-300 rounded-lg p-2.5" placeholder="Contoh: racunshopee_lifestyle">
-        </div>
-        <div>
-          <label class="block font-semibold text-slate-600 mb-1">Long-Lived Access Token (Threads Graph API)</label>
-          <textarea x-model="newAccount.access_token" rows="3" class="w-full border border-slate-300 rounded-lg p-2.5" placeholder="THAA..."></textarea>
-          <p class="text-[10px] text-slate-400 mt-1">Dapatkan dari Meta for Developers App dengan izin threads_basic, threads_content_publish.</p>
+          <label class="block font-semibold text-slate-600 mb-1">User Access Token Threads (Graph API)</label>
+          <textarea x-model="newAccount.access_token" rows="4" class="w-full border border-slate-300 rounded-lg p-2.5 font-mono text-[11px]" placeholder="THAA..."></textarea>
+          <p class="text-[10px] text-slate-400 mt-1">Izin token minimum: <code>threads_basic</code>, <code>threads_content_publish</code>, <code>threads_read_replies</code>.</p>
         </div>
       </div>
 
       <div class="flex items-center justify-end gap-2 pt-2">
         <button @click="showAccountModal = false" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">Batal</button>
-        <button @click="saveNewAccount()" :disabled="loadingSaveAccount" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold disabled:opacity-50">Simpan Akun</button>
+        <button @click="autoSyncAccount()" :disabled="loadingSaveAccount" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50">
+          <i class="icon-check" :class="loadingSaveAccount ? 'animate-spin' : ''"></i>
+          <span x-text="loadingSaveAccount ? 'Memvalidasi Token...' : 'Tarik Data & Simpan'"></span>
+        </button>
       </div>
     </div>
   </div>
@@ -645,6 +827,8 @@
         currentTab: 'composer',
         toasts: [],
         accounts: [],
+        products: [],
+        productMedia: [],
         mediaVault: [],
         queue: [],
         inboxTree: [],
@@ -652,6 +836,8 @@
           gemini_api_key: '',
           cloudinary_cloud_name: '',
           cloudinary_upload_preset: '',
+          cloudinary_api_key: '',
+          cloudinary_api_secret: '',
           default_views_threshold: 500
         },
 
@@ -663,6 +849,9 @@
           selected_media_url: '',
           affiliate_url: ''
         },
+        showProductSelect: false,
+        newProduct: { product_name: '', category: '', affiliate_url: '', description: '' },
+        uploadSession: { product_id: '', custom_rev_id: '' },
         aiPrompt: { topic: '' },
         generatedHooks: [],
         queueFilter: 'ALL',
@@ -670,7 +859,7 @@
 
         // Modals
         showAccountModal: false,
-        newAccount: { account_name: '', threads_user_id: '', access_token: '' },
+        newAccount: { access_token: '' },
         showReplyModal: false,
         replyContext: { comment_id: '', from_user: '', text: '', reply_text: '' },
         showSettingsModal: false,
@@ -678,6 +867,8 @@
         // Loaders
         loadingAI: false,
         loadingSavePost: false,
+        loadingProduct: false,
+        loadingBatchUpload: false,
         loadingMediaUpload: false,
         loadingViewWorker: false,
         loadingSyncInbox: false,
@@ -727,6 +918,8 @@
           const self = this;
           this.apiCall('getDashboardData', {}, function(data) {
             self.accounts = data.accounts || [];
+            self.products = data.products || [];
+            self.productMedia = data.productMedia || [];
             self.mediaVault = data.media || [];
             self.queue = data.queue || [];
             self.inboxTree = data.inbox || [];
@@ -735,6 +928,16 @@
               self.composer.views_threshold = self.settings.default_views_threshold || 500;
             }
           });
+        },
+
+        get groupedProductMedia() {
+          const groups = {};
+          this.productMedia.forEach(function(m) {
+            const grp = m.review_group || 'REV-UNGROUPED';
+            if (!groups[grp]) { groups[grp] = []; }
+            groups[grp].push(m);
+          });
+          return groups;
         },
 
         get freshMedia() {
@@ -954,23 +1157,109 @@
         },
 
         openAccountModal: function() {
-          this.newAccount = { account_name: '', threads_user_id: '', access_token: '' };
+          this.newAccount = { access_token: '' };
           this.showAccountModal = true;
         },
 
-        saveNewAccount: function() {
-          if (!this.newAccount.account_name || !this.newAccount.threads_user_id || !this.newAccount.access_token) {
-            this.showToast('Lengkapi semua kolom akun', 'warning');
+        autoSyncAccount: function() {
+          if (!this.newAccount.access_token) {
+            this.showToast('Masukkan User Access Token', 'warning');
             return;
           }
           this.loadingSaveAccount = true;
           const self = this;
-          this.apiCall('saveAccount', this.newAccount, function() {
+          this.apiCall('syncThreadsAccount', { access_token: this.newAccount.access_token }, function(res) {
             self.loadingSaveAccount = false;
             self.showAccountModal = false;
-            self.showToast('Akun Threads berhasil ditambahkan');
+            self.showToast('Akun @' + res.username + ' berhasil disinkronisasi!');
             self.loadInitialData();
           });
+        },
+
+        saveNewProduct: function() {
+          if (!this.newProduct.product_name || !this.newProduct.affiliate_url) {
+            this.showToast('Nama produk dan Link Afiliasi wajib diisi', 'warning');
+            return;
+          }
+          this.loadingProduct = true;
+          const self = this;
+          this.apiCall('saveProduct', this.newProduct, function(res) {
+            self.loadingProduct = false;
+            self.showToast('Produk ' + res.product_id + ' tersimpan!');
+            self.newProduct = { product_name: '', category: '', affiliate_url: '', description: '' };
+            self.loadInitialData();
+          });
+        },
+
+        deleteProduct: function(prodId) {
+          const self = this;
+          this.apiCall('deleteProduct', { product_id: prodId }, function() {
+            self.showToast('Produk berhasil dihapus');
+            self.loadInitialData();
+          });
+        },
+
+        loadProductIntoComposer: function(prod) {
+          this.composer.affiliate_url = prod.affiliate_url;
+          this.aiPrompt.topic = prod.product_name + (prod.description ? (': ' + prod.description) : '');
+          this.currentTab = 'composer';
+          this.showToast('Produk dimuat ke Composer & AI Hook Studio');
+        },
+
+        applyProductToComposer: function(prodId) {
+          if (!prodId) { return; }
+          const prod = this.products.find(function(p) { return p.product_id === prodId; });
+          if (prod) {
+            this.composer.affiliate_url = prod.affiliate_url;
+            this.aiPrompt.topic = prod.product_name;
+            this.showToast('Link & nama produk diaplikasikan');
+          }
+        },
+
+        handleMultiFilesSelected: function(event) {
+          const files = event.target.files;
+          if (!files || files.length === 0) { return; }
+
+          this.loadingBatchUpload = true;
+          const self = this;
+          let completed = 0;
+          const total = files.length;
+
+          // Process files sequentially using FileReader
+          function uploadIndex(idx) {
+            if (idx >= total) {
+              self.loadingBatchUpload = false;
+              self.showToast('Berhasil mengunggah ' + total + ' media ke Sesi Ulasan!');
+              self.loadInitialData();
+              return;
+            }
+
+            const file = files[idx];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              const base64Data = e.target.result.split(',')[1];
+              self.apiCall('uploadMediaToCloudinaryBackend', {
+                base64Data: base64Data,
+                fileName: file.name,
+                mimeType: file.type,
+                product_id: self.uploadSession.product_id || '',
+                review_group: self.uploadSession.custom_rev_id || ''
+              }, function() {
+                uploadIndex(idx + 1);
+              });
+            };
+            reader.readAsDataURL(file);
+          }
+
+          uploadIndex(0);
+        },
+
+        selectMediaGroupForComposer: function(groupMedia) {
+          if (groupMedia && groupMedia.length > 0) {
+            this.composer.selected_media_url = groupMedia[0].cloudinary_url;
+            this.currentTab = 'composer';
+            this.showToast('Media pertama dari sesi ulasan terpilih di Composer!');
+          }
         },
 
         refreshToken: function(accId) {
