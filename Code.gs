@@ -927,11 +927,26 @@ function deleteHookTemplate(payload) {
 
 // Background Worker: Eksekusi antrean tayang DAN auto-reply saat views tembus
 function checkAndExecuteQueueAndViews() {
-  var queueResult = checkAndPublishQueue();
-  var viewsResult = syncAllPublishedPosts();
+  var queueProcessed = 0;
+  var postsSynced = 0;
+
+  try {
+    var queueResult = checkAndPublishQueue();
+    queueProcessed = queueResult && queueResult.processed ? queueResult.processed : 0;
+  } catch (qErr) {
+    // Isolasi error antrean agar views tetap terproses
+  }
+
+  try {
+    var viewsResult = syncAllPublishedPosts();
+    postsSynced = viewsResult && viewsResult.updated ? viewsResult.updated : 0;
+  } catch (vErr) {
+    // Isolasi error views
+  }
+
   return {
-    queue_processed: queueResult.processed,
-    posts_synced: viewsResult.updated,
+    queue_processed: queueProcessed,
+    posts_synced: postsSynced,
     timestamp: new Date().toISOString()
   };
 }
@@ -955,10 +970,10 @@ function saveSettings(payload) {
   return { status: 'Pengaturan tersimpan' };
 }
 
-// Pasang Google Apps Script time-driven trigger (1 menit / 5 menit)
+// Pasang Google Apps Script time-driven trigger (Default: 15 menit)
 function setupTimeDrivenTrigger(payload) {
-  var interval = (payload && payload.interval) ? Number(payload.interval) : 5;
-  if ([1, 5, 10, 15].indexOf(interval) === -1) interval = 5;
+  var interval = (payload && payload.interval) ? Number(payload.interval) : 15;
+  if ([1, 5, 10, 15].indexOf(interval) === -1) interval = 15;
 
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
@@ -974,7 +989,7 @@ function setupTimeDrivenTrigger(payload) {
     .create();
 
   return {
-    status: 'Trigger background aktif otomatis setiap ' + interval + ' menit! Antrean & views dimonitor realtime.'
+    status: 'Trigger background checkAndExecuteQueueAndViews berhasil didaftarkan aktif setiap ' + interval + ' menit!'
   };
 }
 
@@ -1034,14 +1049,27 @@ function publishThreadsNode(accountId, token, text, mediaObj, replyToId) {
     }
   }
 
-  var res1 = UrlFetchApp.fetch(createUrl, {
-    method: 'post',
-    payload: payload,
-    muteHttpExceptions: true
-  });
-  var json1 = JSON.parse(res1.getContentText() || '{}');
+  var res1;
+  try {
+    res1 = UrlFetchApp.fetch(createUrl, {
+      method: 'post',
+      payload: payload,
+      muteHttpExceptions: true
+    });
+  } catch (netErr1) {
+    throw new Error('Koneksi jaringan gagal saat membuat kontainer Threads: ' + netErr1.message);
+  }
+
+  var json1 = {};
+  try {
+    json1 = JSON.parse(res1.getContentText() || '{}');
+  } catch (parseErr1) {
+    throw new Error('Respons pembuatan kontainer Meta tidak valid: ' + res1.getContentText().substring(0, 80));
+  }
+
   if (res1.getResponseCode() !== 200 || !json1.id) {
-    throw new Error('Meta API Container Error: ' + (json1.error ? json1.error.message : 'Unknown creation error'));
+    var msg1 = json1.error && json1.error.message ? json1.error.message : ('HTTP ' + res1.getResponseCode());
+    throw new Error('Meta API Container Error: ' + msg1);
   }
 
   if (isMedia) {
@@ -1051,14 +1079,27 @@ function publishThreadsNode(accountId, token, text, mediaObj, replyToId) {
   }
 
   var publishUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(cleanAcc) + '/threads_publish?access_token=' + encodeURIComponent(cleanTok);
-  var res2 = UrlFetchApp.fetch(publishUrl, {
-    method: 'post',
-    payload: { creation_id: json1.id, access_token: cleanTok },
-    muteHttpExceptions: true
-  });
-  var json2 = JSON.parse(res2.getContentText() || '{}');
+  var res2;
+  try {
+    res2 = UrlFetchApp.fetch(publishUrl, {
+      method: 'post',
+      payload: { creation_id: json1.id, access_token: cleanTok },
+      muteHttpExceptions: true
+    });
+  } catch (netErr2) {
+    throw new Error('Koneksi jaringan gagal saat publikasi Threads: ' + netErr2.message);
+  }
+
+  var json2 = {};
+  try {
+    json2 = JSON.parse(res2.getContentText() || '{}');
+  } catch (parseErr2) {
+    throw new Error('Respons publikasi Meta tidak valid: ' + res2.getContentText().substring(0, 80));
+  }
+
   if (res2.getResponseCode() !== 200 || !json2.id) {
-    throw new Error('Meta API Publish Error: ' + (json2.error ? json2.error.message : 'Unknown publish error'));
+    var msg2 = json2.error && json2.error.message ? json2.error.message : ('HTTP ' + res2.getResponseCode());
+    throw new Error('Meta API Publish Error: ' + msg2);
   }
 
   return json2.id;
@@ -1159,9 +1200,25 @@ function checkAndPublishQueue() {
       }
       processed++;
     } catch (err) {
+      var errDetail = (err && err.message) ? err.message : String(err);
       qSheet.getRange(i + 1, 7).setValue('Failed');
-      qSheet.getRange(i + 1, 8).setValue(err.message);
+      qSheet.getRange(i + 1, 8).setValue(errDetail);
       qSheet.getRange(i + 1, 9).setValue(new Date().toISOString());
+
+      if (postId) {
+        try {
+          var pSheet = ss.getSheetByName('Posts');
+          if (pSheet) {
+            var pData = pSheet.getDataRange().getValues();
+            for (var k = 1; k < pData.length; k++) {
+              if (String(pData[k][0]) === String(postId)) {
+                pSheet.getRange(k + 1, 9).setValue('FAILED');
+                break;
+              }
+            }
+          }
+        } catch (pErr) {}
+      }
     }
   }
 
