@@ -1,6 +1,27 @@
 const SPREADSHEET_ID = '1Qbpyi39qV4bqyCu9bh4gr0Igy8IbXbKmW-QIJruGv6s';
 
 function doGet(e) {
+  if (e && e.parameter && e.parameter.action) {
+    try {
+      var action = e.parameter.action;
+      var result;
+      if (action === 'getDashboardData') {
+        result = getDashboardData(e.parameter);
+      } else if (action === 'getProducts') {
+        result = getSheetRecords('Products');
+      } else if (action === 'ping') {
+        result = { status: 'ok', timestamp: new Date().toISOString() };
+      } else {
+        result = { status: 'ready', message: 'ThreadAffiliate Engine API Active' };
+      }
+      return ContentService.createTextOutput(JSON.stringify({ ok: true, data: result }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, message: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('ThreadAffiliate Engine')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
@@ -9,7 +30,7 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    var contents = e.postData && e.postData.contents ? e.postData.contents : '{}';
+    var contents = e && e.postData && e.postData.contents ? e.postData.contents : '{}';
     var body = JSON.parse(contents);
     var action = body.action;
     var payload = body.payload || {};
@@ -86,7 +107,7 @@ function setupDatabase() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var schema = {
     'Accounts': ['account_id', 'username', 'profile_pic_url', 'access_token', 'token_expires_at', 'status', 'updated_at'],
-    'Products': ['product_id', 'product_name', 'category', 'price', 'product_image_url', 'shopee_raw_url', 'shopee_affiliate_url', 'selling_points', 'created_at'],
+    'Products': ['product_id', 'product_name', 'category', 'price', 'product_image_url', 'shopee_raw_url', 'shopee_affiliate_url', 'selling_points', 'allowed_accounts', 'created_at'],
     'Media': ['media_id', 'product_id', 'session_id', 'media_url', 'media_type', 'file_hash', 'uploaded_at', 'cooldown_until'],
     'Posts': ['post_id', 'account_id', 'thread_content_json', 'media_ids_json', 'product_id', 'affiliate_sub_id', 'views_threshold', 'current_views', 'status', 'threads_post_id', 'auto_reply_content', 'auto_reply_sent', 'created_at', 'likes_count', 'replies_count', 'permalink', 'drip_status'],
     'Comments': ['comment_id', 'post_id', 'account_id', 'parent_comment_id', 'sender_username', 'content', 'intent_flag', 'status', 'created_at'],
@@ -177,7 +198,9 @@ function cleanAccountId(id) {
 // Serializer anti-error: konversi Date rekursif menjadi ISO String
 function serializeForClient(val) {
   if (val === null || val === undefined) return '';
-  if (val instanceof Date) return val.toISOString();
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? '' : val.toISOString();
+  }
   if (Array.isArray(val)) {
     return val.map(function(item) { return serializeForClient(item); });
   }
@@ -278,8 +301,8 @@ function getDashboardData(payload) {
   }
 
   var rootComments = [];
-  for (var k = 0; k < dataSource.length; k++) {
-    var cmtItem = dataSource[k];
+  for (var k = 0; k < interactions.length; k++) {
+    var cmtItem = interactions[k];
     var parentId = cmtItem.parent_comment_id ? String(cmtItem.parent_comment_id).trim() : '';
     if (parentId && commentMap[parentId]) {
       commentMap[parentId].replies.push(cmtItem);
@@ -289,15 +312,15 @@ function getDashboardData(payload) {
   }
 
   return {
-    accounts: accounts,
-    products: products,
-    media: media,
-    posts: posts,
-    comments: rootComments,
-    interactions: interactions,
-    hooks: hooks,
-    queue: queue,
-    settings: settings
+    accounts: accounts || [],
+    products: products || [],
+    media: media || [],
+    posts: posts || [],
+    comments: rootComments || [],
+    interactions: interactions || [],
+    hooks: hooks || [],
+    queue: queue || [],
+    settings: settings || {}
   };
 }
 
@@ -462,12 +485,17 @@ function saveProduct(payload) {
 
   var data = sheet.getDataRange().getValues();
   var headers = data[0];
-  var defaultHeaders = ['product_id', 'product_name', 'category', 'price', 'product_image_url', 'shopee_raw_url', 'shopee_affiliate_url', 'selling_points', 'created_at'];
+  var defaultHeaders = ['product_id', 'product_name', 'category', 'price', 'product_image_url', 'shopee_raw_url', 'shopee_affiliate_url', 'selling_points', 'allowed_accounts', 'created_at'];
 
   // Pastikan skema header baru diperbarui jika belum lengkap
-  if (headers.indexOf('selling_points') === -1 || headers.indexOf('product_image_url') === -1 || headers.indexOf('shopee_affiliate_url') === -1) {
+  if (headers.indexOf('allowed_accounts') === -1 || headers.indexOf('selling_points') === -1 || headers.indexOf('product_image_url') === -1 || headers.indexOf('shopee_affiliate_url') === -1) {
     headers = defaultHeaders;
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+
+  var rawUrl = String(payload.shopee_raw_url || '').trim();
+  if (rawUrl && rawUrl.indexOf('affiliate.shopee.co.id/offer/product_offer') === -1) {
+    throw new Error('URL Halaman Produk wajib berformat resmi Shopee Affiliate Offer (https://affiliate.shopee.co.id/offer/product_offer/...)');
   }
 
   var idCol = headers.indexOf('product_id');
@@ -489,6 +517,13 @@ function saveProduct(payload) {
     productId = 'PROD_' + Utilities.getUuid().substring(0, 8);
   }
 
+  var allowedStr = '';
+  if (Array.isArray(payload.allowed_accounts)) {
+    allowedStr = payload.allowed_accounts.join(',');
+  } else if (payload.allowed_accounts) {
+    allowedStr = String(payload.allowed_accounts).trim();
+  }
+
   var rowObj = {
     product_id: productId,
     product_name: payload.product_name || 'Produk Baru',
@@ -498,6 +533,7 @@ function saveProduct(payload) {
     shopee_raw_url: payload.shopee_raw_url || '',
     shopee_affiliate_url: payload.shopee_affiliate_url || '',
     selling_points: payload.selling_points || '',
+    allowed_accounts: allowedStr,
     created_at: payload.created_at || new Date().toISOString()
   };
 
@@ -1064,7 +1100,8 @@ function syncPostInsights(payload) {
         replyTriggered = true;
       } else if (rowData[autoReplyContentCol]) {
         // Fallback untuk postingan dengan template teks biasa
-        var replyText = String(rowData[autoReplyContentCol]).replace(/\[LINK_AFFILIATE\]/g, affiliateLink);
+        var replyText = String(rowData[autoReplyContentCol]).replace(/\[LINK_AFFILIATE\]/g, stripProtocol(affiliateLink));
+        replyText = replyText.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
         publishThreadsNode(rowData[accCol], token, replyText, null, threadsPostId);
         postSheet.getRange(targetRow, replySentCol + 1).setValue(true);
         replyTriggered = true;
@@ -1362,7 +1399,8 @@ function quickReplyComment(payload) {
     affiliateLink += sep + 'sub_id=' + (targetPost.affiliate_sub_id || 'aff_sub');
   }
 
-  var finalContent = (payload.reply_content || '').replace(/\[LINK_AFFILIATE\]/g, affiliateLink);
+  var finalContent = (payload.reply_content || '').replace(/\[LINK_AFFILIATE\]/g, stripProtocol(affiliateLink));
+  finalContent = finalContent.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
   var parentCommentId = payload.comment_id;
   var targetAccId = cleanAccountId(payload.account_id);
 
@@ -1816,6 +1854,12 @@ function publishThreadsNode(accountId, token, text, mediaObj, replyToId) {
   return json2.id;
 }
 
+// Helper sanitasi URL affiliate tanpa awalan protokol https:// atau http://
+function stripProtocol(url) {
+  if (!url) return '';
+  return String(url).replace(/^https?:\/\//i, '').trim();
+}
+
 // Helper resolusi multi-link affiliate (spesifik produk atau generic) dengan sub_id dinamis
 function resolveAffiliateLinks(text, node, prodMap, subId, fallbackProdId) {
   if (!text) return '';
@@ -1826,9 +1870,12 @@ function resolveAffiliateLinks(text, node, prodMap, subId, fallbackProdId) {
     var pKey = String(pid).trim();
     var p = prodMap[pKey];
     var url = p ? (p.shopee_affiliate_url || p.shopee_raw_url || '') : '';
-    if (!url) url = 'https://shope.ee/affiliate';
-    var sep = url.indexOf('?') === -1 ? '?' : '&';
-    return url + sep + 'sub_id=' + (subId || 'sub');
+    if (!url) url = 'shope.ee/affiliate';
+    if (url.indexOf('sub_id=') === -1 && subId) {
+      var sep = url.indexOf('?') === -1 ? '?' : '&';
+      url = url + sep + 'sub_id=' + subId;
+    }
+    return stripProtocol(url);
   });
 
   // 2. Tag generic: [LINK_AFFILIATE]
@@ -1844,11 +1891,16 @@ function resolveAffiliateLinks(text, node, prodMap, subId, fallbackProdId) {
 
     var primaryId = pids.length > 0 ? pids[0] : '';
     var pObj = primaryId ? prodMap[primaryId] : null;
-    var primaryUrl = pObj ? (pObj.shopee_affiliate_url || pObj.shopee_raw_url || 'https://shope.ee/affiliate') : 'https://shope.ee/affiliate';
-    var sep2 = primaryUrl.indexOf('?') === -1 ? '?' : '&';
-    primaryUrl = primaryUrl + sep2 + 'sub_id=' + (subId || 'sub');
-    res = res.replace(/\[LINK_AFFILIATE\]/g, primaryUrl);
+    var primaryUrl = pObj ? (pObj.shopee_affiliate_url || pObj.shopee_raw_url || 'shope.ee/affiliate') : 'shope.ee/affiliate';
+    if (primaryUrl.indexOf('sub_id=') === -1 && subId) {
+      var sep2 = primaryUrl.indexOf('?') === -1 ? '?' : '&';
+      primaryUrl = primaryUrl + sep2 + 'sub_id=' + subId;
+    }
+    res = res.replace(/\[LINK_AFFILIATE\]/g, stripProtocol(primaryUrl));
   }
+
+  // 3. Bersihkan awalan protokol https:// atau http:// pada domain Shopee agar Meta Threads tidak memicu link preview card
+  res = res.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
 
   return res;
 }
@@ -2012,7 +2064,7 @@ function checkAndPublishQueue() {
   return { processed: processed, timestamp: new Date().toISOString() };
 }
 
-// Hapus Produk & seluruh media ulasan terkait dari database
+// Hapus Produk & seluruh media ulasan terkait dari database serta server Cloudinary
 function deleteProduct(payload) {
   var prodId = payload.product_id ? String(payload.product_id).trim() : '';
   if (!prodId) throw new Error('Product ID wajib diisi');
@@ -2032,8 +2084,24 @@ function deleteProduct(payload) {
   var mediaSheet = ss.getSheetByName('Media');
   if (mediaSheet) {
     var mData = mediaSheet.getDataRange().getValues();
+    var settings = getDashboardData().settings || {};
+    var cloudName = settings.cloudinary_cloud;
+    var apiKey = settings.cloudinary_api_key;
+    var apiSecret = settings.cloudinary_api_secret;
+    var canDeleteCloudinary = cloudName && apiKey && apiSecret;
+
     for (var m = mData.length - 1; m >= 1; m--) {
       if (String(mData[m][1]) === prodId) {
+        var mediaUrl = String(mData[m][3] || '').trim();
+        var mediaType = mData[m][4] || 'IMAGE';
+        if (canDeleteCloudinary && mediaUrl.indexOf('cloudinary.com') !== -1) {
+          var publicId = extractCloudinaryPublicId(mediaUrl);
+          if (publicId) {
+            try {
+              deleteCloudinaryAsset(cloudName, apiKey, apiSecret, publicId, mediaType);
+            } catch (cErr) {}
+          }
+        }
         mediaSheet.deleteRow(m + 1);
       }
     }
@@ -2042,23 +2110,142 @@ function deleteProduct(payload) {
   return { success: true, product_id: prodId };
 }
 
-// Hapus satu item media dari database
+// Ekstrak Cloudinary public_id dari URL asset
+function extractCloudinaryPublicId(url) {
+  if (!url) return '';
+  var clean = String(url).split('?')[0];
+  var m = clean.match(/\/upload\/(?:[^\/]+\/)*?(?:v\d+\/)?(.+?)(\.[^.\/]+)?$/);
+  if (m && m[1]) {
+    var pid = m[1];
+    pid = pid.replace(/^(?:[a-z]_[a-z0-9_-]+,?)+\//i, '');
+    return pid;
+  }
+  var segments = clean.split('/');
+  var last = segments[segments.length - 1];
+  return last.replace(/\.[^/.]+$/, '');
+}
+
+// Hapus file fisik secara permanen dari server Cloudinary menggunakan Admin API
+function deleteCloudinaryAsset(cloudName, apiKey, apiSecret, publicId, mediaType) {
+  var cleanCloud = String(cloudName).trim();
+  var cleanKey = String(apiKey).trim();
+  var cleanSecret = String(apiSecret).trim();
+  var cleanId = String(publicId).trim();
+  var resourceType = (String(mediaType).toUpperCase() === 'VIDEO') ? 'video' : 'image';
+
+  // 1. Panggil Cloudinary Admin API endpoint dengan HTTP Basic Authentication
+  var adminUrl = 'https://api.cloudinary.com/v1_1/' + encodeURIComponent(cleanCloud) + '/resources/' + resourceType + '/upload?public_ids[]=' + encodeURIComponent(cleanId);
+  var authHeader = 'Basic ' + Utilities.base64Encode(cleanKey + ':' + cleanSecret);
+
+  var resp = UrlFetchApp.fetch(adminUrl, {
+    method: 'delete',
+    headers: { 'Authorization': authHeader },
+    muteHttpExceptions: true
+  });
+
+  var code = resp.getResponseCode();
+  var text = resp.getContentText() || '{}';
+  var resJson = {};
+  try {
+    resJson = JSON.parse(text);
+  } catch (e) {}
+
+  // 2. Fallback ke Cloudinary Destroy API jika Admin API mengembalikan status non-200
+  if (code !== 200 || !resJson.deleted) {
+    var timestamp = Math.floor(Date.now() / 1000).toString();
+    var toSign = 'public_id=' + cleanId + '&timestamp=' + timestamp + cleanSecret;
+    var rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, toSign, Utilities.Charset.UTF_8);
+    var signature = '';
+    for (var i = 0; i < rawHash.length; i++) {
+      var byteVal = rawHash[i];
+      if (byteVal < 0) byteVal += 256;
+      var hex = byteVal.toString(16);
+      if (hex.length === 1) hex = '0' + hex;
+      signature += hex;
+    }
+
+    var destroyUrl = 'https://api.cloudinary.com/v1_1/' + encodeURIComponent(cleanCloud) + '/' + resourceType + '/destroy';
+    var destroyResp = UrlFetchApp.fetch(destroyUrl, {
+      method: 'post',
+      payload: {
+        public_id: cleanId,
+        timestamp: timestamp,
+        api_key: cleanKey,
+        signature: signature
+      },
+      muteHttpExceptions: true
+    });
+
+    var destCode = destroyResp.getResponseCode();
+    var destText = destroyResp.getContentText() || '{}';
+    var destJson = {};
+    try {
+      destJson = JSON.parse(destText);
+    } catch (e2) {}
+
+    if (destCode !== 200 || (destJson.result !== 'ok' && destJson.result !== 'not found')) {
+      var errMsg = (destJson.error && destJson.error.message) ? destJson.error.message : ('HTTP ' + destCode + ': ' + destText);
+      throw new Error('Gagal menghapus file dari Cloudinary: ' + errMsg);
+    }
+  } else {
+    var statusVal = resJson.deleted ? resJson.deleted[cleanId] : '';
+    if (statusVal && statusVal !== 'deleted' && statusVal !== 'not_found') {
+      throw new Error('Cloudinary Admin API gagal menghapus file: status ' + statusVal);
+    }
+  }
+
+  return true;
+}
+
+// Hapus satu item media dari database & server Cloudinary
 function deleteMedia(payload) {
   var mediaId = payload.media_id ? String(payload.media_id).trim() : '';
   if (!mediaId) throw new Error('Media ID wajib diisi');
 
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var mediaSheet = ss.getSheetByName('Media');
-  if (mediaSheet) {
-    var mData = mediaSheet.getDataRange().getValues();
-    for (var i = 1; i < mData.length; i++) {
-      if (String(mData[i][0]) === mediaId) {
-        mediaSheet.deleteRow(i + 1);
-        return { success: true, media_id: mediaId };
-      }
+  if (!mediaSheet) throw new Error('Sheet Media tidak ditemukan');
+
+  var mData = mediaSheet.getDataRange().getValues();
+  var targetRow = -1;
+  var targetMedia = null;
+
+  for (var i = 1; i < mData.length; i++) {
+    if (String(mData[i][0]) === mediaId) {
+      targetRow = i + 1;
+      targetMedia = {
+        media_id: mData[i][0],
+        product_id: mData[i][1],
+        media_url: mData[i][3],
+        media_type: mData[i][4]
+      };
+      break;
     }
   }
-  throw new Error('Media tidak ditemukan');
+
+  if (targetRow === -1 || !targetMedia) {
+    throw new Error('Media tidak ditemukan di database');
+  }
+
+  var mediaUrl = String(targetMedia.media_url || '').trim();
+  var publicId = extractCloudinaryPublicId(mediaUrl);
+
+  // Jika URL berasal dari Cloudinary, hapus fisik terlebih dahulu via Admin API
+  if (mediaUrl.indexOf('cloudinary.com') !== -1 && publicId) {
+    var settings = getDashboardData().settings || {};
+    var cloudName = settings.cloudinary_cloud;
+    var apiKey = settings.cloudinary_api_key;
+    var apiSecret = settings.cloudinary_api_secret;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new Error('Kredensial Cloudinary (Cloud Name, API Key, API Secret) belum lengkap di Settings.');
+    }
+
+    deleteCloudinaryAsset(cloudName, apiKey, apiSecret, publicId, targetMedia.media_type);
+  }
+
+  mediaSheet.deleteRow(targetRow);
+  return { success: true, media_id: mediaId, public_id: publicId };
 }
 
 // Perbarui postingan di antrean (Posts & Posting_Queue)
@@ -2103,7 +2290,12 @@ function updateQueuePost(payload) {
     for (var q = 1; q < qData.length; q++) {
       if (String(qData[q][1]) === postId) {
         if (payload.account_id) qSheet.getRange(q + 1, 3).setValue(payload.account_id);
-        if (payload.scheduled_time) qSheet.getRange(q + 1, 4).setValue(new Date(payload.scheduled_time).toISOString());
+        if (payload.scheduled_time) {
+          var dt = new Date(payload.scheduled_time);
+          if (!isNaN(dt.getTime())) {
+            qSheet.getRange(q + 1, 4).setValue(dt.toISOString());
+          }
+        }
         if (payload.thread_content_json) qSheet.getRange(q + 1, 5).setValue(payload.thread_content_json);
         if (payload.status === 'SCHEDULED') qSheet.getRange(q + 1, 7).setValue('Scheduled');
         if (payload.status === 'DRAFT') qSheet.getRange(q + 1, 7).setValue('Draft');
