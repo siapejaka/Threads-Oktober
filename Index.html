@@ -43,10 +43,13 @@
 
       <!-- SaaS Account Status & Actions -->
       <div class="flex items-center space-x-2.5">
-        <div class="flex items-center bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80 shadow-inner">
+        <button @click="openComposer()" class="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center transition shadow-md">
+          <i data-lucide="plus-circle" class="w-4 h-4 mr-1.5"></i> Buat Postingan Baru
+        </button>
+        <div class="hidden sm:flex items-center bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80 shadow-inner">
           <div class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></div>
           <i data-lucide="users" class="w-3.5 h-3.5 text-emerald-400 mr-1.5"></i>
-          <span class="text-xs text-slate-200 font-semibold" x-text="accounts.length + ' Akun Terhubung'"></span>
+          <span class="text-xs text-slate-200 font-semibold" x-text="accounts.length + ' Akun'"></span>
         </div>
         <button @click="fetchInitialData()" :disabled="isLoading" title="Muat Ulang Data" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700 disabled:opacity-50">
           <i data-lucide="refresh-cw" class="w-4 h-4" :class="isLoading ? 'animate-spin' : ''"></i>
@@ -59,21 +62,25 @@
 
     <!-- Navigation Tabs (Desktop Header) -->
     <div class="hidden md:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-x-1 border-t border-slate-800/80 overflow-x-auto scrollbar-none">
-      <button @click="switchTab('composer')" :class="activeTab === 'composer' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-4 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="feather" class="w-4 h-4 mr-2"></i> Composer & AI Hook
+      <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
+        <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> Dashboard
       </button>
-      <button @click="switchTab('media')" :class="activeTab === 'media' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-4 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="folder-image" class="w-4 h-4 mr-2"></i> Media Vault & Produk
+      <button @click="switchTab('published')" :class="activeTab === 'published' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
+        <i data-lucide="check-circle-2" class="w-4 h-4 mr-2"></i> Postingan Terbit
+        <span x-show="publishedPosts.length > 0" class="ml-2 badge badge-xs badge-success text-[9px] font-bold" x-text="publishedPosts.length"></span>
       </button>
-      <button @click="switchTab('posts')" :class="activeTab === 'posts' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-4 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="send" class="w-4 h-4 mr-2"></i> Antrean & Views Trigger
-        <span x-show="scheduledCount > 0" class="ml-2 badge badge-xs badge-info text-[9px] font-bold" x-text="scheduledCount"></span>
+      <button @click="switchTab('queue')" :class="activeTab === 'queue' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
+        <i data-lucide="calendar-clock" class="w-4 h-4 mr-2"></i> Antrean & Jadwal
+        <span x-show="queuedPosts.length > 0" class="ml-2 badge badge-xs badge-info text-[9px] font-bold" x-text="queuedPosts.length"></span>
       </button>
-      <button @click="switchTab('inbox')" :class="activeTab === 'inbox' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-4 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
+      <button @click="switchTab('media')" :class="activeTab === 'media' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
+        <i data-lucide="folder-image" class="w-4 h-4 mr-2"></i> Media & Produk
+      </button>
+      <button @click="switchTab('inbox')" :class="activeTab === 'inbox' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
         <i data-lucide="messages-square" class="w-4 h-4 mr-2"></i> Inbox Komentar
         <span x-show="unrepliedCount > 0" class="ml-2 badge badge-xs badge-error text-white text-[9px] font-bold" x-text="unrepliedCount"></span>
       </button>
-      <button @click="switchTab('accounts')" :class="activeTab === 'accounts' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-4 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
+      <button @click="switchTab('accounts')" :class="activeTab === 'accounts' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
         <i data-lucide="users" class="w-4 h-4 mr-2"></i> Akun Meta API
       </button>
     </div>
@@ -81,25 +88,29 @@
 
   <!-- Mobile Bottom Navigation Bar (App Style) -->
   <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex justify-around items-center shadow-2xl safe-area-pb">
-    <button @click="switchTab('composer')" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition min-w-[56px]" :class="activeTab === 'composer' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
-      <i data-lucide="feather" class="w-5 h-5 mb-0.5"></i>
-      <span class="text-[10px]">Utas</span>
+    <button @click="switchTab('dashboard')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px]" :class="activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5"></i>
+      <span class="text-[10px]">Home</span>
     </button>
-    <button @click="switchTab('media')" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition min-w-[56px]" :class="activeTab === 'media' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+    <button @click="switchTab('published')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px]" :class="activeTab === 'published' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <i data-lucide="check-circle-2" class="w-5 h-5 mb-0.5"></i>
+      <span class="text-[10px]">Terbit</span>
+    </button>
+    <button @click="switchTab('queue')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px] relative" :class="activeTab === 'queue' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <span x-show="queuedPosts.length > 0" class="absolute top-0.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full"></span>
+      <i data-lucide="calendar-clock" class="w-5 h-5 mb-0.5"></i>
+      <span class="text-[10px]">Antrean</span>
+    </button>
+    <button @click="switchTab('media')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px]" :class="activeTab === 'media' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
       <i data-lucide="folder-image" class="w-5 h-5 mb-0.5"></i>
       <span class="text-[10px]">Media</span>
     </button>
-    <button @click="switchTab('posts')" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition min-w-[56px] relative" :class="activeTab === 'posts' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
-      <span x-show="scheduledCount > 0" class="absolute top-0.5 right-2 w-2 h-2 bg-indigo-500 rounded-full"></span>
-      <i data-lucide="send" class="w-5 h-5 mb-0.5"></i>
-      <span class="text-[10px]">Antrean</span>
-    </button>
-    <button @click="switchTab('inbox')" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition min-w-[56px] relative" :class="activeTab === 'inbox' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
-      <span x-show="unrepliedCount > 0" class="absolute top-0.5 right-2 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+    <button @click="switchTab('inbox')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px] relative" :class="activeTab === 'inbox' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <span x-show="unrepliedCount > 0" class="absolute top-0.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
       <i data-lucide="messages-square" class="w-5 h-5 mb-0.5"></i>
       <span class="text-[10px]">Inbox</span>
     </button>
-    <button @click="switchTab('accounts')" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition min-w-[56px]" :class="activeTab === 'accounts' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+    <button @click="switchTab('accounts')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px]" :class="activeTab === 'accounts' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
       <i data-lucide="users" class="w-5 h-5 mb-0.5"></i>
       <span class="text-[10px]">Akun</span>
     </button>
@@ -108,48 +119,8 @@
   <!-- Workspace Container (Padding disesuaikan untuk Bottom Bar) -->
   <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8">
 
-    <!-- Top Stats Overview Bar (Hanya tampil di Dashboard Utama / Tab Selain Media) -->
-    <div x-show="activeTab !== 'media'" class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
-      <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-3">
-        <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
-          <i data-lucide="eye" class="w-4 h-4"></i>
-        </div>
-        <div class="min-w-0">
-          <div class="text-[11px] text-slate-500 font-medium">Total Tayangan Views</div>
-          <div class="text-sm font-black text-slate-900 font-mono" x-text="totalViews.toLocaleString('id-ID')"></div>
-        </div>
-      </div>
-      <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-3">
-        <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-          <i data-lucide="check-circle" class="w-4 h-4"></i>
-        </div>
-        <div class="min-w-0">
-          <div class="text-[11px] text-slate-500 font-medium">Postingan Terbit</div>
-          <div class="text-sm font-black text-slate-900 font-mono" x-text="publishedCount"></div>
-        </div>
-      </div>
-      <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-3">
-        <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
-          <i data-lucide="clock" class="w-4 h-4"></i>
-        </div>
-        <div class="min-w-0">
-          <div class="text-[11px] text-slate-500 font-medium">Antrean Tayang</div>
-          <div class="text-sm font-black text-slate-900 font-mono" x-text="scheduledCount"></div>
-        </div>
-      </div>
-      <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-3">
-        <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0">
-          <i data-lucide="flame" class="w-4 h-4"></i>
-        </div>
-        <div class="min-w-0">
-          <div class="text-[11px] text-slate-500 font-medium">Komentar Belum Dibalas</div>
-          <div class="text-sm font-black text-slate-900 font-mono" x-text="unrepliedCount"></div>
-        </div>
-      </div>
-    </div>
-
     <!-- SKELETON PLACEHOLDER SAAT INITIAL LOAD -->
-    <div x-show="isLoading && accounts.length === 0" class="space-y-4">
+    <div x-show="isLoading && accounts.length === 0" class="space-y-4 mb-6">
       <div class="bg-white p-6 rounded-2xl border border-slate-200 animate-pulse space-y-4">
         <div class="h-4 bg-slate-200 rounded w-1/4"></div>
         <div class="h-20 bg-slate-100 rounded-xl"></div>
@@ -157,8 +128,134 @@
       </div>
     </div>
 
-    <!-- TAB 1: COMPOSER & AI HOOK -->
-    <div x-show="activeTab === 'composer'" x-cloak class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- TAB 1: DASHBOARD UTAMA (BERANDA) -->
+    <div x-show="activeTab === 'dashboard'" x-cloak class="space-y-6">
+      <!-- KPI Stats Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3.5">
+          <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="eye" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs text-slate-500 font-medium">Total Tayangan Views</div>
+            <div class="text-lg font-black text-slate-900 font-mono" x-text="totalViews.toLocaleString('id-ID')"></div>
+          </div>
+        </div>
+        <div @click="switchTab('published')" class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3.5 cursor-pointer hover:border-emerald-300 transition">
+          <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs text-slate-500 font-medium">Postingan Terbit</div>
+            <div class="text-lg font-black text-slate-900 font-mono" x-text="publishedPosts.length"></div>
+          </div>
+        </div>
+        <div @click="switchTab('queue')" class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3.5 cursor-pointer hover:border-emerald-300 transition">
+          <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs text-slate-500 font-medium">Antrean & Draft</div>
+            <div class="text-lg font-black text-slate-900 font-mono" x-text="queuedPosts.length"></div>
+          </div>
+        </div>
+        <div @click="switchTab('inbox')" class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-3.5 cursor-pointer hover:border-rose-300 transition">
+          <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="messages-square" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs text-slate-500 font-medium">Komentar Belum Dibalas</div>
+            <div class="text-lg font-black text-rose-600 font-mono" x-text="unrepliedCount"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions Banner -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-5 sm:p-6 text-white shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex items-center space-x-2">
+            <span class="badge badge-success badge-sm font-bold">AUTOMATION ACTIVE</span>
+            <span class="text-xs text-slate-400" x-text="accounts.length + ' Akun Terhubung'"></span>
+          </div>
+          <h2 class="text-base sm:text-lg font-bold">Pusat Operasional Shopee Affiliate di Meta Threads</h2>
+          <p class="text-xs text-slate-400">Jadwalkan utas bertahap, auto-reply link shopee saat views tembus target, dan kelola audiens.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
+          <button @click="openComposer()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center transition shadow-lg">
+            <i data-lucide="plus-circle" class="w-4 h-4 mr-1.5"></i> + Buat Postingan Baru
+          </button>
+          <button @click="executeQueueAndViewsNow()" :disabled="isExecutingQueueAndViews" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl flex items-center transition border border-slate-700">
+            <i data-lucide="zap" class="w-3.5 h-3.5 mr-1.5 text-amber-400"></i> Cek Views & Antrean
+          </button>
+          <button @click="syncAllMetrics()" :disabled="isCheckingViews" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl flex items-center transition border border-slate-700">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1.5 text-blue-400" :class="isCheckingViews ? 'animate-spin' : ''"></i> Sync Metrik
+          </button>
+        </div>
+      </div>
+
+      <!-- Dual Activity Columns -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Antrean Segera Tayang -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="clock" class="w-4 h-4 text-indigo-600"></i>
+              <h3 class="text-xs font-bold text-slate-900 uppercase">Antrean Segera Tayang</h3>
+            </div>
+            <button @click="switchTab('queue')" class="text-xs font-semibold text-emerald-700 hover:underline">Lihat Semua</button>
+          </div>
+          <div class="space-y-2.5">
+            <template x-for="q in queuedPosts.slice(0, 4)" :key="q.post_id">
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-3 text-xs">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center space-x-2">
+                    <span class="font-bold text-slate-800" x-text="'@' + getAccountName(q.account_id)"></span>
+                    <span class="badge badge-xs badge-neutral" x-text="q.status"></span>
+                  </div>
+                  <p class="text-slate-600 text-[11px] truncate mt-0.5" x-text="parseFirstThread(q.thread_content_json)"></p>
+                </div>
+                <button @click="publishExistingPost(q.post_id)" :disabled="actionPostId === q.post_id" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold whitespace-nowrap">
+                  Post Now
+                </button>
+              </div>
+            </template>
+            <div x-show="queuedPosts.length === 0" class="text-center py-6 text-xs text-slate-400">
+              Tidak ada antrean tertunda. Semua postingan telah terbit!
+            </div>
+          </div>
+        </div>
+
+        <!-- Komentar Perlu Balasan Segera -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="message-square" class="w-4 h-4 text-rose-600"></i>
+              <h3 class="text-xs font-bold text-slate-900 uppercase">Komentar Audiens Belum Dibalas</h3>
+            </div>
+            <button @click="switchTab('inbox')" class="text-xs font-semibold text-emerald-700 hover:underline">Buka Inbox</button>
+          </div>
+          <div class="space-y-2.5">
+            <template x-for="c in filteredComments.slice(0, 4)" :key="c.comment_id">
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-3 text-xs">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="font-bold text-slate-800" x-text="'@' + c.sender_username"></span>
+                    <span x-show="c.intent_flag" class="badge badge-xs badge-warning font-bold">Spill</span>
+                  </div>
+                  <p class="text-slate-600 text-[11px] truncate mt-0.5" x-text="c.content"></p>
+                </div>
+                <button @click="openQuickReply(c)" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg text-[10px] font-bold whitespace-nowrap">
+                  Balas
+                </button>
+              </div>
+            </template>
+            <div x-show="filteredComments.length === 0" class="text-center py-6 text-xs text-slate-400">
+              Semua komentar audiens sudah terjawab rapi.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
       <div class="lg:col-span-2 space-y-4">
 
         <!-- Panel 1: Akun Pengirim (Broadcast Multi-Akun) & Produk Shopee Terkait -->
@@ -219,14 +316,25 @@
             </div>
 
             <!-- Search Bar Produk & Dropdown Custom Berbasis Thumbnail -->
-            <div class="relative">
+            <div class="relative" @click.away="showProductDropdown = false">
               <!-- Jika belum ada produk terpilih: Input Pencarian Produk -->
               <div x-show="!selectedProductObj" class="relative">
-                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-                <input type="text" x-model="composerProductSearch" @focus="showProductDropdown = true" placeholder="Ketik nama atau kategori produk untuk memilih..." class="w-full pl-9 pr-8 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
-                <button x-show="composerProductSearch" @click="composerProductSearch = ''" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">
-                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                </button>
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none"></i>
+                <input type="text"
+                       x-model="composerProductSearch"
+                       @focus="showProductDropdown = true"
+                       @click="showProductDropdown = true"
+                       @input="showProductDropdown = true"
+                       placeholder="Ketik nama, kategori, atau ID produk Shopee..."
+                       class="w-full pl-9 pr-16 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
+                <div class="absolute right-2 top-2 flex items-center space-x-1">
+                  <button type="button" x-show="composerProductSearch" @click.stop="composerProductSearch = ''; showProductDropdown = true" class="text-slate-400 hover:text-slate-600 p-0.5">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button type="button" @click.stop="showProductDropdown = !showProductDropdown" class="text-slate-400 hover:text-slate-700 p-0.5" title="Buka/Tutup Daftar Produk">
+                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200" :class="showProductDropdown ? 'rotate-180 text-emerald-600' : ''"></i>
+                  </button>
+                </div>
               </div>
 
               <!-- Kartu Visual Produk Terpilih (Jika Ada) -->
@@ -257,10 +365,19 @@
               </div>
 
               <!-- Menu Dropdown Pilihan Produk (Floating) -->
-              <div x-show="showProductDropdown && !selectedProductObj" @click.away="showProductDropdown = false" class="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto divide-y divide-slate-100">
+              <div x-show="showProductDropdown && !selectedProductObj"
+                   class="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-y-auto divide-y divide-slate-100">
+                <!-- Info Status Pencarian & Tombol Refresh -->
+                <div class="p-2 bg-slate-50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                  <span x-text="'Menampilkan ' + filteredComposerProducts.length + ' dari ' + products.length + ' produk'"></span>
+                  <button type="button" @click.stop="fetchProducts()" :disabled="isLoadingProducts" class="text-emerald-700 hover:underline flex items-center font-bold">
+                    <i data-lucide="refresh-cw" class="w-3 h-3 mr-1" :class="isLoadingProducts ? 'animate-spin' : ''"></i> Refresh
+                  </button>
+                </div>
+
                 <template x-for="p in filteredComposerProducts" :key="p.product_id">
-                  <div @click="selectComposerProduct(p)" class="p-2.5 hover:bg-emerald-50/60 cursor-pointer flex items-center space-x-3 transition">
-                    <div class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                  <div @mousedown.prevent="selectComposerProduct(p)" @click="selectComposerProduct(p)" class="p-2.5 hover:bg-emerald-50/70 cursor-pointer flex items-center space-x-3 transition">
+                    <div class="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
                       <template x-if="p.product_image_url">
                         <img :src="p.product_image_url" class="w-full h-full object-cover" alt="thumb">
                       </template>
@@ -270,16 +387,19 @@
                     </div>
                     <div class="min-w-0 flex-1">
                       <div class="text-xs font-bold text-slate-900 truncate" x-text="p.product_name"></div>
-                      <div class="flex items-center space-x-2 text-[10px] text-slate-400 mt-0.5">
-                        <span x-text="p.category"></span>
+                      <div class="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
+                        <span class="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-medium" x-text="p.category"></span>
                         <span>•</span>
-                        <span class="font-mono font-semibold text-slate-600" x-text="'Rp ' + Number(p.price || 0).toLocaleString('id-ID')"></span>
+                        <span class="font-mono font-bold text-emerald-700" x-text="'Rp ' + Number(p.price || 0).toLocaleString('id-ID')"></span>
+                        <span x-show="p.product_id" class="text-slate-400 font-mono" x-text="'#' + p.product_id"></span>
                       </div>
                     </div>
                   </div>
                 </template>
+
                 <div x-show="filteredComposerProducts.length === 0" class="p-4 text-center text-xs text-slate-400">
-                  Produk tidak ditemukan.
+                  <span x-show="products.length === 0">Belum ada produk di database. Tambahkan produk di tab Media & Produk.</span>
+                  <span x-show="products.length > 0">Tidak ada produk yang cocok dengan kata kunci pencarian.</span>
                 </div>
               </div>
             </div>
@@ -685,103 +805,29 @@
       </div>
     </div>
 
-    <!-- TAB 3: ANTREAN & STATUS TRIGGER -->
-    <div x-show="activeTab === 'posts'" x-cloak class="space-y-4">
+    <!-- TAB 2: POSTINGAN TERBIT (PUBLISHED ONLY) -->
+    <div x-show="activeTab === 'published'" x-cloak class="space-y-4">
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 class="text-sm font-bold text-slate-900 flex items-center">
-              <i data-lucide="list-filter" class="w-4 h-4 text-emerald-600 mr-2"></i> Kelola Postingan & Metrik Threads
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 mr-2"></i> Arsip Postingan Terbit di Threads
             </h2>
-            <p class="text-xs text-slate-500">Pantau performa real-time tayangan, like, balasan, serta status auto-reply.</p>
+            <p class="text-xs text-slate-500">Daftar postingan yang sudah berhasil tayang di Meta Threads beserta metrik tayangan live.</p>
           </div>
           <div class="flex items-center space-x-2">
-            <button @click="executeQueueAndViewsNow()" :disabled="isExecutingQueueAndViews" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-indigo-700 flex items-center shadow-sm">
-              <span x-show="isExecutingQueueAndViews" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
-              <i x-show="!isExecutingQueueAndViews" data-lucide="zap" class="w-3.5 h-3.5 mr-1.5"></i>
-              Jalankan Scheduler & Cek Views
+            <button @click="openComposer()" class="text-xs bg-emerald-600 text-white px-3.5 py-1.5 rounded-lg font-bold hover:bg-emerald-700 flex items-center shadow-sm">
+              <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> + Buat Post
             </button>
-            <button @click="syncAllMetrics()" :disabled="isCheckingViews" class="text-xs bg-emerald-600 text-white px-3.5 py-1.5 rounded-lg font-semibold hover:bg-emerald-700 flex items-center shadow-sm">
+            <button @click="syncAllMetrics()" :disabled="isCheckingViews" class="text-xs bg-slate-900 text-white px-3.5 py-1.5 rounded-lg font-semibold hover:bg-slate-800 flex items-center shadow-sm">
               <span x-show="isCheckingViews" class="animate-spin mr-1.5"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></span>
               <i x-show="!isCheckingViews" data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1.5"></i>
-              Sync Semua Metrik
+              Sync Metrik
             </button>
           </div>
         </div>
 
-        <!-- Mobile Card List View (Layar HP) -->
-        <div class="block md:hidden space-y-3">
-          <template x-for="p in posts" :key="p.post_id">
-            <div class="p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm space-y-2.5">
-              <div class="flex justify-between items-start">
-                <div>
-                  <span class="font-mono font-bold text-xs text-slate-900" x-text="p.post_id"></span>
-                  <div class="text-[11px] text-slate-500 font-medium" x-text="'@' + getAccountName(p.account_id)"></div>
-                </div>
-                <span :class="{
-                  'bg-emerald-100 text-emerald-800': p.status === 'PUBLISHED',
-                  'bg-slate-100 text-slate-800': p.status === 'DRAFT',
-                  'bg-blue-100 text-blue-800': p.status === 'SCHEDULED'
-                }" class="px-2 py-0.5 rounded-full font-bold uppercase text-[9px]" x-text="p.status"></span>
-              </div>
-
-              <p class="text-xs text-slate-700 line-clamp-2" x-text="parseFirstThread(p.thread_content_json)"></p>
-
-              <!-- Metrik Stats Bar -->
-              <div class="flex items-center space-x-3 text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
-                <span class="inline-flex items-center font-bold text-slate-800">
-                  <i data-lucide="eye" class="w-3.5 h-3.5 mr-1 text-slate-400"></i>
-                  <span x-text="Number(p.current_views || 0).toLocaleString('id-ID')"></span>
-                </span>
-                <span class="inline-flex items-center font-semibold text-rose-600">
-                  <i data-lucide="heart" class="w-3.5 h-3.5 mr-1"></i>
-                  <span x-text="Number(p.likes_count || 0).toLocaleString('id-ID')"></span>
-                </span>
-                <span class="inline-flex items-center font-semibold text-blue-600">
-                  <i data-lucide="message-circle" class="w-3.5 h-3.5 mr-1"></i>
-                  <span x-text="Number(p.replies_count || 0).toLocaleString('id-ID')"></span>
-                </span>
-              </div>
-
-              <!-- Progres Views & Status Auto-Reply -->
-              <div class="space-y-1">
-                <div class="flex justify-between text-[10px] text-slate-500">
-                  <span>Progres Views</span>
-                  <span class="font-mono" x-text="(p.current_views || 0) + ' / ' + p.views_threshold"></span>
-                </div>
-                <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                  <div class="bg-emerald-500 h-1.5 rounded-full" :style="'width: ' + Math.min(100, Math.round(((p.current_views || 0) / (p.views_threshold || 1)) * 100)) + '%'"></div>
-                </div>
-              </div>
-
-              <div class="flex items-center justify-between pt-2 border-t border-slate-100">
-                <span x-show="p.auto_reply_sent" class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold text-[9px] inline-flex items-center">
-                  <i data-lucide="check" class="w-3 h-3 mr-0.5"></i> Link Terkirim
-                </span>
-                <span x-show="!p.auto_reply_sent" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold text-[9px]">
-                  Menunggu Views
-                </span>
-
-                <div class="flex items-center space-x-1.5">
-                  <button x-show="p.status === 'PUBLISHED'" @click="syncPostMetrics(p.post_id)" :disabled="syncingPostId === p.post_id" class="p-2 bg-slate-100 active:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center">
-                    <span x-show="syncingPostId === p.post_id" class="animate-spin"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
-                    <i x-show="syncingPostId !== p.post_id" data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                  </button>
-                  <a x-show="p.permalink || p.threads_post_id" :href="p.permalink || ('https://www.threads.net')" target="_blank" class="p-2 bg-slate-100 active:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center">
-                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                  </a>
-                  <button x-show="p.status !== 'PUBLISHED'" @click="publishExistingPost(p.post_id)" :disabled="actionPostId === p.post_id" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold inline-flex items-center">
-                    <span x-show="actionPostId === p.post_id" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
-                    <i x-show="actionPostId !== p.post_id" data-lucide="send" class="w-3 h-3 mr-1"></i> Post
-                  </button>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <!-- Desktop Table View -->
-        <div class="hidden md:block overflow-x-auto">
+        <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50 text-slate-800 uppercase font-semibold border-b">
               <tr>
@@ -790,12 +836,11 @@
                 <th class="p-3">Metrik Live Threads</th>
                 <th class="p-3">Progres Trigger</th>
                 <th class="p-3">Auto-Reply</th>
-                <th class="p-3">Status</th>
                 <th class="p-3 text-right">Kelola & Aksi</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-              <template x-for="p in posts" :key="p.post_id">
+              <template x-for="p in publishedPosts" :key="p.post_id">
                 <tr class="hover:bg-slate-50/70">
                   <td class="p-3">
                     <div class="font-mono font-bold text-slate-900" x-text="p.post_id"></div>
@@ -837,38 +882,97 @@
                       Menunggu Target
                     </span>
                   </td>
-                  <td class="p-3">
-                    <span :class="{
-                      'bg-emerald-100 text-emerald-800': p.status === 'PUBLISHED',
-                      'bg-slate-100 text-slate-800': p.status === 'DRAFT',
-                      'bg-blue-100 text-blue-800': p.status === 'SCHEDULED'
-                    }" class="px-2 py-0.5 rounded-full font-bold uppercase text-[9px]" x-text="p.status"></span>
-                  </td>
                   <td class="p-3 text-right">
                     <div class="flex items-center justify-end space-x-1.5">
-                      <!-- Tombol Sync Metrik per postingan -->
-                      <button x-show="p.status === 'PUBLISHED'" @click="syncPostMetrics(p.post_id)" :disabled="syncingPostId === p.post_id" title="Tarik Metrik & Balasan Terbaru" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center disabled:opacity-50">
+                      <button @click="syncPostMetrics(p.post_id)" :disabled="syncingPostId === p.post_id" title="Tarik Metrik & Balasan Terbaru" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center disabled:opacity-50">
                         <span x-show="syncingPostId === p.post_id" class="animate-spin"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
                         <i x-show="syncingPostId !== p.post_id" data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                       </button>
-
-                      <!-- Tombol Buka di Threads.net -->
-                      <a x-show="p.permalink || p.threads_post_id" :href="p.permalink || ('https://www.threads.net')" target="_blank" title="Lihat di Threads" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center">
+                      <a x-show="p.permalink || p.threads_post_id" :href="p.permalink || ('https://www.threads.net')" target="_blank" title="Buka di Threads.net" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center">
                         <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                       </a>
-
-                      <!-- Tombol Terbitkan untuk Draft/Jadwal -->
-                      <button x-show="p.status !== 'PUBLISHED'" @click="publishExistingPost(p.post_id)" :disabled="actionPostId === p.post_id" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold inline-flex items-center">
-                        <span x-show="actionPostId === p.post_id" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
-                        <i x-show="actionPostId !== p.post_id" data-lucide="send" class="w-3 h-3 mr-1"></i>
-                        Post
-                      </button>
                     </div>
                   </td>
                 </tr>
               </template>
             </tbody>
           </table>
+        </div>
+        <div x-show="publishedPosts.length === 0" class="text-center py-12 text-xs text-slate-400">
+          Belum ada postingan yang terbit. Klik "+ Buat Postingan Baru" untuk menerbitkan konten ke Threads.
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: ANTREAN & JADWAL (SCHEDULED, DRAFT, FAILED) -->
+    <div x-show="activeTab === 'queue'" x-cloak class="space-y-4">
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900 flex items-center">
+              <i data-lucide="calendar-clock" class="w-4 h-4 text-indigo-600 mr-2"></i> Antrean Tayang & Terjadwal
+            </h2>
+            <p class="text-xs text-slate-500">Kelola draft, jadwal penerbitan otomatis, dan status antrean posting.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button @click="openComposer()" class="text-xs bg-emerald-600 text-white px-3.5 py-1.5 rounded-lg font-bold hover:bg-emerald-700 flex items-center shadow-sm">
+              <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> + Buat Post
+            </button>
+            <button @click="executeQueueAndViewsNow()" :disabled="isExecutingQueueAndViews" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-indigo-700 flex items-center shadow-sm">
+              <span x-show="isExecutingQueueAndViews" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+              <i x-show="!isExecutingQueueAndViews" data-lucide="zap" class="w-3.5 h-3.5 mr-1.5"></i>
+              Proses Antrean Sekarang
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-50 text-slate-800 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3">Post ID / Akun</th>
+                <th class="p-3">Konten Utas</th>
+                <th class="p-3">Rencana Waktu / Mode</th>
+                <th class="p-3">Status Antrean</th>
+                <th class="p-3 text-right">Eksekusi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <template x-for="p in queuedPosts" :key="p.post_id">
+                <tr class="hover:bg-slate-50/70">
+                  <td class="p-3">
+                    <div class="font-mono font-bold text-slate-900" x-text="p.post_id"></div>
+                    <div class="text-[11px] text-slate-500 font-medium" x-text="'@' + getAccountName(p.account_id)"></div>
+                  </td>
+                  <td class="p-3 max-w-sm">
+                    <p class="truncate text-slate-700 text-xs" x-text="parseFirstThread(p.thread_content_json)"></p>
+                    <div class="text-[10px] text-slate-400 mt-0.5" x-text="'Ambang Views: ' + (p.views_threshold || 500)"></div>
+                  </td>
+                  <td class="p-3 whitespace-nowrap">
+                    <span class="text-[11px] text-slate-700 font-mono" x-text="p.created_at ? new Date(p.created_at).toLocaleString('id-ID') : 'Segera'"></span>
+                    <div class="text-[10px] text-indigo-600 font-semibold mt-0.5">Auto-Drip on Views</div>
+                  </td>
+                  <td class="p-3">
+                    <span :class="{
+                      'bg-slate-100 text-slate-800': p.status === 'DRAFT',
+                      'bg-blue-100 text-blue-800': p.status === 'SCHEDULED',
+                      'bg-rose-100 text-rose-800': p.status === 'FAILED'
+                    }" class="px-2 py-0.5 rounded-full font-bold uppercase text-[9px]" x-text="p.status"></span>
+                  </td>
+                  <td class="p-3 text-right">
+                    <button @click="publishExistingPost(p.post_id)" :disabled="actionPostId === p.post_id" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold inline-flex items-center">
+                      <span x-show="actionPostId === p.post_id" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
+                      <i x-show="actionPostId !== p.post_id" data-lucide="send" class="w-3 h-3 mr-1"></i>
+                      Terbitkan Sekarang
+                    </button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <div x-show="queuedPosts.length === 0" class="text-center py-12 text-xs text-slate-400">
+          Antrean kosong. Semua postingan telah berhasil dipublikasikan.
         </div>
       </div>
     </div>
@@ -1048,6 +1152,304 @@
 
   </main>
 
+  <!-- MODAL POST COMPOSER INTERAKTIF (POP-UP LENGKAP) -->
+  <div x-show="modals.composerModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto">
+    <div @click.away="closeModal('composerModal')" class="bg-white max-w-5xl w-full rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-slate-200 bg-slate-900 text-white flex justify-between items-center flex-shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500 text-slate-950 flex items-center justify-center font-black">
+            <i data-lucide="feather" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold tracking-tight">Post Composer & Multi-Thread Builder</h3>
+            <p class="text-[11px] text-slate-400">Susun rangkaian utas Shopee Affiliate dengan auto-drip delayed link</p>
+          </div>
+        </div>
+        <button @click="closeModal('composerModal')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-slate-50/50">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div class="lg:col-span-2 space-y-4">
+            <!-- Panel 1: Akun Pengirim & Produk Shopee -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-4">
+              <!-- Akun Pengirim Target -->
+              <div>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                  <label class="text-xs font-bold text-slate-900 flex items-center">
+                    <i data-lucide="share-2" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Akun Pengirim Target (Broadcast Multi-Akun)
+                  </label>
+                  <div class="flex items-center space-x-2">
+                    <button type="button" @click="selectAllAccounts()" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg" x-text="composerAccounts.length === accounts.length && accounts.length > 0 ? 'Batalkan Semua' : 'Pilih Semua (' + accounts.length + ')'"></button>
+                    <span class="badge badge-sm badge-neutral font-mono font-bold" x-text="composerAccounts.length + ' dipilih'"></span>
+                  </div>
+                </div>
+
+                <!-- Search Akun -->
+                <div class="flex items-center space-x-2 mb-2">
+                  <div class="relative flex-1">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+                    <input type="text" x-model="accountSearchQuery" placeholder="Cari username @ atau ID akun..." class="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 bg-slate-50">
+                  </div>
+                  <div class="flex space-x-1 border border-slate-200 rounded-lg p-0.5 bg-slate-50 flex-shrink-0">
+                    <button type="button" @click="accountFilterTab = 'ALL'" :class="accountFilterTab === 'ALL' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Semua</button>
+                    <button type="button" @click="accountFilterTab = 'SELECTED'" :class="accountFilterTab === 'SELECTED' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Terpilih</button>
+                  </div>
+                </div>
+
+                <!-- Grid Akun -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto pr-1">
+                  <template x-for="acc in filteredComposerAccounts" :key="acc.account_id">
+                    <label :class="isAccountSelected(acc.account_id) ? 'border-emerald-500 bg-emerald-50/60 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100'" class="p-2 rounded-xl border flex items-center space-x-2 cursor-pointer transition">
+                      <input type="checkbox" :checked="isAccountSelected(acc.account_id)" @change="toggleAccountSelection(acc.account_id)" class="checkbox checkbox-xs checkbox-primary">
+                      <img :src="acc.profile_pic_url || 'https://via.placeholder.com/32'" class="w-6 h-6 rounded-full object-cover bg-slate-200 flex-shrink-0" alt="avatar">
+                      <div class="min-w-0 flex-1">
+                        <div class="text-xs font-bold text-slate-800 truncate" x-text="'@' + acc.username"></div>
+                      </div>
+                    </label>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Pemilihan Produk Shopee -->
+              <div class="pt-3 border-t border-slate-100">
+                <div class="flex items-center justify-between mb-2">
+                  <label class="text-xs font-bold text-slate-900 flex items-center">
+                    <i data-lucide="shopping-bag" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Produk Shopee Terkait
+                  </label>
+                  <span class="text-[11px] text-slate-400" x-text="products.length + ' produk master'"></span>
+                </div>
+
+                <div class="relative" @click.away="showProductDropdown = false">
+                  <div x-show="!selectedProductObj" class="relative">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none"></i>
+                    <input type="text" x-model="composerProductSearch" @focus="showProductDropdown = true" @click="showProductDropdown = true" placeholder="Ketik nama, kategori, atau ID produk..." class="w-full pl-9 pr-16 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
+                    <button type="button" @click.stop="showProductDropdown = !showProductDropdown" class="absolute right-2 top-2 text-slate-400 hover:text-slate-700 p-0.5">
+                      <i data-lucide="chevron-down" class="w-4 h-4 transition-transform" :class="showProductDropdown ? 'rotate-180 text-emerald-600' : ''"></i>
+                    </button>
+                  </div>
+
+                  <div x-show="selectedProductObj" class="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3 min-w-0">
+                      <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                        <template x-if="selectedProductObj && selectedProductObj.product_image_url">
+                          <img :src="selectedProductObj.product_image_url" class="w-full h-full object-cover" alt="thumb">
+                        </template>
+                        <template x-if="!selectedProductObj || !selectedProductObj.product_image_url">
+                          <i data-lucide="package" class="w-5 h-5 text-slate-400"></i>
+                        </template>
+                      </div>
+                      <div class="min-w-0">
+                        <div class="font-bold text-xs text-slate-900 truncate" x-text="selectedProductObj ? selectedProductObj.product_name : ''"></div>
+                        <div class="text-[10px] text-slate-500 mt-0.5 font-mono" x-text="'Rp ' + (selectedProductObj ? Number(selectedProductObj.price || 0).toLocaleString('id-ID') : '0')"></div>
+                      </div>
+                    </div>
+                    <button type="button" @click="clearSelectedComposerProduct()" class="text-xs font-semibold text-rose-600 bg-white hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-slate-200 transition">
+                      Ganti
+                    </button>
+                  </div>
+
+                  <!-- Dropdown Hasil Produk -->
+                  <div x-show="showProductDropdown && !selectedProductObj" class="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto divide-y divide-slate-100">
+                    <template x-for="p in filteredComposerProducts" :key="p.product_id">
+                      <div @mousedown.prevent="selectComposerProduct(p)" class="p-2.5 hover:bg-emerald-50/70 cursor-pointer flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                          <template x-if="p.product_image_url">
+                            <img :src="p.product_image_url" class="w-full h-full object-cover" alt="thumb">
+                          </template>
+                          <template x-if="!p.product_image_url">
+                            <i data-lucide="package" class="w-4 h-4 text-slate-400"></i>
+                          </template>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <div class="text-xs font-bold text-slate-900 truncate" x-text="p.product_name"></div>
+                          <div class="text-[10px] text-slate-500 mt-0.5 font-mono" x-text="'Rp ' + Number(p.price || 0).toLocaleString('id-ID')"></div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel 2: Multi-Thread Builder Berjenjang -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3">
+              <div class="flex justify-between items-center mb-1">
+                <div>
+                  <h3 class="text-xs font-bold text-slate-900 flex items-center">
+                    <i data-lucide="git-commit" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Rangkaian Utas Berantai
+                  </h3>
+                </div>
+                <button type="button" @click="addThreadNode()" class="text-xs font-bold bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 flex items-center transition">
+                  <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> Tambah Utas
+                </button>
+              </div>
+
+              <div class="space-y-3">
+                <template x-for="(thread, index) in threadList" :key="index">
+                  <div class="p-3.5 rounded-xl border relative" :class="index === 0 ? 'border-emerald-300 ring-1 ring-emerald-100 bg-emerald-50/20' : 'border-slate-200 bg-slate-50/60'">
+                    <div class="flex justify-between items-center mb-2">
+                      <div class="flex items-center space-x-2">
+                        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded shadow-2xs" :class="index === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'" x-text="index === 0 ? 'Utas #1 (Root Hook)' : 'Utas #' + (index + 1) + ' (Sub-Reply)'"></span>
+                        <span x-show="thread.media_ids && thread.media_ids.length > 0" class="badge badge-xs badge-info font-bold text-[9px]" x-text="thread.media_ids.length + ' Media'"></span>
+                      </div>
+                      <div class="flex items-center space-x-2">
+                        <button type="button" @click="insertAffiliateLink(index)" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center">
+                          <i data-lucide="link-2" class="w-3 h-3 mr-1 text-emerald-600"></i> + Sisipkan Link Affiliate
+                        </button>
+                        <button x-show="index > 0" @click="removeThreadNode(index)" class="text-slate-400 hover:text-rose-500 p-0.5">
+                          <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <textarea x-model="thread.content" rows="3" :placeholder="index === 0 ? 'Tulis kalimat pembuka hook viral bebas dari link...' : 'Tulis ulasan lanjutan atau seruan checkout produk di sini...'" class="w-full text-xs p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"></textarea>
+
+                    <!-- Lampiran Media Khusus Utas Ini -->
+                    <div class="mt-2 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-600">
+                      <div class="flex items-center space-x-1.5 font-medium">
+                        <i data-lucide="images" class="w-3.5 h-3.5 text-slate-500"></i>
+                        <span x-text="(thread.media_ids ? thread.media_ids.length : 0) + ' media terlampir'"></span>
+                      </div>
+                      <button type="button" @click="thread._showPicker = !thread._showPicker" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded">
+                        <i data-lucide="folder-image" class="w-3 h-3 mr-1"></i>
+                        <span x-text="thread._showPicker ? 'Tutup Media' : 'Pilih Media'"></span>
+                      </button>
+                    </div>
+
+                    <!-- Picker Media -->
+                    <div x-show="thread._showPicker" class="p-2.5 bg-white rounded-xl border border-slate-200 max-h-44 overflow-y-auto mt-2">
+                      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <template x-for="item in getProductMediaForPicker(selectedProductId)" :key="item.media_id">
+                          <label :class="isMediaSelectedForThread(thread, item.media_id) ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50'" class="p-1.5 rounded-lg border flex items-center space-x-2 cursor-pointer hover:bg-slate-100 transition">
+                            <input type="checkbox" :checked="isMediaSelectedForThread(thread, item.media_id)" @change="toggleMediaForThread(thread, item.media_id)" class="checkbox checkbox-xs checkbox-primary">
+                            <template x-if="item.media_type === 'IMAGE'">
+                              <img :src="item.media_url" class="w-8 h-8 object-cover rounded flex-shrink-0" alt="thumb">
+                            </template>
+                            <template x-if="item.media_type === 'VIDEO'">
+                              <div class="w-8 h-8 bg-slate-800 text-white rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0">MP4</div>
+                            </template>
+                            <div class="min-w-0 flex-1 text-[10px] truncate" x-text="item.session_id"></div>
+                          </label>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Panel 3: Views Trigger Setting -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200">
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="text-xs font-bold text-slate-900 flex items-center">
+                  <i data-lucide="zap" class="w-4 h-4 text-amber-500 mr-1.5"></i> Strategi Auto-Drip Views
+                </h4>
+                <span class="badge badge-success badge-outline text-[10px] font-bold">Otomatis</span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <label :class="publishMode === 'DRIP_ON_VIEWS' ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50/50'" class="p-2.5 rounded-xl border flex items-start space-x-2 cursor-pointer">
+                  <input type="radio" value="DRIP_ON_VIEWS" x-model="publishMode" class="radio radio-xs radio-primary mt-0.5">
+                  <div class="text-[11px]">
+                    <span class="font-bold text-slate-900 block">Auto-Drip on Views</span>
+                    <span class="text-slate-500 block leading-tight">Utas 1 tayang duluan. Saat target views tembus, Utas lanjutan terbit otomatis.</span>
+                  </div>
+                </label>
+                <label :class="publishMode === 'ALL_IMMEDIATE' ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50/50'" class="p-2.5 rounded-xl border flex items-start space-x-2 cursor-pointer">
+                  <input type="radio" value="ALL_IMMEDIATE" x-model="publishMode" class="radio radio-xs radio-primary mt-0.5">
+                  <div class="text-[11px]">
+                    <span class="font-bold text-slate-900 block">Posting Sekaligus</span>
+                    <span class="text-slate-500 block leading-tight">Semua utas (Utas 1 s/d terakhir) langsung tayang berantai bersamaan.</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Ambang Target Views</label>
+                  <input type="number" x-model.number="postViewsThreshold" class="w-full p-2 text-xs border border-slate-300 rounded-lg font-mono font-bold" placeholder="500">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Jadwal Tayang (Opsional)</label>
+                  <input type="datetime-local" x-model="scheduledDateTime" class="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Hook Studio & Swipe-File Bank -->
+          <div class="space-y-4">
+            <!-- Bank Hook -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="text-xs font-bold text-slate-900 flex items-center">
+                  <i data-lucide="bookmark" class="w-3.5 h-3.5 text-emerald-600 mr-1.5"></i> Bank Hook Viral
+                </h4>
+                <button type="button" @click="openModal('addHookModal')" class="text-[11px] font-bold text-emerald-700 hover:underline">+ Tambah</button>
+              </div>
+              <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <template x-for="hk in filteredHooks" :key="hk.hook_id">
+                  <div class="p-2 bg-slate-50 rounded-lg border border-slate-100 text-xs">
+                    <div class="flex justify-between items-center mb-0.5">
+                      <span class="badge badge-xs badge-neutral text-[8px]" x-text="hk.category"></span>
+                      <button @click="applyHook(hk.hook_text)" class="text-[10px] text-emerald-600 font-bold hover:underline">Sisipkan</button>
+                    </div>
+                    <p class="text-slate-700 italic text-[11px]" x-text="hk.hook_text"></p>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- AI Hook Studio -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold text-slate-900 flex items-center">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-600 mr-1.5"></i> AI Hook Studio
+                </h4>
+                <span class="badge badge-xs badge-purple">Gemini 1.5</span>
+              </div>
+              <input type="text" x-model="aiPromptTopic" placeholder="Topik / Nama produk..." class="w-full text-xs p-2 border border-slate-300 rounded-lg">
+              <button @click="generateHooks()" :disabled="isGeneratingAi" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg flex items-center justify-center">
+                <span x-show="isGeneratingAi" class="animate-spin mr-1.5"><i data-lucide="loader" class="w-3 h-3"></i></span>
+                <span x-text="isGeneratingAi ? 'Menulis Hook...' : 'Buat 3 Hook Viral'"></span>
+              </button>
+              <div class="space-y-1.5 max-h-36 overflow-y-auto" x-show="generatedHooks.length > 0">
+                <template x-for="(hook, idx) in generatedHooks" :key="idx">
+                  <div class="p-2 bg-purple-50/60 rounded border border-purple-100 text-xs flex justify-between items-start gap-1">
+                    <p x-text="hook" class="italic text-[11px]"></p>
+                    <button @click="applyHook(hook)" class="text-purple-700 font-bold text-[10px] uppercase">Pakai</button>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer Action Bar -->
+      <div class="px-5 py-3.5 bg-white border-t border-slate-200 flex flex-col sm:flex-row sm:justify-end gap-2 flex-shrink-0">
+        <button type="button" @click="closeModal('composerModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl">
+          Tutup
+        </button>
+        <button type="button" @click="submitPost('DRAFT')" :disabled="isLoading" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-xl">
+          Simpan Draft
+        </button>
+        <button type="button" @click="submitPost('SCHEDULED')" :disabled="isLoading" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl flex items-center justify-center">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 mr-1.5 text-slate-300"></i> Jadwalkan Utas
+        </button>
+        <button type="button" @click="submitPost('PUBLISH_NOW')" :disabled="isLoading" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center shadow-sm">
+          <span x-show="isLoading" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+          <i x-show="!isLoading" data-lucide="send" class="w-3.5 h-3.5 mr-1.5"></i> Posting Sekarang
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ADD HOOK MODAL -->
   <div x-show="modals.addHookModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
     <div @click.away="closeModal('addHookModal')" class="bg-white max-w-md w-full rounded-2xl shadow-xl p-5">
@@ -1193,7 +1595,7 @@
                   <div class="text-slate-400 text-[10px] font-mono mt-0.5 truncate" x-text="item.media_id"></div>
                 </div>
                 <div class="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1">
-                  <button type="button" @click="attachInlineMedia(item.media_id); closeModal('productMediaModal'); switchTab('composer')" class="w-full py-1 px-2 bg-slate-900 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-lg flex items-center justify-center transition">
+                  <button type="button" @click="attachInlineMedia(item.media_id); closeModal('productMediaModal'); openComposer()" class="w-full py-1 px-2 bg-slate-900 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-lg flex items-center justify-center transition">
                     <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Pakai di Composer
                   </button>
                 </div>
@@ -1438,7 +1840,7 @@
 
     function threadApp() {
       return {
-        activeTab: 'composer',
+        activeTab: 'dashboard',
         accounts: [],
         composerAccounts: [],
         products: [],
@@ -1469,6 +1871,12 @@
         isGeneratingAi: false,
         generatedHooks: [],
 
+        get publishedPosts() {
+          return this.posts.filter(p => p.status === 'PUBLISHED');
+        },
+        get queuedPosts() {
+          return this.posts.filter(p => p.status !== 'PUBLISHED');
+        },
         get unrepliedCount() {
           return this.comments.filter(c => c.author_type !== 'OWNER' && c.reply_status !== 'REPLIED').length;
         },
@@ -1494,6 +1902,7 @@
         isUploadingMedia: false,
         isSavingProduct: false,
         isEditingProduct: false,
+        isLoadingProducts: false,
         newProd: { product_id: '', product_name: '', category: 'Elektronik', price: 0, product_image_url: '', shopee_raw_url: '', shopee_affiliate_url: '', selling_points: '' },
 
         // Async Statuses
@@ -1515,7 +1924,7 @@
         newHook: { category: 'Curhat/Story', hook_text: '', formula: '' },
 
         // Modals & Toasts
-        modals: { replyModal: false, addProductModal: false, uploadMediaModal: false, productMediaModal: false, settingsModal: false, addHookModal: false },
+        modals: { replyModal: false, addProductModal: false, uploadMediaModal: false, productMediaModal: false, settingsModal: false, addHookModal: false, composerModal: false },
         targetComment: null,
         replyContent: '',
         settings: { gemini_key: '', cloudinary_cloud: '', cloudinary_preset: '' },
@@ -1541,6 +1950,13 @@
 
         openModal(name) { this.modals[name] = true; this.$nextTick(() => lucide.createIcons()); },
         closeModal(name) { this.modals[name] = false; },
+
+        openComposer() {
+          if (!this.threadList || this.threadList.length === 0) {
+            this.threadList = [{ content: '', media_id: '', media_ids: [], _showPicker: false }];
+          }
+          this.openModal('composerModal');
+        },
 
         // Multi-Account Selection Helpers
         isAccountSelected(accId) {
@@ -1583,6 +1999,7 @@
         },
 
         get filteredComposerProducts() {
+          if (!this.products || this.products.length === 0) return [];
           if (!this.composerProductSearch || !this.composerProductSearch.trim()) {
             return this.products;
           }
@@ -1591,7 +2008,29 @@
             var name = (p.product_name || '').toLowerCase();
             var cat = (p.category || '').toLowerCase();
             var id = String(p.product_id || '').toLowerCase();
-            return name.indexOf(q) !== -1 || cat.indexOf(q) !== -1 || id.indexOf(q) !== -1;
+            var sp = (p.selling_points || '').toLowerCase();
+            return name.indexOf(q) !== -1 || cat.indexOf(q) !== -1 || id.indexOf(q) !== -1 || sp.indexOf(q) !== -1;
+          });
+        },
+
+        fetchProducts() {
+          this.isLoadingProducts = true;
+          fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'getProducts', payload: {} })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.products = res.data || [];
+            }
+            this.isLoadingProducts = false;
+            this.$nextTick(() => { lucide.createIcons(); });
+          })
+          .catch(() => {
+            this.isLoadingProducts = false;
           });
         },
 
@@ -1854,7 +2293,7 @@
         sendProductToAi(item) {
           this.selectedProductId = item.product_id;
           this.aiPromptTopic = item.product_name;
-          this.switchTab('composer');
+          this.openComposer();
           this.showToast('Produk & selling points dikirim ke AI Hook Studio');
         },
 
@@ -2098,6 +2537,7 @@
           if (successCount > 0) {
             var actionName = status === 'PUBLISH_NOW' ? 'diterbitkan' : 'dijadwalkan/disimpan';
             this.showToast('Sukses! Utas berhasil ' + actionName + ' untuk ' + successCount + ' dari ' + totalTargets + ' akun.');
+            this.closeModal('composerModal');
             this.fetchInitialData();
             if (status === 'PUBLISH_NOW') {
               this.threadList = [{ content: '', media_id: '', media_ids: [], _showPicker: false }];
@@ -2422,6 +2862,7 @@
               this.showToast(this.isEditingProduct ? 'Perubahan produk disimpan' : 'Produk baru berhasil ditambahkan');
               this.closeModal('addProductModal');
               this.newProd = { product_id: '', product_name: '', category: 'Elektronik', price: 0, product_image_url: '', shopee_raw_url: '', shopee_affiliate_url: '', selling_points: '' };
+              this.fetchProducts();
               this.fetchInitialData();
             } else {
               this.showToast(res.message, 'error');

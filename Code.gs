@@ -17,6 +17,8 @@ function doPost(e) {
 
     if (action === 'getDashboardData') {
       result = getDashboardData(payload);
+    } else if (action === 'getProducts') {
+      result = getSheetRecords('Products');
     } else if (action === 'syncThreadsAccount') {
       result = syncThreadsAccount(payload);
     } else if (action === 'pingThreadsAccount') {
