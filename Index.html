@@ -26,138 +26,244 @@
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased font-sans" x-data="threadApp()" x-init="initApp()">
 
-  <!-- Top Navigation Bar -->
-  <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-lg border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center shadow-emerald-500/20 shadow-md">
+  <div class="min-h-screen flex bg-slate-50">
+    <!-- Desktop Left Sidebar -->
+    <aside class="hidden md:flex flex-col w-64 bg-slate-900 text-white border-r border-slate-800 shrink-0 sticky top-0 h-screen overflow-y-auto scrollbar-none z-30">
+      <!-- Brand Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center space-x-3">
+        <div class="w-9 h-9 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center shadow-emerald-500/20 shadow-md flex-shrink-0">
           <i data-lucide="layers" class="w-5 h-5 text-slate-950 font-black"></i>
         </div>
-        <div>
-          <div class="flex items-center space-x-2">
-            <h1 class="text-sm font-black tracking-tight leading-none text-white uppercase">ThreadAffiliate</h1>
-            <span class="badge badge-xs badge-success text-[10px] font-bold">PRO</span>
+        <div class="min-w-0">
+          <div class="flex items-center space-x-1.5">
+            <span class="text-xs font-black tracking-wider text-white uppercase truncate">ThreadAffiliate</span>
+            <span class="badge badge-xs badge-success text-[9px] font-bold">PRO</span>
           </div>
-          <span class="text-[11px] text-slate-400">Meta Threads × Shopee Automation Engine</span>
+          <span class="text-[10px] text-slate-400 truncate block">Threads Automation</span>
         </div>
       </div>
 
-      <!-- SaaS Account Status & Actions -->
-      <div class="flex items-center space-x-2">
-        <button @click="openComposer()" class="hidden sm:flex px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl items-center transition shadow-md">
-          <i data-lucide="plus-circle" class="w-4 h-4 mr-1.5"></i> Buat Postingan Baru
+      <!-- Quick Action Button in Sidebar -->
+      <div class="px-4 pt-4 pb-2">
+        <button @click="openComposer()" class="w-full py-2.5 px-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center transition shadow-md group">
+          <i data-lucide="plus-circle" class="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform"></i>
+          <span>Buat Postingan Baru</span>
         </button>
-        <div class="hidden sm:flex items-center bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80 shadow-inner">
-          <div class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></div>
-          <i data-lucide="users" class="w-3.5 h-3.5 text-emerald-400 mr-1.5"></i>
-          <span class="text-xs text-slate-200 font-semibold" x-text="accounts.length + ' Akun'"></span>
+      </div>
+
+      <!-- Categorized Navigation Links -->
+      <nav class="flex-1 px-3 py-2 space-y-5 text-xs">
+        <!-- Kategori 1: Utama -->
+        <div>
+          <span class="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Utama</span>
+          <div class="space-y-0.5">
+            <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'bg-emerald-500/15 text-emerald-400 font-bold border-l-2 border-emerald-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg transition text-left">
+              <span class="flex items-center"><i data-lucide="layout-dashboard" class="w-4 h-4 mr-2.5 text-slate-400"></i> Dashboard</span>
+            </button>
+            <button @click="switchTab('queue')" :class="activeTab === 'queue' ? 'bg-emerald-500/15 text-emerald-400 font-bold border-l-2 border-emerald-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg transition text-left">
+              <span class="flex items-center"><i data-lucide="calendar-clock" class="w-4 h-4 mr-2.5 text-indigo-400"></i> Antrean & Jadwal</span>
+              <span x-show="queuedPosts.length > 0" class="badge badge-xs badge-info font-bold text-[9px]" x-text="queuedPosts.length"></span>
+            </button>
+            <button @click="switchTab('inbox')" :class="activeTab === 'inbox' ? 'bg-emerald-500/15 text-emerald-400 font-bold border-l-2 border-emerald-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg transition text-left">
+              <span class="flex items-center"><i data-lucide="messages-square" class="w-4 h-4 mr-2.5 text-rose-400"></i> Inbox Komentar</span>
+              <span x-show="unrepliedCount > 0" class="badge badge-xs badge-error text-white font-bold text-[9px]" x-text="unrepliedCount"></span>
+            </button>
+          </div>
         </div>
-        <button @click="fetchInitialData()" :disabled="isLoading" title="Muat Ulang Data" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700 disabled:opacity-50">
-          <i data-lucide="refresh-cw" class="w-4 h-4" :class="isLoading ? 'animate-spin' : ''"></i>
-        </button>
-        <button @click="openModal('settingsModal')" title="Pengaturan Sistem" class="hidden sm:flex p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700">
-          <i data-lucide="settings" class="w-4 h-4"></i>
-        </button>
-        <!-- Hamburger Menu Button (Khusus Layar Mobile) -->
-        <button @click="mobileMenuOpen = !mobileMenuOpen; $nextTick(() => lucide.createIcons())" class="md:hidden p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" aria-label="Menu Lainnya">
-          <i :data-lucide="mobileMenuOpen ? 'x' : 'menu'" class="w-5 h-5"></i>
+
+        <!-- Kategori 2: Konten & Autopilot -->
+        <div>
+          <span class="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Konten & Autopilot</span>
+          <div class="space-y-0.5">
+            <button @click="switchTab('composer')" :class="activeTab === 'composer' ? 'bg-emerald-500/15 text-emerald-400 font-bold border-l-2 border-emerald-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center px-3 py-2 rounded-lg transition text-left">
+              <i data-lucide="feather" class="w-4 h-4 mr-2.5 text-emerald-400"></i> Post Composer
+            </button>
+            <button @click="switchTab('published')" :class="activeTab === 'published' ? 'bg-emerald-500/15 text-emerald-400 font-bold border-l-2 border-emerald-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg transition text-left">
+              <span class="flex items-center"><i data-lucide="check-circle-2" class="w-4 h-4 mr-2.5 text-emerald-400"></i> Postingan Terbit</span>
+              <span x-show="publishedPosts.length > 0" class="badge badge-xs badge-success text-[9px] font-bold" x-text="publishedPosts.length"></span>
+            </button>
+            <button @click="switchTab('autopilot')" :class="activeTab === 'autopilot' ? 'bg-purple-500/15 text-purple-400 font-bold border-l-2 border-purple-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg transition text-left">
+              <span class="flex items-center"><i data-lucide="bot" class="w-4 h-4 mr-2.5 text-purple-400"></i> AI Autopilot</span>
+              <span class="badge badge-xs badge-secondary text-[8px] font-bold">AUTO</span>
+            </button>
+            <button @click="switchTab('viral_refs')" :class="activeTab === 'viral_refs' ? 'bg-amber-500/15 text-amber-400 font-bold border-l-2 border-amber-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg transition text-left">
+              <span class="flex items-center"><i data-lucide="bookmark" class="w-4 h-4 mr-2.5 text-amber-400"></i> Bank Ref Viral</span>
+              <span x-show="viral_references.length > 0" class="badge badge-xs badge-warning text-[9px] font-bold" x-text="viral_references.length"></span>
+            </button>
+            <button @click="switchTab('media')" :class="activeTab === 'media' ? 'bg-emerald-500/15 text-emerald-400 font-bold border-l-2 border-emerald-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center px-3 py-2 rounded-lg transition text-left">
+              <i data-lucide="folder-image" class="w-4 h-4 mr-2.5 text-blue-400"></i> Media & Produk
+            </button>
+          </div>
+        </div>
+
+        <!-- Kategori 3: Sistem -->
+        <div>
+          <span class="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Sistem</span>
+          <div class="space-y-0.5">
+            <button @click="switchTab('accounts')" :class="activeTab === 'accounts' ? 'bg-emerald-500/15 text-emerald-400 font-bold border-l-2 border-emerald-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg transition text-left">
+              <span class="flex items-center"><i data-lucide="users" class="w-4 h-4 mr-2.5 text-slate-400"></i> Akun Meta API</span>
+              <span class="badge badge-xs badge-neutral text-[9px]" x-text="accounts.length"></span>
+            </button>
+            <button @click="switchTab('settings')" :class="activeTab === 'settings' ? 'bg-emerald-500/15 text-emerald-400 font-bold border-l-2 border-emerald-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center px-3 py-2 rounded-lg transition text-left">
+              <i data-lucide="settings" class="w-4 h-4 mr-2.5 text-slate-400"></i> Pengaturan Sistem
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Sidebar Footer Status -->
+      <div class="p-3.5 border-t border-slate-800 bg-slate-950/60 text-[11px] text-slate-400 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+          <span x-text="accounts.length + ' Akun Aktif'"></span>
+        </div>
+        <button @click="fetchInitialData()" :disabled="isLoading" title="Muat Ulang Data" class="p-1 hover:text-white rounded transition disabled:opacity-50">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5" :class="isLoading ? 'animate-spin' : ''"></i>
         </button>
       </div>
+    </aside>
+
+    <!-- Mobile Drawer Sidebar (Toggled on Small Screens) -->
+    <div x-show="sidebarOpen" x-cloak class="md:hidden fixed inset-0 z-50 flex">
+      <div @click="sidebarOpen = false" class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs transition-opacity"></div>
+      <aside class="relative flex flex-col w-64 max-w-[80%] bg-slate-900 text-white border-r border-slate-800 h-full p-4 overflow-y-auto z-10 space-y-4">
+        <!-- Drawer Header -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-lg flex items-center justify-center">
+              <i data-lucide="layers" class="w-4 h-4 text-slate-950 font-black"></i>
+            </div>
+            <span class="font-bold text-xs text-white uppercase">ThreadAffiliate</span>
+          </div>
+          <button @click="sidebarOpen = false" class="p-1 text-slate-400 hover:text-white">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Categorized Nav for Mobile Drawer -->
+        <nav class="space-y-4 text-xs">
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Utama</span>
+            <div class="space-y-0.5">
+              <button @click="switchTab('dashboard'); sidebarOpen = false" :class="activeTab === 'dashboard' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-300'" class="w-full flex items-center px-3 py-2 rounded-lg">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2.5"></i> Dashboard
+              </button>
+              <button @click="switchTab('queue'); sidebarOpen = false" :class="activeTab === 'queue' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-300'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg">
+                <span class="flex items-center"><i data-lucide="calendar-clock" class="w-4 h-4 mr-2.5"></i> Antrean & Jadwal</span>
+                <span x-show="queuedPosts.length > 0" class="badge badge-xs badge-info font-bold" x-text="queuedPosts.length"></span>
+              </button>
+              <button @click="switchTab('inbox'); sidebarOpen = false" :class="activeTab === 'inbox' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-300'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg">
+                <span class="flex items-center"><i data-lucide="messages-square" class="w-4 h-4 mr-2.5"></i> Inbox Komentar</span>
+                <span x-show="unrepliedCount > 0" class="badge badge-xs badge-error text-white font-bold" x-text="unrepliedCount"></span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Konten & Autopilot</span>
+            <div class="space-y-0.5">
+              <button @click="switchTab('composer'); sidebarOpen = false" :class="activeTab === 'composer' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-300'" class="w-full flex items-center px-3 py-2 rounded-lg">
+                <i data-lucide="feather" class="w-4 h-4 mr-2.5"></i> Post Composer
+              </button>
+              <button @click="switchTab('published'); sidebarOpen = false" :class="activeTab === 'published' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-300'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg">
+                <span class="flex items-center"><i data-lucide="check-circle-2" class="w-4 h-4 mr-2.5"></i> Postingan Terbit</span>
+                <span x-show="publishedPosts.length > 0" class="badge badge-xs badge-success" x-text="publishedPosts.length"></span>
+              </button>
+              <button @click="switchTab('autopilot'); sidebarOpen = false" :class="activeTab === 'autopilot' ? 'bg-slate-800 text-purple-400 font-bold' : 'text-slate-300'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg">
+                <span class="flex items-center"><i data-lucide="bot" class="w-4 h-4 mr-2.5 text-purple-400"></i> AI Autopilot</span>
+                <span class="badge badge-xs badge-secondary text-[8px]">AUTO</span>
+              </button>
+              <button @click="switchTab('viral_refs'); sidebarOpen = false" :class="activeTab === 'viral_refs' ? 'bg-slate-800 text-amber-400 font-bold' : 'text-slate-300'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg">
+                <span class="flex items-center"><i data-lucide="bookmark" class="w-4 h-4 mr-2.5 text-amber-400"></i> Bank Ref Viral</span>
+                <span x-show="viral_references.length > 0" class="badge badge-xs badge-warning" x-text="viral_references.length"></span>
+              </button>
+              <button @click="switchTab('media'); sidebarOpen = false" :class="activeTab === 'media' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-300'" class="w-full flex items-center px-3 py-2 rounded-lg">
+                <i data-lucide="folder-image" class="w-4 h-4 mr-2.5"></i> Media & Produk
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Sistem</span>
+            <div class="space-y-0.5">
+              <button @click="switchTab('accounts'); sidebarOpen = false" :class="activeTab === 'accounts' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-300'" class="w-full flex items-center justify-between px-3 py-2 rounded-lg">
+                <span class="flex items-center"><i data-lucide="users" class="w-4 h-4 mr-2.5"></i> Akun Meta API</span>
+                <span class="badge badge-xs badge-neutral" x-text="accounts.length"></span>
+              </button>
+              <button @click="switchTab('settings'); sidebarOpen = false" :class="activeTab === 'settings' ? 'bg-slate-800 text-emerald-400 font-bold' : 'text-slate-300'" class="w-full flex items-center px-3 py-2 rounded-lg">
+                <i data-lucide="settings" class="w-4 h-4 mr-2.5"></i> Pengaturan Sistem
+              </button>
+            </div>
+          </div>
+        </nav>
+      </aside>
     </div>
 
-    <!-- Mobile Slide-Down Menu (Menu Sekunder untuk Mobile) -->
-    <div x-show="mobileMenuOpen"
-         x-cloak
-         @click.away="mobileMenuOpen = false"
-         class="md:hidden border-t border-slate-800 bg-slate-900/98 backdrop-blur-md px-4 py-3 space-y-1 shadow-2xl transition-all">
-      <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1">Menu Lainnya</div>
-      <button @click="switchTab('published'); mobileMenuOpen = false" class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-200 hover:bg-slate-800 transition" :class="activeTab === 'published' ? 'bg-slate-800 text-emerald-400' : ''">
-        <span class="flex items-center"><i data-lucide="check-circle-2" class="w-4 h-4 mr-2.5 text-slate-400"></i> Postingan Terbit</span>
-        <span x-show="publishedPosts.length > 0" class="badge badge-xs badge-success text-[10px] font-bold" x-text="publishedPosts.length"></span>
-      </button>
-      <button @click="switchTab('media'); mobileMenuOpen = false" class="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-200 hover:bg-slate-800 transition" :class="activeTab === 'media' ? 'bg-slate-800 text-emerald-400' : ''">
-        <i data-lucide="folder-image" class="w-4 h-4 mr-2.5 text-slate-400"></i> Media & Produk Shopee
-      </button>
-      <button @click="switchTab('accounts'); mobileMenuOpen = false" class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-200 hover:bg-slate-800 transition" :class="activeTab === 'accounts' ? 'bg-slate-800 text-emerald-400' : ''">
-        <span class="flex items-center"><i data-lucide="users" class="w-4 h-4 mr-2.5 text-slate-400"></i> Akun Meta API</span>
-        <span class="badge badge-xs badge-neutral text-[10px]" x-text="accounts.length + ' Akun'"></span>
-      </button>
-      <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between px-3 py-1 text-xs">
-        <button @click="openModal('settingsModal'); mobileMenuOpen = false" class="flex items-center text-slate-300 hover:text-white py-1.5 font-medium">
-          <i data-lucide="settings" class="w-4 h-4 mr-2 text-slate-400"></i> Pengaturan
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Top Action Bar (Header Bersih) -->
+      <header class="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 sm:px-6 h-16 flex items-center justify-between shadow-2xs">
+        <div class="flex items-center space-x-3">
+          <button @click="sidebarOpen = true; $nextTick(() => lucide.createIcons())" class="md:hidden p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition" aria-label="Buka Menu">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+          <div>
+            <h1 class="text-sm sm:text-base font-bold text-slate-900 capitalize" x-text="getPageTitle()"></h1>
+            <p class="text-[11px] text-slate-500 hidden sm:block" x-text="getPageSubtitle()"></p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <button @click="openComposer()" class="hidden sm:flex px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl items-center transition shadow-xs">
+            <i data-lucide="plus" class="w-4 h-4 mr-1"></i> Buat Utas
+          </button>
+          <div class="hidden sm:flex items-center bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 text-xs">
+            <div class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></div>
+            <span class="font-bold text-slate-800" x-text="accounts.length + ' Akun Threads'"></span>
+          </div>
+          <button @click="fetchInitialData()" :disabled="isLoading" title="Muat Ulang Data" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition border border-slate-200 disabled:opacity-50">
+            <i data-lucide="refresh-cw" class="w-4 h-4" :class="isLoading ? 'animate-spin' : ''"></i>
+          </button>
+          <button @click="switchTab('settings')" title="Buka Pengaturan Sistem" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition border border-slate-200" :class="activeTab === 'settings' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : ''">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Mobile Bottom Navigation Bar: Thumb-Friendly 4 Essential Buttons -->
+      <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-3 py-2 flex justify-around items-center shadow-2xl">
+        <button @click="switchTab('dashboard')" class="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition" :class="activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'">
+          <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5"></i>
+          <span class="text-[10px]">Dashboard</span>
         </button>
-        <button @click="openModal('addHookModal'); mobileMenuOpen = false" class="flex items-center text-emerald-400 hover:underline py-1.5 font-bold">
-          <i data-lucide="bookmark" class="w-4 h-4 mr-1"></i> Bank Hook
+        <button @click="openComposer()" class="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition group" :class="activeTab === 'composer' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'">
+          <div class="w-9 h-9 -mt-3 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
+            <i data-lucide="plus" class="w-5 h-5 font-black"></i>
+          </div>
+          <span class="text-[10px] mt-0.5">Buat Utas</span>
         </button>
-      </div>
-    </div>
+        <button @click="switchTab('queue')" class="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition relative" :class="activeTab === 'queue' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'">
+          <div class="relative">
+            <i data-lucide="calendar-clock" class="w-5 h-5 mb-0.5"></i>
+            <span x-show="queuedPosts.length > 0" class="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 bg-indigo-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center" x-text="queuedPosts.length"></span>
+          </div>
+          <span class="text-[10px]">Antrean</span>
+        </button>
+        <button @click="switchTab('inbox')" class="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition relative" :class="activeTab === 'inbox' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'">
+          <div class="relative">
+            <i data-lucide="messages-square" class="w-5 h-5 mb-0.5"></i>
+            <span x-show="unrepliedCount > 0" class="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 bg-rose-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse" x-text="unrepliedCount"></span>
+          </div>
+          <span class="text-[10px]">Inbox</span>
+        </button>
+        <button @click="switchTab('settings')" class="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition relative" :class="activeTab === 'settings' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'">
+          <i data-lucide="settings" class="w-5 h-5 mb-0.5"></i>
+          <span class="text-[10px]">Setting</span>
+        </button>
+      </nav>
 
-    <!-- Navigation Tabs (Desktop Header) -->
-    <div class="hidden md:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-x-1 border-t border-slate-800/80 overflow-x-auto scrollbar-none">
-      <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> Dashboard
-      </button>
-      <button @click="switchTab('composer')" :class="activeTab === 'composer' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="feather" class="w-4 h-4 mr-2"></i> Post Composer
-      </button>
-      <button @click="switchTab('published')" :class="activeTab === 'published' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="check-circle-2" class="w-4 h-4 mr-2"></i> Postingan Terbit
-        <span x-show="publishedPosts.length > 0" class="ml-2 badge badge-xs badge-success text-[9px] font-bold" x-text="publishedPosts.length"></span>
-      </button>
-      <button @click="switchTab('queue')" :class="activeTab === 'queue' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="calendar-clock" class="w-4 h-4 mr-2"></i> Antrean & Jadwal
-        <span x-show="queuedPosts.length > 0" class="ml-2 badge badge-xs badge-info text-[9px] font-bold" x-text="queuedPosts.length"></span>
-      </button>
-      <button @click="switchTab('media')" :class="activeTab === 'media' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="folder-image" class="w-4 h-4 mr-2"></i> Media & Produk
-      </button>
-      <button @click="switchTab('inbox')" :class="activeTab === 'inbox' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="messages-square" class="w-4 h-4 mr-2"></i> Inbox Komentar
-        <span x-show="unrepliedCount > 0" class="ml-2 badge badge-xs badge-error text-white text-[9px] font-bold" x-text="unrepliedCount"></span>
-      </button>
-      <button @click="switchTab('accounts')" :class="activeTab === 'accounts' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
-        <i data-lucide="users" class="w-4 h-4 mr-2"></i> Akun Meta API
-      </button>
-    </div>
-  </header>
-
-  <!-- Mobile Bottom Navigation Bar: Thumb-Friendly 4 Essential Buttons -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-3 py-2 flex justify-around items-center shadow-2xl">
-    <!-- 1. Dashboard -->
-    <button @click="switchTab('dashboard')" class="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition" :class="activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'">
-      <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5"></i>
-      <span class="text-[10px]">Dashboard</span>
-    </button>
-
-    <!-- 2. Buat Utas (Paling Menonjol) -->
-    <button @click="openComposer()" class="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition group" :class="activeTab === 'composer' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'">
-      <div class="w-9 h-9 -mt-3 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-        <i data-lucide="plus" class="w-5 h-5 font-black"></i>
-      </div>
-      <span class="text-[10px] mt-0.5">Buat Utas</span>
-    </button>
-
-    <!-- 3. Antrean Tayang (dengan Badge Antrean) -->
-    <button @click="switchTab('queue')" class="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition relative" :class="activeTab === 'queue' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'">
-      <div class="relative">
-        <i data-lucide="calendar-clock" class="w-5 h-5 mb-0.5"></i>
-        <span x-show="queuedPosts.length > 0" class="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 bg-indigo-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center" x-text="queuedPosts.length"></span>
-      </div>
-      <span class="text-[10px]">Antrean</span>
-    </button>
-
-    <!-- 4. Inbox Komentar (dengan Badge Belum Dibalas) -->
-    <button @click="switchTab('inbox')" class="flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition relative" :class="activeTab === 'inbox' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'">
-      <div class="relative">
-        <i data-lucide="messages-square" class="w-5 h-5 mb-0.5"></i>
-        <span x-show="unrepliedCount > 0" class="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 bg-rose-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse" x-text="unrepliedCount"></span>
-      </div>
-      <span class="text-[10px]">Inbox</span>
-    </button>
-  </nav>
-
-  <!-- Workspace Container (Padding disesuaikan untuk Bottom Bar) -->
-  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8">
+      <!-- Workspace Container -->
+      <main class="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8 flex-1">
 
     <!-- SKELETON PLACEHOLDER SAAT INITIAL LOAD -->
     <div x-show="isLoading && accounts.length === 0" class="space-y-4 mb-6">
@@ -165,6 +271,340 @@
         <div class="h-4 bg-slate-200 rounded w-1/4"></div>
         <div class="h-20 bg-slate-100 rounded-xl"></div>
         <div class="h-20 bg-slate-100 rounded-xl"></div>
+      </div>
+    </div>
+
+    <!-- TAB: TRUE AI AUTOPILOT ENGINE (RULE-BASED GENERATOR) -->
+    <div x-show="activeTab === 'autopilot'" x-cloak class="space-y-6">
+      <!-- Engine Control Header Banner -->
+      <div class="bg-gradient-to-r from-purple-950 via-slate-900 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border border-purple-900/50 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="badge badge-secondary badge-sm font-bold flex items-center">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+              TRUE AUTOPILOT ENGINE
+            </span>
+            <span class="text-xs text-purple-300 font-mono">Autonomous Cron Worker Active</span>
+          </div>
+          <h2 class="text-base sm:text-lg font-bold mt-1">Panel Aturan Autopilot & Generator Otonom</h2>
+          <p class="text-xs text-slate-400 max-w-2xl mt-0.5">
+            Mesin bekerja 100% otomatis di latar belakang. Mengambil aturan aktif, memanggil Sumopod AI untuk meremake Utas 1 & 2, mengunci paket media sesi ulasan utuh, dan menerbitkan ke antrean tanpa campur tangan manual.
+          </p>
+        </div>
+        <div class="flex items-center space-x-2 flex-shrink-0">
+          <button type="button" @click="executeAutopilotWorkerNow()" :disabled="isRunningWorker" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl flex items-center transition shadow disabled:opacity-50">
+            <span x-show="isRunningWorker" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-4 h-4"></i></span>
+            <i x-show="!isRunningWorker" data-lucide="play" class="w-4 h-4 mr-1.5"></i>
+            <span>Jalankan Siklus Sekarang</span>
+          </button>
+          <button type="button" @click="openCreateRuleModal()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center transition shadow">
+            <i data-lucide="plus" class="w-4 h-4 mr-1"></i> + Buat Aturan Baru
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Bar -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="cpu" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-[11px] text-slate-500 font-medium">Total Aturan</div>
+            <div class="text-base font-bold text-slate-900 font-mono" x-text="autopilot_rules.length"></div>
+          </div>
+        </div>
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="activity" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-[11px] text-slate-500 font-medium">Aturan Berjalan Aktif</div>
+            <div class="text-base font-bold text-emerald-700 font-mono" x-text="activeAutopilotRules.length"></div>
+          </div>
+        </div>
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="layers" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-[11px] text-slate-500 font-medium">Sesi Ulasan Produk</div>
+            <div class="text-base font-bold text-slate-900 font-mono" x-text="mediaList.length > 0 ? Array.from(new Set(mediaList.map(m => m.session_id))).length : 0"></div>
+          </div>
+        </div>
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="bookmark" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-[11px] text-slate-500 font-medium">Bank Referensi Viral</div>
+            <div class="text-base font-bold text-slate-900 font-mono" x-text="viral_references.length"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Section: Daftar Aturan Autopilot Terkonfigurasi -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="sliders" class="w-4 h-4 text-purple-700"></i>
+            <h3 class="text-xs font-bold text-slate-900 uppercase">Daftar Aturan Autopilot Aktif (Cron Engine)</h3>
+            <span class="badge badge-xs badge-neutral font-mono font-bold" x-text="autopilot_rules.length"></span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <div class="flex space-x-1 border border-slate-200 rounded-lg p-0.5 bg-white text-xs">
+              <button type="button" @click="ruleFilterStatus = 'ALL'" :class="ruleFilterStatus === 'ALL' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600'" class="px-2.5 py-1 rounded text-[11px]">Semua</button>
+              <button type="button" @click="ruleFilterStatus = 'ACTIVE'" :class="ruleFilterStatus === 'ACTIVE' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600'" class="px-2.5 py-1 rounded text-[11px]">Aktif</button>
+              <button type="button" @click="ruleFilterStatus = 'PAUSED'" :class="ruleFilterStatus === 'PAUSED' ? 'bg-slate-600 text-white font-bold' : 'text-slate-600'" class="px-2.5 py-1 rounded text-[11px]">Jeda</button>
+            </div>
+            <button type="button" @click="openCreateRuleModal()" class="px-3 py-1 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-lg flex items-center transition shadow-2xs">
+              <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> Tambah Aturan
+            </button>
+          </div>
+        </div>
+
+        <!-- Grid Kartu Aturan Autopilot -->
+        <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <template x-for="rule in filteredAutopilotRules" :key="rule.rule_id">
+            <div class="bg-slate-50/60 border rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-purple-300 transition" :class="rule.status === 'ACTIVE' ? 'border-purple-200' : 'border-slate-200 opacity-75'">
+              <!-- Header Kartu: Status Switch & Nama Aturan -->
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="flex items-center space-x-2">
+                    <span class="font-bold text-slate-900 text-sm truncate" x-text="rule.name"></span>
+                    <button type="button" @click="toggleRuleStatus(rule)" :class="rule.status === 'ACTIVE' ? 'badge-success text-white' : 'badge-ghost text-slate-600'" class="badge badge-xs font-bold text-[9px] cursor-pointer hover:scale-105 transition" x-text="rule.status === 'ACTIVE' ? 'AKTIF' : 'DIJEDA'"></button>
+                  </div>
+                  <div class="text-[10px] text-slate-400 font-mono mt-0.5" x-text="'ID: ' + rule.rule_id"></div>
+                </div>
+                <div class="flex items-center space-x-1 flex-shrink-0">
+                  <button type="button" @click="runSpecificRuleNow(rule)" :disabled="runningRuleId === rule.rule_id" class="p-1.5 bg-white hover:bg-purple-50 text-purple-700 border border-slate-200 rounded-lg transition" title="Jalankan Siklus untuk Aturan Ini Sekarang">
+                    <span x-show="runningRuleId === rule.rule_id" class="animate-spin"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+                    <i x-show="runningRuleId !== rule.rule_id" data-lucide="play" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button type="button" @click="openEditRuleModal(rule)" class="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg transition" title="Edit Aturan">
+                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button type="button" @click="confirmDeleteAutopilotRule(rule)" class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg transition" title="Hapus Aturan">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Produk Target & Sesi Ulasan Terkunci -->
+              <div class="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center space-x-3 text-xs">
+                <div class="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                  <template x-if="getProductObj(rule.product_id)?.product_image_url">
+                    <img :src="getProductObj(rule.product_id)?.product_image_url" class="w-full h-full object-cover" alt="product">
+                  </template>
+                  <template x-if="!getProductObj(rule.product_id)?.product_image_url">
+                    <i data-lucide="package" class="w-5 h-5 text-slate-400"></i>
+                  </template>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-slate-900 truncate" x-text="getProductName(rule.product_id)"></div>
+                  <div class="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
+                    <span class="font-mono text-emerald-700 font-bold" x-text="'Rp ' + Number(getProductObj(rule.product_id)?.price || 0).toLocaleString('id-ID')"></span>
+                    <span>•</span>
+                    <span class="text-purple-700 font-semibold truncate" x-text="rule.preferred_session_id ? ('Sesi: ' + rule.preferred_session_id) : 'Rotasi Sesi Ulasan Utuh'"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Parameter Operasional Otonom -->
+              <div class="grid grid-cols-3 gap-2 text-[11px] text-slate-600">
+                <div class="p-2 bg-white rounded-lg border border-slate-200">
+                  <span class="text-[9px] uppercase font-bold text-slate-400 block">Frekuensi / Akun</span>
+                  <span class="font-bold text-slate-800" x-text="(rule.max_posts_per_day || 3) + 'x post/hari'"></span>
+                </div>
+                <div class="p-2 bg-white rounded-lg border border-slate-200">
+                  <span class="text-[9px] uppercase font-bold text-slate-400 block">Jeda Minimum</span>
+                  <span class="font-bold text-slate-800" x-text="(rule.min_interval_hours || 4) + ' jam'"></span>
+                </div>
+                <div class="p-2 bg-white rounded-lg border border-slate-200">
+                  <span class="text-[9px] uppercase font-bold text-slate-400 block">Ambang Views U2</span>
+                  <span class="font-bold text-purple-700 font-mono" x-text="(rule.views_threshold || 500) + ' views'"></span>
+                </div>
+              </div>
+
+              <!-- Badges Smart Engine: Winner Learning & Sesi Ulasan Bergilir -->
+              <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
+                <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold flex items-center">
+                  <i data-lucide="sparkles" class="w-3 h-3 mr-1 text-emerald-600"></i>
+                  <span>AI Winner Learning Aktif</span>
+                </span>
+                <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 font-semibold flex items-center">
+                  <i data-lucide="refresh-cw" class="w-3 h-3 mr-1 text-blue-600"></i>
+                  <span x-text="rule.last_session_id ? ('Rotasi Terakhir: ' + rule.last_session_id) : 'Rotasi Bergilir Otomatis'"></span>
+                </span>
+              </div>
+
+              <!-- Akun Target Threads -->
+              <div class="space-y-1">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Akun Target Penayangan:</span>
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="accId in parseRuleAccounts(rule.account_ids_json)" :key="accId">
+                    <span class="px-2 py-0.5 rounded-md bg-purple-50 text-purple-900 border border-purple-200 font-bold text-[10px]" x-text="'@' + getAccountName(accId)"></span>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Footer: Riwayat Eksekusi Terakhir -->
+              <div class="pt-2 border-t border-slate-200 text-[10px] text-slate-400 flex items-center justify-between">
+                <span>Terakhir generate: <strong class="text-slate-600" x-text="rule.last_run_at ? formatDateTime(rule.last_run_at) : 'Belum pernah'"></strong></span>
+                <span class="badge badge-xs badge-neutral text-[9px]" x-text="getViralRefsCountForProduct(rule.product_id) + ' Ref Viral'"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="filteredAutopilotRules.length === 0" class="text-center py-12 px-4 space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto">
+            <i data-lucide="sliders" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-800">Belum Ada Aturan Autopilot</div>
+            <p class="text-[11px] text-slate-400 max-w-sm mx-auto mt-0.5">
+              Tambahkan aturan autopilot untuk akun dan produk Anda. Mesin akan mengurus pembuatan konten dan penjadwalan secara otonom.
+            </p>
+          </div>
+          <button type="button" @click="openCreateRuleModal()" class="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl inline-flex items-center shadow-xs">
+            <i data-lucide="plus" class="w-4 h-4 mr-1"></i> Buat Aturan Autopilot Pertama
+          </button>
+        </div>
+      </div>
+
+      <!-- Bottom Shortcut to Dedicated Viral Reference Bank -->
+      <div class="p-4 bg-purple-50/80 rounded-2xl border border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center flex-shrink-0">
+            <i data-lucide="bookmark" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <span class="font-bold text-purple-950 block">Bank Referensi Viral Kini Memiliki Halaman Mandiri</span>
+            <span class="text-[11px] text-purple-700">Kelola formula hook multi-utas dan remake instan ke Post Composer.</span>
+          </div>
+        </div>
+        <button type="button" @click="switchTab('viral_refs')" class="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl flex items-center transition shadow-2xs flex-shrink-0">
+          <i data-lucide="external-link" class="w-3.5 h-3.5 mr-1.5"></i>
+          <span>Buka Bank Referensi Viral</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB: BANK REFERENSI VIRAL (HALAMAN MANDIRI DENGAN UTAS DINAMIS & REMAKE COMPOSER) -->
+    <div x-show="activeTab === 'viral_refs'" x-cloak class="space-y-6">
+      <!-- Header Banner Bank Referensi Viral -->
+      <div class="bg-gradient-to-r from-amber-950 via-slate-900 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border border-amber-900/50 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="badge badge-warning badge-sm font-bold text-slate-950">SWIPE-FILE VAULT</span>
+            <span class="text-xs text-amber-300 font-mono" x-text="viral_references.length + ' Formula Tersimpan'"></span>
+          </div>
+          <h2 class="text-base sm:text-lg font-bold mt-1">Bank Referensi Viral & Remake Instan</h2>
+          <p class="text-xs text-slate-400 max-w-2xl mt-0.5">
+            Penyimpanan formula hook dan ulasan berantai (1 s/d 4+ utas) dari konten FYP Threads. Klik tombol 'Remake di Composer' untuk langsung memicu Sumopod AI menuliskan variasi baru secara otomatis.
+          </p>
+        </div>
+        <div class="flex items-center space-x-2 flex-shrink-0">
+          <button type="button" @click="openAddViralRefModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center transition shadow-md">
+            <i data-lucide="plus" class="w-4 h-4 mr-1.5"></i> + Tambah Referensi Baru
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter & Search Toolbar -->
+      <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="relative flex-1 max-w-md">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+          <input type="text" x-model="viralRefSearchQuery" placeholder="Cari judul referensi, teks utas, atau produk..." class="w-full pl-9 pr-8 py-2 bg-slate-50 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+          <button x-show="viralRefSearchQuery" @click="viralRefSearchQuery = ''" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-2 text-xs">
+          <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+            <i data-lucide="filter" class="w-3.5 h-3.5 text-slate-400"></i>
+            <select x-model="viralRefProductFilter" class="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer">
+              <option value="ALL">Semua Produk</option>
+              <template x-for="p in products" :key="p.product_id">
+                <option :value="p.product_id" x-text="p.product_name"></option>
+              </template>
+            </select>
+          </div>
+          <span class="text-slate-400 font-mono text-[11px]" x-text="'Total: ' + filteredViralReferences.length"></span>
+        </div>
+      </div>
+
+      <!-- Grid Kartu Referensi Viral -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template x-for="ref in filteredViralReferences" :key="ref.ref_id">
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-amber-300 transition flex flex-col justify-between space-y-3 group">
+            <!-- Header Kartu -->
+            <div>
+              <div class="flex justify-between items-start gap-2">
+                <div class="min-w-0">
+                  <h3 class="font-bold text-slate-900 text-sm truncate" x-text="ref.title"></h3>
+                  <div class="flex items-center space-x-1.5 mt-0.5">
+                    <span class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded" x-text="getProductName(ref.product_id) || 'Umum (Semua Produk)'"></span>
+                    <span class="badge badge-xs badge-neutral font-mono text-[9px]" x-text="getViralRefThreads(ref).length + ' Utas'"></span>
+                  </div>
+                </div>
+                <div class="flex items-center space-x-1 flex-shrink-0">
+                  <button type="button" @click="openEditViralRefModal(ref)" class="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition" title="Edit Referensi">
+                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button type="button" @click="confirmDeleteViralRef(ref.ref_id)" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Hapus Referensi">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Preview Rangkaian Utas Berantai -->
+              <div class="mt-3 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <template x-for="(thTxt, tIdx) in getViralRefThreads(ref)" :key="tIdx">
+                  <div class="p-2 rounded-xl border text-xs" :class="tIdx === 0 ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50 border-slate-100'">
+                    <div class="flex items-center justify-between text-[10px] font-bold mb-0.5" :class="tIdx === 0 ? 'text-amber-800' : 'text-slate-600'">
+                      <span x-text="tIdx === 0 ? 'Utas #1 (Root Hook)' : 'Utas #' + (tIdx + 1) + ' (Lanjutan)'"></span>
+                      <span class="font-mono text-slate-400 font-normal" x-text="thTxt.length + ' kar'"></span>
+                    </div>
+                    <p class="text-slate-700 italic line-clamp-3 leading-relaxed text-[11px]" x-text="thTxt"></p>
+                  </div>
+                </template>
+              </div>
+
+              <!-- URL Sumber Inspirasi jika ada -->
+              <div x-show="ref.original_url" class="mt-2 text-[10px] text-slate-400 truncate flex items-center">
+                <i data-lucide="link" class="w-3 h-3 mr-1 flex-shrink-0"></i>
+                <a :href="ref.original_url" target="_blank" class="truncate text-blue-600 hover:underline" x-text="ref.original_url"></a>
+              </div>
+            </div>
+
+            <!-- Tombol Aksi Utama: ✨ Remake di Composer -->
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+              <span class="text-[9px] text-slate-400 font-mono" x-text="'ID: ' + ref.ref_id"></span>
+              <button type="button" @click="remakeViralRefToComposer(ref)" class="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl flex items-center transition shadow-2xs group-hover:scale-102">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 mr-1.5 text-amber-300"></i>
+                <span>✨ Remake di Composer</span>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div x-show="filteredViralReferences.length === 0" class="text-center py-16 bg-white rounded-3xl border border-slate-200 space-y-3">
+        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+          <i data-lucide="bookmark" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="text-xs font-bold text-slate-800">Belum Ada Formula Referensi Viral</div>
+          <p class="text-[11px] text-slate-400 max-w-sm mx-auto mt-0.5">
+            Simpan formula hook viral Threads favorit Anda di sini. Anda dapat langsung menggunakannya atau meremakenya dengan Sumopod AI kapan saja.
+          </p>
+        </div>
+        <button type="button" @click="openAddViralRefModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl inline-flex items-center shadow-xs">
+          <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> Tambah Referensi Pertama
+        </button>
       </div>
     </div>
 
@@ -455,6 +895,42 @@
                     Belum ada produk dikaitkan di utas ini. Klik "+ Tambah / Kelola Produk" untuk mengaitkan 1 atau beberapa produk Shopee.
                   </div>
 
+                  <!-- Pilihan Paket Sesi Ulasan Pembeli Langsung di Post Composer -->
+                  <div x-show="getNodeReviewSessions(thread).length > 0" class="mt-2.5 pt-2 border-t border-slate-200">
+                    <div class="flex items-center justify-between mb-1.5">
+                      <div class="flex items-center space-x-1.5 text-xs font-bold text-slate-800">
+                        <i data-lucide="layers" class="w-3.5 h-3.5 text-emerald-600"></i>
+                        <span>Pilih Paket Sesi Ulasan Pembeli:</span>
+                      </div>
+                      <span class="text-[10px] text-slate-400 font-mono" x-text="getNodeReviewSessions(thread).length + ' Sesi Tersedia'"></span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <template x-for="(sess, sIdx) in getNodeReviewSessions(thread)" :key="sess.session_id">
+                        <div class="p-2 rounded-xl border transition flex items-center justify-between gap-2"
+                             :class="isSessionActiveInThread(thread, sess) ? 'border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-500 shadow-2xs' : 'border-slate-200 bg-white hover:border-emerald-300'">
+                          <div class="min-w-0 flex items-center space-x-2">
+                            <span class="w-6 h-6 rounded-lg bg-emerald-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0" x-text="sIdx + 1"></span>
+                            <div class="truncate">
+                              <span class="font-bold text-slate-900 text-[11px] truncate block" x-text="'Sesi #' + (sIdx + 1) + ': ' + sess.session_id"></span>
+                              <div class="flex items-center space-x-1.5 text-[9px] text-slate-500">
+                                <span class="font-mono text-emerald-700 font-bold" x-text="sess.media_items.length + ' Media'"></span>
+                                <span>•</span>
+                                <span class="truncate" x-text="sess.product_name"></span>
+                              </div>
+                            </div>
+                          </div>
+                          <button type="button" @click="applyWholeSessionToThread(thread, sess)"
+                                  :class="isSessionActiveInThread(thread, sess) ? 'bg-emerald-600 text-white font-black' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-bold'"
+                                  class="px-2.5 py-1 text-[10px] rounded-lg transition shadow-2xs flex-shrink-0 flex items-center">
+                            <span x-show="isSessionActiveInThread(thread, sess)" class="mr-1">✓</span>
+                            <span x-text="isSessionActiveInThread(thread, sess) ? 'Terpasang' : '+ Pasang Paket'"></span>
+                          </button>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
                   <!-- Panel Checklist Pemilih Multi-Produk Modular -->
                   <div x-show="thread._showProductPicker" class="mt-2 pt-2 border-t border-slate-200 max-h-56 overflow-y-auto space-y-1.5">
                     <div class="relative mb-1">
@@ -492,6 +968,38 @@
                     <div x-show="getNodeFilteredProducts(thread).length === 0" class="text-center py-3 text-[11px] text-slate-400">
                       Tidak ada produk yang diizinkan untuk akun terpilih atau cocok dengan pencarian.
                     </div>
+                  </div>
+                </div>
+
+                <!-- Toolbar Utas: AI Option Generator & Label -->
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-[11px] font-semibold text-slate-600" x-text="index === 0 ? 'Teks Hook Pembuka (Utas 1):' : 'Teks Utas #' + (index + 1) + ':'"></span>
+                  <button type="button" @click="generateOptionsForThread(thread, index)" :disabled="thread._isGeneratingAi" class="px-2.5 py-1 text-[11px] font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg flex items-center transition shadow-2xs group disabled:opacity-60" title="Generate 3 pilihan caption cerdas dari Sumopod AI">
+                    <span x-show="thread._isGeneratingAi" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+                    <i x-show="!thread._isGeneratingAi" data-lucide="sparkles" class="w-3.5 h-3.5 mr-1 text-amber-300 group-hover:rotate-12 transition-transform"></i>
+                    <span x-text="thread._isGeneratingAi ? 'Membuat 3 Opsi...' : '✨ Buat Opsi AI'"></span>
+                  </button>
+                </div>
+
+                <!-- Kontainer Pilihan Opsi AI (Jika Ada) -->
+                <div x-show="thread._aiOptions && thread._aiOptions.length > 0" class="mb-2.5 p-2.5 bg-purple-50/80 border border-purple-200 rounded-xl space-y-2 transition">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-1.5 text-xs font-bold text-purple-950">
+                      <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-600"></i>
+                      <span>Pilih Opsi Caption AI (Klik untuk Langsung Pakai):</span>
+                    </div>
+                    <button type="button" @click="thread._aiOptions = []" class="text-slate-400 hover:text-slate-600 p-0.5" title="Tutup Opsi">
+                      <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                  <div class="space-y-1.5">
+                    <template x-for="(opt, optIdx) in (thread._aiOptions || [])" :key="optIdx">
+                      <button type="button" @click="applyAiOptionToThread(thread, opt)" class="w-full text-left p-2.5 bg-white hover:bg-purple-100/70 border border-purple-100 hover:border-purple-300 rounded-lg text-xs transition flex items-start space-x-2 group">
+                        <span class="w-4 h-4 rounded-full bg-purple-100 text-purple-800 text-[9px] font-bold flex items-center justify-center flex-shrink-0 group-hover:bg-purple-600 group-hover:text-white transition mt-0.5" x-text="optIdx + 1"></span>
+                        <p class="text-slate-800 text-[11px] leading-relaxed flex-1 italic group-hover:text-purple-950 font-sans" x-text="opt"></p>
+                        <span class="text-[10px] font-bold text-purple-600 opacity-0 group-hover:opacity-100 transition whitespace-nowrap self-center">+ Pakai</span>
+                      </button>
+                    </template>
                   </div>
                 </div>
 
@@ -548,44 +1056,67 @@
                     </template>
                   </div>
 
-                  <!-- Panel Thumbnail Picker Media Produk Terkait / Vault -->
-                  <div x-show="thread._showPicker" class="p-3 bg-white rounded-xl border border-slate-200 max-h-60 overflow-y-auto mt-1 space-y-2">
-                    <!-- Filter Tabs Kategori Media -->
-                    <div class="flex items-center space-x-1 overflow-x-auto pb-1 text-[10px]">
-                      <button type="button" @click="thread._mediaFilterTab = 'ATTACHED'" :class="(thread._mediaFilterTab === 'ATTACHED' || !thread._mediaFilterTab) ? 'bg-slate-900 text-white font-bold' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded whitespace-nowrap">
-                        Produk Utas Ini (<span x-text="getNodeProducts(thread).length"></span>)
-                      </button>
-                      <template x-for="p in getNodeProducts(thread)" :key="p.product_id">
-                        <button type="button" @click="thread._mediaFilterTab = p.product_id" :class="thread._mediaFilterTab === p.product_id ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded whitespace-nowrap truncate max-w-[120px]" x-text="p.product_name"></button>
-                      </template>
-                      <button type="button" @click="thread._mediaFilterTab = 'VAULT'" :class="thread._mediaFilterTab === 'VAULT' ? 'bg-slate-900 text-white font-bold' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded whitespace-nowrap">
-                        Semua Vault (<span x-text="mediaList.length"></span>)
+                  <!-- Panel Thumbnail Picker Media Produk Terkait Berdasarkan Sesi Ulasan (Tanpa Vault) -->
+                  <div x-show="thread._showPicker" class="p-3 bg-white rounded-xl border border-slate-200 max-h-64 overflow-y-auto mt-1 space-y-3">
+                    <div class="flex items-center justify-between text-[11px] pb-1 border-b border-slate-100">
+                      <span class="font-bold text-slate-800 flex items-center">
+                        <i data-lucide="layers" class="w-3.5 h-3.5 mr-1 text-emerald-600"></i>
+                        <span>Sesi Ulasan Pembeli Produk Terkait:</span>
+                      </span>
+                      <span class="text-[10px] text-slate-400 font-mono" x-text="getNodeReviewSessions(thread).length + ' Sesi Tersedia'"></span>
+                    </div>
+
+                    <!-- Daftar Sesi Ulasan Terisolasi -->
+                    <template x-for="(sess, sIdx) in getNodeReviewSessions(thread)" :key="sess.session_id">
+                      <div class="p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 space-y-2">
+                        <div class="flex items-center justify-between">
+                          <div class="min-w-0 flex items-center space-x-1.5">
+                            <span class="w-5 h-5 rounded-md bg-emerald-600 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0" x-text="sIdx + 1"></span>
+                            <div class="truncate">
+                              <span class="font-bold text-slate-900 text-[11px] truncate block" x-text="sess.session_id"></span>
+                              <span class="text-[9px] text-slate-500 truncate block" x-text="sess.product_name"></span>
+                            </div>
+                          </div>
+                          <button type="button" @click="applyWholeSessionToThread(thread, sess)" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition shadow-2xs flex-shrink-0">
+                            + Pilih Seluruh Sesi Ini (<span x-text="sess.media_items.length"></span>)
+                          </button>
+                        </div>
+
+                        <!-- Grid Media dalam Sesi Ini -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <template x-for="item in sess.media_items" :key="item.media_id">
+                            <label :class="isMediaSelectedForThread(thread, item.media_id) ? 'border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-500' : 'border-slate-200 bg-white hover:bg-slate-100'" class="p-1 rounded-lg border flex items-center space-x-1.5 cursor-pointer transition relative">
+                              <input type="checkbox" :checked="isMediaSelectedForThread(thread, item.media_id)" @change="toggleMediaForThread(thread, item.media_id)" class="checkbox checkbox-xs checkbox-primary">
+                              <template x-if="item.media_type === 'IMAGE'">
+                                <img :src="item.media_url" class="w-8 h-8 object-cover rounded flex-shrink-0" alt="thumb">
+                              </template>
+                              <template x-if="item.media_type === 'VIDEO'">
+                                <div class="w-8 h-8 bg-slate-800 text-white rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0">MP4</div>
+                              </template>
+                              <div class="min-w-0 flex-1">
+                                <div class="text-[9px] font-mono text-slate-700 truncate" x-text="item.media_id"></div>
+                                <span x-show="isCooldownActive(item.cooldown_until)" class="text-[8px] font-bold text-amber-600 block">Cooldown</span>
+                                <span x-show="!isCooldownActive(item.cooldown_until)" class="text-[8px] font-bold text-emerald-600 block">Fresh</span>
+                              </div>
+                            </label>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- Empty State jika belum ada produk dikaitkan atau produk belum memiliki sesi -->
+                    <div x-show="getNodeProducts(thread).length === 0" class="text-center py-4 text-slate-400 text-xs space-y-1">
+                      <p>Kaitkan produk Shopee terlebih dahulu pada utas ini untuk memilih media ulasannya.</p>
+                      <button type="button" @click="thread._showPicker = false; thread._showProductPicker = true" class="text-emerald-700 font-bold hover:underline text-[11px]">
+                        + Kaitkan Produk Sekarang
                       </button>
                     </div>
 
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <template x-for="item in getNodeMediaForPicker(thread)" :key="item.media_id">
-                        <label :class="isMediaSelectedForThread(thread, item.media_id) ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50'" class="p-1.5 rounded-lg border flex items-center space-x-2 cursor-pointer hover:bg-slate-100 transition relative">
-                          <input type="checkbox" :checked="isMediaSelectedForThread(thread, item.media_id)" @change="toggleMediaForThread(thread, item.media_id)" class="checkbox checkbox-xs checkbox-primary">
-                          <template x-if="item.media_type === 'IMAGE'">
-                            <img :src="item.media_url" class="w-8 h-8 object-cover rounded flex-shrink-0" alt="thumb">
-                          </template>
-                          <template x-if="item.media_type === 'VIDEO'">
-                            <div class="w-8 h-8 bg-slate-800 text-white rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0">MP4</div>
-                          </template>
-                          <div class="min-w-0 flex-1">
-                            <div class="text-[10px] font-bold text-slate-800 truncate" x-text="getMediaProductName(item.product_id)"></div>
-                            <div class="text-[9px] text-slate-500 truncate font-mono" x-text="item.session_id"></div>
-                            <div class="flex items-center space-x-1 mt-0.5">
-                              <span x-show="isCooldownActive(item.cooldown_until)" class="text-[8px] font-bold text-amber-600">Cooldown</span>
-                              <span x-show="!isCooldownActive(item.cooldown_until)" class="text-[8px] font-bold text-emerald-600">Fresh</span>
-                            </div>
-                          </div>
-                        </label>
-                      </template>
-                    </div>
-                    <div x-show="getNodeMediaForPicker(thread).length === 0" class="text-center py-4 text-slate-400 text-xs">
-                      Belum ada media untuk filter ini. Unggah media di tab Media & Produk.
+                    <div x-show="getNodeProducts(thread).length > 0 && getNodeReviewSessions(thread).length === 0" class="text-center py-4 text-slate-400 text-xs space-y-1">
+                      <p>Produk terkait di utas ini belum memiliki file media sesi ulasan.</p>
+                      <button type="button" @click="switchTab('media')" class="text-emerald-700 font-bold hover:underline text-[11px]">
+                        Buka Master Media & Produk untuk Unggah Sesi
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1381,7 +1912,317 @@
       </div>
     </div>
 
+    <!-- TAB 6: PENGATURAN SISTEM (HALAMAN MANDIRI BER-TAB) -->
+    <div x-show="activeTab === 'settings'" x-cloak class="space-y-6">
+      <!-- Header Banner Settings -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="badge badge-success badge-sm font-bold">SYSTEM CONFIGURATION</span>
+            <span class="text-xs text-slate-400 font-mono">Control Center</span>
+          </div>
+          <h2 class="text-base sm:text-lg font-bold mt-1">Pengaturan Sistem & Kredensial Engine</h2>
+          <p class="text-xs text-slate-400 max-w-xl mt-0.5">
+            Konfigurasikan integrasi AI Sumopod & Gemini, penyimpanan Cloudinary, serta penjadwal otonom background.
+          </p>
+        </div>
+        <div class="flex items-center space-x-2 flex-shrink-0">
+          <button type="button" @click="saveSystemSettings()" :disabled="isSavingSettings" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center transition shadow-md disabled:opacity-50">
+            <span x-show="isSavingSettings" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-4 h-4"></i></span>
+            <i x-show="!isSavingSettings" data-lucide="save" class="w-4 h-4 mr-1.5"></i>
+            <span>Simpan Semua Pengaturan</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sub-Tabs Navigation -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="flex border-b border-slate-200 bg-slate-50/70 overflow-x-auto scrollbar-none">
+          <button type="button" @click="settingsSubTab = 'ai'; $nextTick(() => lucide.createIcons())" :class="settingsSubTab === 'ai' ? 'bg-white border-b-2 border-purple-600 text-purple-700 font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'" class="px-5 py-3.5 text-xs flex items-center whitespace-nowrap transition">
+            <i data-lucide="bot" class="w-4 h-4 mr-2 text-purple-600"></i>
+            <span>Tab 1: Konfigurasi AI (Sumopod & Gemini)</span>
+          </button>
+          <button type="button" @click="settingsSubTab = 'cloudinary'; $nextTick(() => lucide.createIcons())" :class="settingsSubTab === 'cloudinary' ? 'bg-white border-b-2 border-blue-600 text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'" class="px-5 py-3.5 text-xs flex items-center whitespace-nowrap transition">
+            <i data-lucide="cloud-cog" class="w-4 h-4 mr-2 text-blue-600"></i>
+            <span>Tab 2: Penyimpanan Media (Cloudinary)</span>
+          </button>
+          <button type="button" @click="settingsSubTab = 'scheduler'; $nextTick(() => lucide.createIcons())" :class="settingsSubTab === 'scheduler' ? 'bg-white border-b-2 border-emerald-600 text-emerald-700 font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'" class="px-5 py-3.5 text-xs flex items-center whitespace-nowrap transition">
+            <i data-lucide="timer" class="w-4 h-4 mr-2 text-emerald-600"></i>
+            <span>Tab 3: Scheduler & Autopilot Background</span>
+          </button>
+        </div>
+
+        <!-- Sub-Tab 1: Konfigurasi AI -->
+        <div x-show="settingsSubTab === 'ai'" class="p-6 space-y-6">
+          <!-- Sumopod API Box -->
+          <div class="p-5 bg-purple-50/50 rounded-2xl border border-purple-200/80 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="sparkles" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-purple-950 uppercase">Sumopod AI API (Mesin Utama AI Autopilot & Remake)</h3>
+                  <span class="text-[11px] text-purple-700 font-medium">Digunakan secara otonom untuk merekayasa ulang hook viral & spill produk Shopee.</span>
+                </div>
+              </div>
+              <span class="badge badge-secondary badge-sm font-bold">PRIMARY AI</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div class="sm:col-span-2">
+                <label class="block font-semibold text-slate-700 mb-1">Sumopod API Key <span class="text-rose-500">*</span></label>
+                <input type="password" x-model="settings.sumopod_api_key" placeholder="sp-..." class="w-full p-2.5 border border-slate-300 rounded-xl font-mono bg-white focus:ring-2 focus:ring-purple-500">
+                <span class="text-[10px] text-slate-400 mt-0.5 block">Kunci API Sumopod untuk pemanggilan endpoint Chat Completions.</span>
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Sumopod Endpoint URL</label>
+                <input type="text" x-model="settings.sumopod_endpoint" placeholder="https://api.sumopod.com/v1/chat/completions" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-[11px] bg-white">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Sumopod Model Name</label>
+                <input type="text" x-model="settings.sumopod_model" placeholder="gpt-4o-mini" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-[11px] bg-white">
+              </div>
+            </div>
+          </div>
+
+          <!-- Google Gemini API Box -->
+          <div class="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="cpu" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-slate-900 uppercase">Google Gemini API (Cadangan AI Hook Studio)</h3>
+                  <span class="text-[11px] text-slate-500">Digunakan pada Post Composer untuk brainstorming hook manual.</span>
+                </div>
+              </div>
+              <span class="badge badge-neutral badge-sm font-bold">BACKUP / STUDIO</span>
+            </div>
+
+            <div class="text-xs">
+              <label class="block font-semibold text-slate-700 mb-1">Gemini API Key</label>
+              <input type="password" x-model="settings.gemini_key" placeholder="AIzaSy..." class="w-full p-2.5 border border-slate-300 rounded-xl font-mono bg-white focus:ring-2 focus:ring-emerald-500">
+              <span class="text-[10px] text-slate-400 mt-0.5 block">Dapatkan gratis dari Google AI Studio (Model gemini-1.5-flash via REST).</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Tab 2: Penyimpanan Media Cloudinary -->
+        <div x-show="settingsSubTab === 'cloudinary'" class="p-6 space-y-6">
+          <div class="p-5 bg-blue-50/50 rounded-2xl border border-blue-200/80 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="cloud" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-blue-950 uppercase">Kredensial Cloudinary Media Vault</h3>
+                  <span class="text-[11px] text-blue-700 font-medium">Penyimpanan aset foto/video unboxing & ulasan Shopee dengan CDN publik untuk Meta Threads.</span>
+                </div>
+              </div>
+              <span class="badge badge-info badge-sm font-bold">ASSET VAULT</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Cloud Name <span class="text-rose-500">*</span></label>
+                <input type="text" x-model="settings.cloudinary_cloud" placeholder="Contoh: mycloud123" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Upload Preset (Unsigned) <span class="text-rose-500">*</span></label>
+                <input type="text" x-model="settings.cloudinary_preset" placeholder="Contoh: threads_unsigned" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium">
+                <span class="text-[10px] text-slate-400 mt-0.5 block">Wajib berjenis 'Unsigned' untuk direct upload dari browser frontend.</span>
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">API Key</label>
+                <input type="text" x-model="settings.cloudinary_api_key" placeholder="Contoh: 123456789012345" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono bg-white">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">API Secret</label>
+                <input type="password" x-model="settings.cloudinary_api_secret" placeholder="Tempelkan API Secret..." class="w-full p-2.5 border border-slate-300 rounded-xl font-mono bg-white">
+                <span class="text-[10px] text-slate-400 mt-0.5 block">Diperlukan backend untuk fitur Auto-Delete fisik permanen saat media produk dihapus.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Tab 3: Scheduler & Autopilot Background -->
+        <div x-show="settingsSubTab === 'scheduler'" class="p-6 space-y-6">
+          <!-- Apps Script Deployment URL -->
+          <div class="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+            <div class="flex items-center space-x-2">
+              <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+                <i data-lucide="code-2" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-xs font-bold text-slate-900 uppercase">Google Apps Script Deployment URL</h3>
+                <span class="text-[11px] text-slate-500">URL Web App doPost dispatcher yang melayani komunikasi frontend dan Google Sheets.</span>
+              </div>
+            </div>
+
+            <div class="text-xs">
+              <label class="block font-semibold text-slate-700 mb-1">Web App Executable URL</label>
+              <input type="text" x-model="currentScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-[11px] bg-white">
+              <span class="text-[10px] text-slate-400 mt-0.5 block">Wajib diset ke: Execute as: "Me", Access: "Anyone".</span>
+            </div>
+          </div>
+
+          <!-- Cron Trigger Setup -->
+          <div class="p-5 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="clock" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-emerald-950 uppercase">Time-Driven Trigger (Background Cron Automation)</h3>
+                  <span class="text-[11px] text-emerald-700 font-medium">Menjalankan mesin otonom autopilot, antrean posting tayang, dan pemantauan views.</span>
+                </div>
+              </div>
+              <span class="badge badge-success badge-sm font-bold">CRON ENGINE</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Interval Siklus Trigger</label>
+                <select x-model.number="triggerInterval" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-bold">
+                  <option :value="1">Setiap 1 Menit (Ultra Cepat)</option>
+                  <option :value="5">Setiap 5 Menit (Direkomendasikan)</option>
+                  <option :value="10">Setiap 10 Menit (Hemat Kuota)</option>
+                  <option :value="15">Setiap 15 Menit</option>
+                </select>
+                <span class="text-[10px] text-slate-400 mt-0.5 block">Memicu fungsi checkAndExecuteQueueAndViews() secara berkala di cloud Google.</span>
+              </div>
+              <div class="flex flex-col justify-end">
+                <button type="button" @click="activateAutoTrigger()" :disabled="isSettingTrigger" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center transition shadow-xs disabled:opacity-50">
+                  <span x-show="isSettingTrigger" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-4 h-4"></i></span>
+                  <i x-show="!isSettingTrigger" data-lucide="zap" class="w-4 h-4 mr-1.5"></i>
+                  <span x-text="'Pasang Trigger Tiap ' + triggerInterval + ' Menit'"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual Trigger Execution -->
+          <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+            <div>
+              <span class="font-bold text-slate-800 block">Uji Eksekusi Manual Seluruh Mesin</span>
+              <span class="text-[11px] text-slate-500">Menjalankan satu siklus penuh langsung dari browser: Autopilot Worker + Antrean Tayang + Views Polling.</span>
+            </div>
+            <button type="button" @click="executeQueueAndViewsNow()" :disabled="isExecutingQueueAndViews" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl flex items-center transition shadow-xs disabled:opacity-50 flex-shrink-0">
+              <span x-show="isExecutingQueueAndViews" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+              <i x-show="!isExecutingQueueAndViews" data-lucide="play" class="w-3.5 h-3.5 mr-1.5"></i>
+              <span>Jalankan Manual Sekarang</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Footer Action Inside Settings Page -->
+        <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+          <button type="button" @click="saveSystemSettings()" :disabled="isSavingSettings" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center transition shadow-xs disabled:opacity-50">
+            <span x-show="isSavingSettings" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-4 h-4"></i></span>
+            <i x-show="!isSavingSettings" data-lucide="save" class="w-4 h-4 mr-1.5"></i>
+            <span>Simpan Perubahan</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
   </main>
+</div>
+</div>
+
+  <!-- MODAL TAMBAH / EDIT REFERENSI VIRAL (RANGKAIAN UTAS DINAMIS) -->
+  <div x-show="modals.addViralRefModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div @click.away="!isSavingViralRef && closeModal('addViralRefModal')" class="bg-white max-w-xl w-full rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[92vh] flex flex-col">
+      <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+            <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900" x-text="isEditingViralRef ? 'Edit Referensi Viral' : 'Simpan Formula Referensi Viral'"></h3>
+            <span class="text-[11px] text-slate-500 font-medium">Mendukung Rangkaian Multi-Utas Dinamis (1 s/d 4+ Utas)</span>
+          </div>
+        </div>
+        <button @click="closeModal('addViralRefModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="space-y-3.5 text-xs overflow-y-auto flex-1 pr-1">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Judul / Label Referensi <span class="text-rose-500">*</span></label>
+          <input type="text" x-model="newViralRef.title" placeholder="Contoh: Story Penyesalan Belanja Online FYP" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">URL Sumber Postingan (Opsional)</label>
+          <input type="text" x-model="newViralRef.original_url" placeholder="https://www.threads.net/@creator/post/..." class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-mono text-[11px]">
+        </div>
+
+        <!-- Pemilih Produk Terkait -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-semibold text-slate-700 flex items-center">
+              <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Produk Terkait (Shopee Master)
+            </label>
+            <button type="button" @click="closeModal('addViralRefModal'); openAddProductModal()" class="text-[11px] font-bold text-emerald-700 hover:underline flex items-center">
+              <i data-lucide="plus" class="w-3 h-3 mr-0.5"></i> + Tambah Produk
+            </button>
+          </div>
+          <select x-model="newViralRef.product_id" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium">
+            <option value="">-- Umum / Tanpa Produk Khusus --</option>
+            <template x-for="p in products" :key="p.product_id">
+              <option :value="p.product_id" x-text="p.product_name + ' (Rp ' + Number(p.price || 0).toLocaleString('id-ID') + ')'"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Rangkaian Utas Dinamis (Form Builder Multi-Utas) -->
+        <div class="space-y-2.5 pt-1">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+            <span class="font-bold text-slate-800 flex items-center">
+              <i data-lucide="list-ordered" class="w-3.5 h-3.5 text-amber-600 mr-1"></i> Rangkaian Teks Utas:
+            </span>
+            <span class="badge badge-xs badge-neutral font-mono font-bold" x-text="newViralRef.threads.length + ' Utas'"></span>
+          </div>
+
+          <template x-for="(threadTxt, idx) in newViralRef.threads" :key="idx">
+            <div class="p-3 rounded-xl border bg-slate-50 space-y-1.5" :class="idx === 0 ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'">
+              <div class="flex justify-between items-center text-[10px]">
+                <div class="flex items-center space-x-1.5">
+                  <span class="px-1.5 py-0.2 rounded font-bold uppercase" :class="idx === 0 ? 'bg-amber-600 text-white' : 'bg-slate-700 text-white'" x-text="idx === 0 ? 'Utas #1 (Root Hook)' : 'Utas #' + (idx + 1) + ' (Lanjutan)'"></span>
+                  <span class="font-mono text-slate-400" x-text="(newViralRef.threads[idx] ? newViralRef.threads[idx].length : 0) + ' kar'"></span>
+                </div>
+                <div class="flex items-center space-x-1.5">
+                  <button type="button" @click="insertAffiliateTagToRefThread(idx)" class="text-[10px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1.5 py-0.2 rounded font-semibold transition" title="Sisipkan tag affiliate">
+                    + [LINK_AFFILIATE]
+                  </button>
+                  <button type="button" x-show="newViralRef.threads.length > 1" @click="removeViralRefThreadNode(idx)" class="text-slate-400 hover:text-rose-600 p-0.5" title="Hapus Utas Ini">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+              <textarea x-model="newViralRef.threads[idx]" rows="3" :placeholder="idx === 0 ? 'Tulis kalimat hook pembuka viral (tanpa link eksternal)...' : 'Tulis ulasan lanjutan atau spill link checkout produk...'" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-xs"></textarea>
+            </div>
+          </template>
+
+          <button type="button" @click="addViralRefThreadNode()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 border border-dashed border-slate-300 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center transition">
+            <i data-lucide="plus" class="w-3.5 h-3.5 mr-1 text-amber-600"></i> + Tambah Utas Lanjutan
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button type="button" @click="closeModal('addViralRefModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Batal</button>
+        <button type="button" @click="saveViralRef()" :disabled="isSavingViralRef" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl flex items-center shadow-sm disabled:opacity-50 transition">
+          <span x-show="isSavingViralRef" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+          <span x-text="isSavingViralRef ? 'Menyimpan...' : (isEditingViralRef ? 'Simpan Perubahan' : 'Simpan Referensi')"></span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- ADD HOOK MODAL -->
   <div x-show="modals.addHookModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
@@ -1576,6 +2417,39 @@
     </div>
   </div>
 
+  <!-- VIDEO PREVIEW FULL-SIZE MODAL -->
+  <div x-show="modals.videoPreviewModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-3 sm:p-4">
+    <div @click.away="closeVideoPreview()" class="bg-slate-950 max-w-xl w-full rounded-2xl shadow-2xl p-4 sm:p-5 border border-slate-800 text-white flex flex-col space-y-3">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+            <i data-lucide="video" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-xs sm:text-sm font-bold text-white truncate max-w-[280px] sm:max-w-md" x-text="previewVideoTitle || 'Pratinjau Video Ulasan'"></h3>
+            <span class="text-[10px] text-slate-400 font-mono">Format MP4 • Pemutar Penuh</span>
+          </div>
+        </div>
+        <button type="button" @click="closeVideoPreview()" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="relative bg-black rounded-xl overflow-hidden flex items-center justify-center">
+        <template x-if="previewVideoUrl">
+          <video :src="previewVideoUrl" controls autoplay playsinline class="w-full max-h-[65vh] object-contain"></video>
+        </template>
+      </div>
+
+      <div class="flex justify-between items-center pt-2 border-t border-slate-800 text-xs">
+        <span class="text-[11px] text-slate-400 font-mono truncate max-w-[250px]" x-text="previewVideoUrl ? previewVideoUrl.split('/').pop() : ''"></span>
+        <button type="button" @click="closeVideoPreview()" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- QUICK REPLY MODAL (Auto-Auth Unified Inbox) -->
   <div x-show="modals.replyModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
     <div @click.away="closeModal('replyModal')" class="bg-white max-w-lg w-full rounded-2xl shadow-xl p-5">
@@ -1654,58 +2528,84 @@
         </div>
       </div>
 
-      <!-- Media Grid Body -->
-      <div class="flex-1 overflow-y-auto pr-1">
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          <template x-for="item in getProductMedia(selectedProductForMedia ? selectedProductForMedia.product_id : '')" :key="item.media_id">
-            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs flex flex-col group relative">
-              <div class="h-32 bg-slate-100 relative flex items-center justify-center overflow-hidden">
-                <template x-if="item.media_type === 'IMAGE'">
-                  <img :src="item.media_url" class="object-cover w-full h-full" alt="Asset">
-                </template>
-                <template x-if="item.media_type === 'VIDEO'">
-                  <div class="flex flex-col items-center text-slate-400">
-                    <i data-lucide="video" class="w-8 h-8"></i>
-                    <span class="text-[9px] mt-1 font-mono font-bold">MP4 Video</span>
+      <!-- Media Grouped by Review Session Body -->
+      <div class="flex-1 overflow-y-auto pr-1 space-y-4">
+        <template x-for="(sess, sIdx) in getProductReviewSessions(selectedProductForMedia ? selectedProductForMedia.product_id : '')" :key="sess.session_id">
+          <div class="bg-slate-50/70 border border-slate-200 rounded-2xl p-4 space-y-3">
+            <!-- Session Section Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/70 pb-2.5">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0" x-text="sIdx + 1"></div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <span class="font-bold text-slate-900 text-xs" x-text="'Sesi Ulasan #' + (sIdx + 1) + ': ' + sess.session_id"></span>
+                    <span class="badge badge-xs badge-neutral font-mono font-bold" x-text="sess.media_items.length + ' item'"></span>
                   </div>
-                </template>
-
-                <!-- Badge Cooldown / Fresh -->
-                <div class="absolute top-2 right-2">
-                  <span x-show="isCooldownActive(item.cooldown_until)" class="px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-500 text-white flex items-center shadow-2xs">
-                    <i data-lucide="clock" class="w-3 h-3 mr-0.5"></i> Cooldown
-                  </span>
-                  <span x-show="!isCooldownActive(item.cooldown_until)" class="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500 text-white flex items-center shadow-2xs">
-                    <i data-lucide="check" class="w-3 h-3 mr-0.5"></i> Fresh
-                  </span>
+                  <span class="text-[10px] text-slate-400 font-mono" x-text="'Paket ulasan terisolasi untuk 1 variasi post'"></span>
                 </div>
               </div>
-
-              <div class="p-2.5 text-xs flex-1 flex flex-col justify-between bg-white space-y-2">
-                <div>
-                  <div class="font-bold text-slate-800 text-[11px] truncate" x-text="item.session_id"></div>
-                  <div class="text-slate-400 text-[10px] font-mono mt-0.5 truncate" x-text="item.media_id"></div>
-                </div>
-                <div class="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1">
-                  <button type="button" @click="attachInlineMedia(item.media_id); closeModal('productMediaModal'); openComposer()" class="flex-1 py-1 px-2 bg-slate-900 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-lg flex items-center justify-center transition">
-                    <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Pakai
-                  </button>
-                  <button type="button" @click="confirmDeleteMedia(item.media_id)" title="Hapus Media" class="p-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition">
-                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                  </button>
-                </div>
+              <div class="flex items-center space-x-1.5 self-end sm:self-auto flex-shrink-0">
+                <button type="button" @click="confirmDeleteSession(sess)" title="Hapus Seluruh Sesi Ini" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl transition text-xs font-bold flex items-center">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-1"></i>
+                  <span>Hapus Sesi</span>
+                </button>
               </div>
             </div>
-          </template>
-        </div>
+
+            <!-- Media Items in this Session -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <template x-for="item in sess.media_items" :key="item.media_id">
+                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs flex flex-col group relative">
+                  <div class="h-28 bg-slate-100 relative flex items-center justify-center overflow-hidden">
+                    <template x-if="item.media_type === 'IMAGE'">
+                      <img :src="item.media_url" class="object-cover w-full h-full" alt="Asset">
+                    </template>
+                    <template x-if="item.media_type === 'VIDEO'">
+                      <div @click="openVideoPreview(item.media_url, item.media_id)" class="w-full h-full relative cursor-pointer group/vid bg-slate-900 flex items-center justify-center overflow-hidden" title="Klik untuk tonton video penuh">
+                        <video :src="item.media_url" preload="metadata" class="w-full h-full object-cover opacity-75 group-hover/vid:opacity-95 transition"></video>
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/30 group-hover/vid:bg-black/10 transition">
+                          <div class="w-8 h-8 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-md group-hover/vid:scale-110 transition-transform">
+                            <i data-lucide="play" class="w-4 h-4 ml-0.5 fill-current"></i>
+                          </div>
+                        </div>
+                        <span class="absolute bottom-1.5 left-1.5 px-1 py-0.2 rounded bg-black/75 text-white font-mono text-[8px] font-bold">MP4</span>
+                      </div>
+                    </template>
+
+                    <div class="absolute top-1.5 right-1.5 pointer-events-none z-10">
+                      <span x-show="isCooldownActive(item.cooldown_until)" class="px-1.5 py-0.2 text-[8px] font-bold rounded-full bg-amber-500 text-white flex items-center shadow-2xs">
+                        Cooldown
+                      </span>
+                      <span x-show="!isCooldownActive(item.cooldown_until)" class="px-1.5 py-0.2 text-[8px] font-bold rounded-full bg-emerald-500 text-white flex items-center shadow-2xs">
+                        Fresh
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="p-2 text-xs flex items-center justify-between bg-white border-t border-slate-100">
+                    <span class="text-[9px] font-mono text-slate-400 truncate max-w-[80px]" x-text="item.media_id"></span>
+                    <div class="flex items-center space-x-1">
+                      <button x-show="item.media_type === 'VIDEO'" type="button" @click="openVideoPreview(item.media_url, item.media_id)" title="Putar Video Ukuran Penuh" class="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded transition">
+                        <i data-lucide="play-circle" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button type="button" @click="confirmDeleteMedia(item.media_id)" title="Hapus Media Ini" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
 
         <!-- Empty State -->
-        <div x-show="getProductMedia(selectedProductForMedia ? selectedProductForMedia.product_id : '').length === 0" class="text-center py-16 space-y-3">
+        <div x-show="getProductReviewSessions(selectedProductForMedia ? selectedProductForMedia.product_id : '').length === 0" class="text-center py-16 space-y-3">
           <div class="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400">
             <i data-lucide="image-off" class="w-6 h-6"></i>
           </div>
           <div>
-            <div class="text-xs font-bold text-slate-700">Belum Ada Media Ulasan</div>
+            <div class="text-xs font-bold text-slate-700">Belum Ada Sesi Ulasan</div>
             <p class="text-[11px] text-slate-400 mt-0.5">Unggah foto atau video unboxing/review untuk produk ini.</p>
           </div>
           <button type="button" @click="closeModal('productMediaModal'); openUploadForProduct(selectedProductForMedia)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl inline-flex items-center shadow-xs">
@@ -1739,7 +2639,7 @@
       </div>
 
       <!-- Detail Konteks Produk -->
-      <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 mb-4 flex items-center space-x-3">
+      <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 mb-3 flex items-center space-x-3">
         <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
           <template x-if="uploadTargetProduct && uploadTargetProduct.product_image_url">
             <img :src="uploadTargetProduct.product_image_url" class="w-full h-full object-cover" alt="Thumb">
@@ -1756,6 +2656,20 @@
             <span x-text="uploadTargetProduct ? uploadTargetProduct.category : ''"></span>
           </div>
         </div>
+      </div>
+
+      <!-- Input Nama / Label Sesi Ulasan Terisolasi -->
+      <div class="mb-3.5">
+        <label class="block text-xs font-semibold text-slate-700 mb-1">
+          Nama / ID Sesi Ulasan (Batch Pembeli) <span class="text-rose-500">*</span>
+        </label>
+        <div class="relative">
+          <input type="text" x-model="mediaSessionId" placeholder="Contoh: Sesi_Pembeli_A_Unboxing" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 bg-white">
+          <button type="button" @click="generateNewSessionId()" class="absolute right-2 top-2 text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-md border border-emerald-200 transition" title="Buat ID Sesi Baru">
+            + Reset Sesi Baru
+          </button>
+        </div>
+        <span class="text-[10px] text-slate-400 mt-0.5 block">Semua file yang diunggah bersamaan akan tergabung ke dalam 1 paket sesi ulasan ini.</span>
       </div>
 
       <!-- Dropzone Input File -->
@@ -1804,6 +2718,171 @@
           <span x-show="isUploadingMedia" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
           <i x-show="!isUploadingMedia" data-lucide="cloud-upload" class="w-3.5 h-3.5 mr-1.5"></i>
           <span x-text="isUploadingMedia ? 'Mengunggah...' : ('Upload ' + (selectedFiles.length > 0 ? selectedFiles.length + ' File' : 'Media'))"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PENGATURAN ATURAN AUTOPILOT (RULE-BASED GENERATOR) -->
+  <div x-show="modals.ruleModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div @click.away="!isSavingRule && closeModal('ruleModal')" class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+            <i data-lucide="sliders" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900" x-text="isEditingRule ? 'Edit Aturan Autopilot' : 'Buat Aturan Autopilot Baru'"></h3>
+            <span class="text-[11px] text-slate-500 font-medium">Generator Otonom Berbasis Aturan & Cohesive Session</span>
+          </div>
+        </div>
+        <button @click="closeModal('ruleModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="space-y-3.5 text-xs overflow-y-auto flex-1 pr-1">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nama Aturan <span class="text-rose-500">*</span></label>
+          <input type="text" x-model="currentRule.name" placeholder="Contoh: Autopilot Harian - Akun Maya & Promo Lampu" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium">
+        </div>
+
+        <!-- Pilih Produk Target (Otomatis Deteksi Sesi Ulasan & Ref Viral) -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-semibold text-slate-700 flex items-center">
+              <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Produk Target Shopee <span class="text-rose-500">*</span>
+            </label>
+            <button type="button" @click="closeModal('ruleModal'); openAddProductModal()" class="text-[11px] font-bold text-emerald-700 hover:underline flex items-center">
+              <i data-lucide="plus" class="w-3 h-3 mr-0.5"></i> + Tambah Produk
+            </button>
+          </div>
+          <select x-model="currentRule.product_id" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium">
+            <option value="">-- Pilih Produk Target --</option>
+            <template x-for="p in products" :key="p.product_id">
+              <option :value="p.product_id" x-text="p.product_name + ' (Rp ' + Number(p.price || 0).toLocaleString('id-ID') + ')'"></option>
+            </template>
+          </select>
+          <!-- Indikator Kesiapan Produk -->
+          <div x-show="currentRule.product_id" class="mt-1.5 flex items-center space-x-2 text-[10px]">
+            <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-100" x-text="getProductReviewSessions(currentRule.product_id).length + ' Sesi Ulasan Terhubung'"></span>
+            <span class="px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-bold border border-purple-100" x-text="getViralRefsCountForProduct(currentRule.product_id) + ' Pola Viral Siap Remake'"></span>
+          </div>
+        </div>
+
+        <!-- Pilihan Sesi Ulasan Spesifik (Anti-Acak / Cohesive Media) -->
+        <div x-show="currentRule.product_id">
+          <label class="block font-semibold text-slate-700 mb-1">Paket Sesi Ulasan (Cohesive Session)</label>
+          <select x-model="currentRule.preferred_session_id" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium">
+            <option value="">-- Otomatis Pilih Sesi Ulasan Bergantian (Disarankan) --</option>
+            <template x-for="sess in getProductReviewSessions(currentRule.product_id)" :key="sess.session_id">
+              <option :value="sess.session_id" x-text="sess.session_id + ' (' + sess.media_items.length + ' media)'"></option>
+            </template>
+          </select>
+          <span class="text-[10px] text-slate-400 block mt-0.5">Sistem memastikan media dalam 1 postingan diambil dari 1 sesi ulasan yang sama tanpa acak.</span>
+        </div>
+
+        <!-- Akun Target Threads -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-semibold text-slate-700 flex items-center">
+              <i data-lucide="users" class="w-3.5 h-3.5 text-purple-700 mr-1"></i> Akun Threads Penayangan <span class="text-rose-500">*</span>
+            </label>
+            <span class="text-[10px] font-mono font-bold text-slate-500" x-text="currentRule.account_ids.length + ' dipilih'"></span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+            <template x-for="acc in accounts" :key="acc.account_id">
+              <label :class="currentRule.account_ids.indexOf(acc.account_id) > -1 ? 'border-purple-600 bg-purple-50' : 'border-slate-200 bg-white'" class="p-1.5 rounded-lg border flex items-center space-x-1.5 cursor-pointer text-xs transition">
+                <input type="checkbox" :checked="currentRule.account_ids.indexOf(acc.account_id) > -1" @change="toggleRuleAccount(acc.account_id)" class="checkbox checkbox-xs checkbox-secondary">
+                <span class="truncate font-bold text-slate-800 text-[11px]" x-text="'@' + acc.username"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+
+        <!-- Safety Guardrail: Batasan Frekuensi Harian & Jeda Spam Threads -->
+        <div class="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-purple-950 flex items-center">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 mr-1 text-purple-700"></i> Rate Limiting & Perlindungan Anti-Spam
+            </span>
+            <span class="badge badge-xs badge-success font-bold text-[9px]">Aman</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Maks Postingan / Hari / Akun</label>
+              <select x-model.number="currentRule.max_posts_per_day" class="w-full p-2 border border-slate-300 rounded-xl bg-white font-bold">
+                <option :value="1">1 Post / Hari (Sangat Santai)</option>
+                <option :value="2">2 Post / Hari</option>
+                <option :value="3">3 Post / Hari (Disarankan)</option>
+                <option :value="4">4 Post / Hari</option>
+                <option :value="5">5 Post / Hari (Maksimum Aman)</option>
+              </select>
+              <span class="text-[9px] text-slate-500 mt-0.5 block">Mencegah penalti shadowban frekuensi berlebih</span>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Jeda Minimal Antar Postingan</label>
+              <select x-model.number="currentRule.min_interval_hours" class="w-full p-2 border border-slate-300 rounded-xl bg-white font-bold">
+                <option :value="2">2 Jam</option>
+                <option :value="3">3 Jam</option>
+                <option :value="4">4 Jam (Ideal)</option>
+                <option :value="6">6 Jam (Organik)</option>
+                <option :value="8">8 Jam</option>
+              </select>
+              <span class="text-[9px] text-slate-500 mt-0.5 block">Akun yang sama tidak akan posting sebelum interval ini terpenuhi</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ambang Views Utas 2 & Jitter Delay -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Target Views Utas 2 (Affiliate)</label>
+            <input type="number" x-model.number="currentRule.views_threshold" placeholder="500" class="w-full p-2 border border-slate-300 rounded-xl font-mono font-bold bg-white">
+            <span class="text-[9px] text-slate-400 mt-0.5 block">Utas 2 tertahan jika target belum tembus</span>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Jitter Delay Antar Akun</label>
+            <select x-model.number="currentRule.jitter_minutes" class="w-full p-2 border border-slate-300 rounded-xl bg-white font-bold">
+              <option :value="10">±10 Menit</option>
+              <option :value="15">±15 Menit (Ideal)</option>
+              <option :value="30">±30 Menit</option>
+            </select>
+            <span class="text-[9px] text-slate-400 mt-0.5 block">Jeda offset acak agar penayangan terasa organik</span>
+          </div>
+        </div>
+
+        <!-- Info Self-Learning & Smart Rotation -->
+        <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-[11px] text-slate-600">
+          <div class="flex items-center space-x-1.5 font-bold text-purple-900">
+            <i data-lucide="cpu" class="w-3.5 h-3.5 text-purple-600"></i>
+            <span>Logika Cerdas yang Dijalankan di Latar Belakang:</span>
+          </div>
+          <ul class="list-disc pl-4 space-y-0.5 text-[10px] text-slate-500">
+            <li><strong>AI Winner Learning:</strong> Membaca postingan berviews tertinggi untuk diajarkan ke Sumopod AI saat meremake hook.</li>
+            <li><strong>Rotasi Sesi Bergilir:</strong> Mengunci media dalam 1 sesi ulasan dan berputar otomatis antar siklus (anti-duplikasi berturut-turut).</li>
+          </ul>
+        </div>
+
+        <!-- Status Aturan -->
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Status Aturan</label>
+          <div class="flex space-x-2">
+            <label :class="currentRule.status === 'ACTIVE' ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white'" class="flex-1 p-2 rounded-xl border flex items-center justify-center space-x-2 cursor-pointer font-bold text-xs transition">
+              <input type="radio" value="ACTIVE" x-model="currentRule.status" class="radio radio-xs radio-success">
+              <span>Aktif Berjalan</span>
+            </label>
+            <label :class="currentRule.status === 'PAUSED' ? 'border-slate-400 bg-slate-100 text-slate-800' : 'border-slate-200 bg-white'" class="flex-1 p-2 rounded-xl border flex items-center justify-center space-x-2 cursor-pointer font-bold text-xs transition">
+              <input type="radio" value="PAUSED" x-model="currentRule.status" class="radio radio-xs">
+              <span>Jeda Sementara</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button type="button" @click="closeModal('ruleModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Batal</button>
+        <button type="button" @click="saveAutopilotRule()" :disabled="isSavingRule || !currentRule.product_id || currentRule.account_ids.length === 0" class="px-5 py-2 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl flex items-center shadow-sm disabled:opacity-50 transition">
+          <span x-show="isSavingRule" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+          <span x-text="isSavingRule ? 'Menyimpan...' : 'Simpan Aturan Autopilot'"></span>
         </button>
       </div>
     </div>
@@ -2059,8 +3138,22 @@
           <input type="text" x-model="currentScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" class="w-full p-2 border border-slate-300 rounded-lg font-mono text-[11px]">
           <span class="text-[10px] text-slate-400 mt-0.5 block">Pastikan Web App di-Deploy: Execute as: "Me", Access: "Anyone".</span>
         </div>
+        <div class="p-3 bg-purple-50/60 rounded-xl border border-purple-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-purple-900">Sumopod API (AI Autopilot Engine)</span>
+            <span class="badge badge-xs badge-secondary font-bold">Autopilot</span>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Sumopod API Key</label>
+            <input type="password" x-model="settings.sumopod_api_key" placeholder="sp-..." class="w-full p-2 border border-slate-300 rounded-lg font-mono text-[11px] bg-white">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Sumopod Endpoint URL</label>
+            <input type="text" x-model="settings.sumopod_endpoint" placeholder="https://api.sumopod.com/v1/chat/completions" class="w-full p-2 border border-slate-300 rounded-lg font-mono text-[11px] bg-white">
+          </div>
+        </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Gemini API Key</label>
+          <label class="block font-semibold text-slate-700 mb-1">Gemini API Key (Backup Hook Studio)</label>
           <input type="password" x-model="settings.gemini_key" class="w-full p-2 border border-slate-300 rounded-lg font-mono">
         </div>
         <div>
@@ -2133,14 +3226,16 @@
         activeTab: (function() {
           try {
             var hash = window.location.hash.replace('#', '');
-            var valid = ['dashboard', 'composer', 'published', 'queue', 'media', 'inbox', 'accounts'];
+            var valid = ['dashboard', 'composer', 'published', 'queue', 'autopilot', 'viral_refs', 'media', 'inbox', 'accounts', 'settings'];
             if (hash && valid.indexOf(hash) !== -1) return hash;
             var saved = localStorage.getItem('THREAD_ACTIVE_TAB');
             if (saved && valid.indexOf(saved) !== -1) return saved;
           } catch(e) {}
           return 'dashboard';
         })(),
-        mobileMenuOpen: false,
+        sidebarOpen: false,
+        settingsSubTab: 'ai',
+        isSavingSettings: false,
         accounts: [],
         composerAccounts: [],
         products: [],
@@ -2148,6 +3243,7 @@
         posts: [],
         comments: [],
         hooks: [],
+        viral_references: [],
         hookFilter: 'ALL',
         inboxFilter: 'UNREPLIED',
         inboxAccountFilter: 'ALL',
@@ -2167,7 +3263,9 @@
           _showProductPicker: false,
           _productSearch: '',
           _showLinkMenu: false,
-          _mediaFilterTab: 'ATTACHED'
+          _mediaFilterTab: 'ATTACHED',
+          _isGeneratingAi: false,
+          _aiOptions: []
         }],
         selectedVaultMedia: [],
         postViewsThreshold: 500,
@@ -2246,6 +3344,31 @@
         inputAccessToken: '',
         triggerInterval: 5,
         isSyncingInbox: false,
+
+        // Modul True AI Autopilot Engine (Rule-Based Generator)
+        autopilot_rules: [],
+        currentRule: {
+          rule_id: '',
+          name: '',
+          account_ids: [],
+          product_id: '',
+          preferred_session_id: '',
+          frequency_per_day: 2,
+          views_threshold: 500,
+          jitter_minutes: 15,
+          status: 'ACTIVE'
+        },
+        ruleFilterStatus: 'ALL',
+        isSavingRule: false,
+        isEditingRule: false,
+        isRunningWorker: false,
+        runningRuleId: null,
+
+        newViralRef: { ref_id: '', product_id: '', title: '', original_url: '', threads: [''] },
+        isSavingViralRef: false,
+        isEditingViralRef: false,
+        viralRefSearchQuery: '',
+        viralRefProductFilter: 'ALL',
 
         // Bank Hook
         newHook: { category: 'Curhat/Story', hook_text: '', formula: '' },
@@ -2344,7 +3467,9 @@
         },
 
         // Modals & Toasts
-        modals: { replyModal: false, addProductModal: false, uploadMediaModal: false, productMediaModal: false, settingsModal: false, addHookModal: false, composerModal: false, postCommentsModal: false, confirmModal: false, editQueueModal: false, threadDetailModal: false },
+        modals: { replyModal: false, addProductModal: false, uploadMediaModal: false, productMediaModal: false, addHookModal: false, addViralRefModal: false, ruleModal: false, composerModal: false, postCommentsModal: false, confirmModal: false, editQueueModal: false, threadDetailModal: false, videoPreviewModal: false },
+        previewVideoUrl: '',
+        previewVideoTitle: '',
         selectedThreadPost: { post_id: '', account_id: '', thread_content_json: '', media_ids_json: '', current_views: 0, views_threshold: 500, likes_count: 0, replies_count: 0, permalink: '', auto_reply_sent: false, status: '' },
         targetComment: null,
         replyContent: '',
@@ -2394,8 +3519,63 @@
           setTimeout(() => { this.toast.visible = false; }, 3500);
         },
 
-        openModal(name) { this.modals[name] = true; this.$nextTick(() => lucide.createIcons()); },
-        closeModal(name) { this.modals[name] = false; },
+        getPageTitle() {
+          var titles = {
+            dashboard: 'Dashboard Utama',
+            composer: 'Post Composer',
+            published: 'Postingan Terbit',
+            queue: 'Antrean & Jadwal',
+            autopilot: 'AI Autopilot & Remake',
+            viral_refs: 'Bank Referensi Viral',
+            media: 'Master Media & Produk',
+            inbox: 'Unified Inbox Komentar',
+            accounts: 'Akun Meta API',
+            settings: 'Pengaturan Sistem'
+          };
+          return titles[this.activeTab] || 'ThreadAffiliate Engine';
+        },
+
+        getPageSubtitle() {
+          var subs = {
+            dashboard: 'Ringkasan metrik tayang, antrean, dan interaksi audiens lintas akun',
+            composer: 'Multi-thread builder bertahap dengan integrasi link Shopee affiliate',
+            published: 'Arsip postingan aktif di Threads beserta insight views live',
+            queue: 'Daftar tunggu postingan terjadwal dan draft otomatis',
+            autopilot: 'Mesin otonom berbasis aturan, winner context, dan rotasi sesi ulasan',
+            viral_refs: 'Koleksi formula hook & multi-utas viral Shopee untuk di-remake instan ke Composer',
+            media: 'Katalog produk Shopee dan vault aset visual ulasan anti-duplikasi',
+            inbox: 'Pusat komentar audiens dengan deteksi otomatis intent spill',
+            accounts: 'Kelola token OAuth Meta Threads Graph API',
+            settings: 'Konfigurasi integrasi AI, penyimpanan Cloudinary, dan scheduler'
+          };
+          return subs[this.activeTab] || '';
+        },
+
+        openModal(name) {
+          if (name === 'settingsModal') {
+            this.switchTab('settings');
+            return;
+          }
+          this.modals[name] = true;
+          this.$nextTick(() => lucide.createIcons());
+        },
+        closeModal(name) {
+          if (name === 'videoPreviewModal') {
+            this.previewVideoUrl = '';
+          }
+          this.modals[name] = false;
+        },
+
+        openVideoPreview(url, title) {
+          this.previewVideoUrl = url;
+          this.previewVideoTitle = title || 'Preview Video Ulasan';
+          this.openModal('videoPreviewModal');
+        },
+
+        closeVideoPreview() {
+          this.previewVideoUrl = '';
+          this.closeModal('videoPreviewModal');
+        },
 
         openThreadDetail(post) {
           this.selectedThreadPost = post || { post_id: '', account_id: '', thread_content_json: '', media_ids_json: '', current_views: 0, views_threshold: 500, likes_count: 0, replies_count: 0, permalink: '', auto_reply_sent: false, status: '' };
@@ -2448,7 +3628,9 @@
               _showProductPicker: false,
               _productSearch: '',
               _showLinkMenu: false,
-              _mediaFilterTab: 'ATTACHED'
+              _mediaFilterTab: 'ATTACHED',
+              _isGeneratingAi: false,
+              _aiOptions: []
             }];
           }
           this.switchTab('composer');
@@ -2621,21 +3803,112 @@
           return names.join(', ');
         },
 
-        getNodeMediaForPicker(thread) {
-          var filter = thread._mediaFilterTab || 'ATTACHED';
+        getNodeReviewSessions(thread) {
+          if (!thread) return [];
           var pids = thread.product_ids || [];
           if (pids.length === 0 && thread.product_id) pids = [thread.product_id];
+          if (pids.length === 0) return [];
 
-          if (filter === 'ATTACHED') {
-            if (pids.length > 0) {
-              return this.mediaList.filter(function(m) { return pids.indexOf(m.product_id) > -1; });
+          var self = this;
+          var items = this.mediaList.filter(function(m) {
+            return pids.indexOf(m.product_id) > -1;
+          });
+
+          var sessionMap = {};
+          for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            var sId = it.session_id || 'SESI_DEFAULT';
+            if (!sessionMap[sId]) {
+              var prod = self.products.find(function(p) { return p.product_id === it.product_id; });
+              sessionMap[sId] = {
+                session_id: sId,
+                product_id: it.product_id,
+                product_name: prod ? prod.product_name : it.product_id,
+                media_items: []
+              };
             }
-            return this.mediaList;
+            sessionMap[sId].media_items.push(it);
           }
-          if (filter === 'VAULT') {
-            return this.mediaList;
+
+          var list = [];
+          for (var key in sessionMap) {
+            list.push(sessionMap[key]);
           }
-          return this.mediaList.filter(function(m) { return m.product_id === filter; });
+          return list;
+        },
+
+        applyWholeSessionToThread(thread, session) {
+          if (!thread || !session || !session.media_items) return;
+          var mediaIds = session.media_items.map(function(m) { return m.media_id; }).slice(0, 10);
+          thread.media_ids = [].concat(mediaIds);
+          thread.media_id = mediaIds[0] || '';
+          thread._activeSessionId = session.session_id;
+          this.showToast('Paket Sesi "' + session.session_id + '" (' + mediaIds.length + ' media) terpasang ke utas!');
+          this.$nextTick(() => { lucide.createIcons(); });
+        },
+
+        isSessionActiveInThread(thread, sess) {
+          if (!thread || !thread.media_ids || thread.media_ids.length === 0 || !sess || !sess.media_items || sess.media_items.length === 0) return false;
+          if (thread._activeSessionId === sess.session_id) return true;
+          return sess.media_items.every(function(m) {
+            return thread.media_ids.indexOf(m.media_id) !== -1;
+          });
+        },
+
+        generateOptionsForThread(thread, index) {
+          var prods = this.getNodeProducts(thread);
+          var prodNames = prods.map(function(p) { return p.product_name; }).join(', ');
+          var points = prods.map(function(p) { return p.selling_points; }).filter(Boolean).join('. ');
+
+          if (!prodNames && this.products.length > 0) {
+            prodNames = this.products[0].product_name;
+            points = this.products[0].selling_points || '';
+          }
+          if (!prodNames) {
+            this.showToast('Kaitkan produk Shopee ke utas ini terlebih dahulu', 'error');
+            return;
+          }
+
+          thread._isGeneratingAi = true;
+          this.showToast('Menghasilkan 3 variasi caption dengan Sumopod AI...');
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'generateThreadOptions',
+              payload: {
+                thread_index: index,
+                product_names: prodNames,
+                selling_points: points,
+                current_text: thread.content || ''
+              }
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok && res.data && Array.isArray(res.data.options)) {
+              thread._aiOptions = res.data.options;
+              this.showToast('3 variasi caption AI siap dipilih!');
+            } else {
+              this.showToast(res.message || 'Gagal menghasilkan opsi AI', 'error');
+            }
+            thread._isGeneratingAi = false;
+            this.$nextTick(() => { lucide.createIcons(); });
+          })
+          .catch(err => {
+            thread._isGeneratingAi = false;
+            this.showToast('Gagal memanggil AI: ' + err.message, 'error');
+          });
+        },
+
+        applyAiOptionToThread(thread, opt) {
+          if (!opt) return;
+          thread.content = opt;
+          thread._aiOptions = [];
+          this.showToast('Caption AI berhasil dipasang ke Utas!');
+          this.$nextTick(() => { lucide.createIcons(); });
         },
 
         getMediaProductName(prodId) {
@@ -2697,7 +3970,9 @@
             _showProductPicker: false,
             _productSearch: '',
             _showLinkMenu: false,
-            _mediaFilterTab: 'ATTACHED'
+            _mediaFilterTab: 'ATTACHED',
+            _isGeneratingAi: false,
+            _aiOptions: []
           });
           this.$nextTick(() => { lucide.createIcons(); });
         },
@@ -2932,10 +4207,29 @@
         openUploadForProduct(item) {
           this.uploadTargetProduct = item;
           this.mediaProductId = item.product_id;
-          var safeName = String(item.product_name || 'PROD').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 10).toUpperCase();
-          this.mediaSessionId = 'REV_' + safeName + '_' + Date.now();
+          var nextNum = this.getProductReviewSessions(item.product_id).length + 1;
+          this.mediaSessionId = 'Sesi_' + nextNum + '_' + Date.now().toString().slice(-6);
           this.selectedFiles = [];
           this.openModal('uploadMediaModal');
+        },
+
+        generateNewSessionId() {
+          var pId = this.mediaProductId || '';
+          var nextNum = this.getProductReviewSessions(pId).length + 1;
+          this.mediaSessionId = 'Sesi_' + nextNum + '_' + Date.now().toString().slice(-6);
+        },
+
+        confirmDeleteSession(session) {
+          var pId = this.selectedProductForMedia ? this.selectedProductForMedia.product_id : '';
+          this.confirmData = {
+            title: 'Hapus Seluruh Sesi Ulasan?',
+            message: 'Semua (' + session.media_items.length + ') file media dalam sesi "' + session.session_id + '" akan dihapus permanen dari sistem.',
+            actionType: 'DELETE_MEDIA_SESSION',
+            targetId: session.session_id,
+            extraData: pId,
+            confirmText: 'Ya, Hapus Sesi'
+          };
+          this.openModal('confirmModal');
         },
 
         sendProductToAi(item) {
@@ -3008,6 +4302,8 @@
               this.posts = Array.isArray(res.data.posts) ? res.data.posts : [];
               this.comments = Array.isArray(res.data.comments) ? res.data.comments : [];
               this.hooks = Array.isArray(res.data.hooks) ? res.data.hooks : [];
+              this.viral_references = Array.isArray(res.data.viral_references) ? res.data.viral_references : [];
+              this.autopilot_rules = Array.isArray(res.data.autopilot_rules) ? res.data.autopilot_rules : [];
               this.settings = (res.data.settings && typeof res.data.settings === 'object') ? res.data.settings : this.settings;
               if (this.accounts.length > 0 && this.composerAccounts.length === 0) {
                 this.composerAccounts = [this.accounts[0].account_id];
@@ -3175,16 +4471,11 @@
             }
           }
 
-          var totalNodesCount = this.threadList.length;
-          var serializedNodes = this.threadList.map(function(t, idx) {
+          var serializedNodes = this.threadList.map(function(t) {
             var pids = t.product_ids || [];
             if (pids.length === 0 && t.product_id) pids = [t.product_id];
-            var txt = t.content || '';
-            if (totalNodesCount > 1 && !/^\(?\d+\/\d+\)?/i.test(txt.trim())) {
-              txt = (idx + 1) + '/' + totalNodesCount + ' ' + txt;
-            }
             return {
-              content: txt,
+              content: t.content || '',
               product_ids: pids,
               product_id: pids.length > 0 ? pids[0] : '',
               media_ids: t.media_ids || [],
@@ -3499,6 +4790,14 @@
             actionName = 'deleteThreadsAccount';
             payloadData = { account_id: targetId };
             successMsg = 'Akun Threads berhasil diputuskan!';
+          } else if (type === 'DELETE_AUTOPILOT_RULE') {
+            actionName = 'deleteAutopilotRule';
+            payloadData = { rule_id: targetId };
+            successMsg = 'Aturan autopilot berhasil dihapus!';
+          } else if (type === 'DELETE_MEDIA_SESSION') {
+            actionName = 'deleteMediaSession';
+            payloadData = { session_id: targetId, product_id: this.confirmData.extraData || '' };
+            successMsg = 'Seluruh media dalam sesi ulasan berhasil dihapus permanen!';
           }
 
           fetch(this.getScriptUrl(), {
@@ -3753,10 +5052,484 @@
           });
         },
 
+        getProductReviewSessions(prodId) {
+          if (!prodId) return [];
+          var mediaItems = this.mediaList.filter(function(m) { return m.product_id === prodId; });
+          var sessionMap = {};
+          for (var i = 0; i < mediaItems.length; i++) {
+            var item = mediaItems[i];
+            var sId = item.session_id || 'SESI_DEFAULT';
+            if (!sessionMap[sId]) {
+              sessionMap[sId] = { session_id: sId, media_items: [] };
+            }
+            sessionMap[sId].media_items.push(item);
+          }
+          var result = [];
+          for (var key in sessionMap) {
+            result.push(sessionMap[key]);
+          }
+          return result;
+        },
+
+        getProductObj(prodId) {
+          return this.products.find(p => p.product_id === prodId);
+        },
+
+        get activeAutopilotRules() {
+          return (this.autopilot_rules || []).filter(function(r) {
+            return String(r.status || '').toUpperCase() === 'ACTIVE';
+          });
+        },
+
+        get filteredAutopilotRules() {
+          var list = this.autopilot_rules || [];
+          if (this.ruleFilterStatus === 'ACTIVE') {
+            return list.filter(r => String(r.status || '').toUpperCase() === 'ACTIVE');
+          }
+          if (this.ruleFilterStatus === 'PAUSED') {
+            return list.filter(r => String(r.status || '').toUpperCase() !== 'ACTIVE');
+          }
+          return list;
+        },
+
+        getViralRefsCountForProduct(prodId) {
+          if (!prodId) return 0;
+          return (this.viral_references || []).filter(function(v) {
+            return v.product_id === prodId || !v.product_id;
+          }).length;
+        },
+
+        parseRuleAccounts(raw) {
+          if (!raw) return [];
+          try {
+            var arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return Array.isArray(arr) ? arr : [arr];
+          } catch(e) {
+            return String(raw).split(',').map(s => s.trim()).filter(Boolean);
+          }
+        },
+
+        openCreateRuleModal() {
+          this.isEditingRule = false;
+          var defaultAccs = this.accounts.length > 0 ? [this.accounts[0].account_id] : [];
+          this.currentRule = {
+            rule_id: '',
+            name: '',
+            account_ids: defaultAccs,
+            product_id: this.products.length > 0 ? this.products[0].product_id : '',
+            preferred_session_id: '',
+            frequency_per_day: 2,
+            views_threshold: 500,
+            jitter_minutes: 15,
+            max_posts_per_day: 3,
+            min_interval_hours: 4,
+            status: 'ACTIVE'
+          };
+          this.openModal('ruleModal');
+        },
+
+        openEditRuleModal(rule) {
+          this.isEditingRule = true;
+          this.currentRule = {
+            rule_id: rule.rule_id || '',
+            name: rule.name || '',
+            account_ids: this.parseRuleAccounts(rule.account_ids_json),
+            product_id: rule.product_id || '',
+            preferred_session_id: rule.preferred_session_id || '',
+            frequency_per_day: Number(rule.frequency_per_day || 2),
+            views_threshold: Number(rule.views_threshold || 500),
+            jitter_minutes: Number(rule.jitter_minutes || 15),
+            max_posts_per_day: Number(rule.max_posts_per_day || 3),
+            min_interval_hours: Number(rule.min_interval_hours || 4),
+            status: rule.status || 'ACTIVE',
+            last_run_at: rule.last_run_at || '',
+            created_at: rule.created_at || ''
+          };
+          this.openModal('ruleModal');
+        },
+
+        toggleRuleAccount(accId) {
+          var idx = this.currentRule.account_ids.indexOf(accId);
+          if (idx > -1) {
+            this.currentRule.account_ids.splice(idx, 1);
+          } else {
+            this.currentRule.account_ids.push(accId);
+          }
+        },
+
+        saveAutopilotRule() {
+          if (!this.currentRule.product_id) {
+            this.showToast('Pilih produk target Shopee terlebih dahulu', 'error');
+            return;
+          }
+          if (this.currentRule.account_ids.length === 0) {
+            this.showToast('Pilih minimal 1 akun Threads penayangan', 'error');
+            return;
+          }
+          this.isSavingRule = true;
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'saveAutopilotRule',
+              payload: this.currentRule
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast('Aturan autopilot berhasil disimpan!');
+              this.closeModal('ruleModal');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.isSavingRule = false;
+          })
+          .catch(err => {
+            this.isSavingRule = false;
+            this.showToast('Gagal menyimpan aturan: ' + err.message, 'error');
+          });
+        },
+
+        toggleRuleStatus(rule) {
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'toggleAutopilotRule',
+              payload: { rule_id: rule.rule_id }
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast('Status aturan diubah menjadi: ' + res.data.status);
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+          });
+        },
+
+        confirmDeleteAutopilotRule(rule) {
+          this.confirmData = {
+            title: 'Hapus Aturan Autopilot?',
+            message: 'Aturan "' + (rule.name || rule.rule_id) + '" akan dihapus permanen dari mesin generator.',
+            actionType: 'DELETE_AUTOPILOT_RULE',
+            targetId: rule.rule_id,
+            confirmText: 'Ya, Hapus Aturan'
+          };
+          this.openModal('confirmModal');
+        },
+
+        executeAutopilotWorkerNow() {
+          this.isRunningWorker = true;
+          this.showToast('Menjalankan siklus mesin autopilot otonom...');
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'runAutonomousAutopilotWorker',
+              payload: {}
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast(res.data.message || 'Siklus autopilot selesai!');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.isRunningWorker = false;
+          })
+          .catch(err => {
+            this.isRunningWorker = false;
+            this.showToast('Gagal menjalankan autopilot: ' + err.message, 'error');
+          });
+        },
+
+        runSpecificRuleNow(rule) {
+          this.runningRuleId = rule.rule_id;
+          this.showToast('Memproses aturan: ' + rule.name + '...');
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'runAutonomousAutopilotWorker',
+              payload: { rule_id: rule.rule_id }
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast(res.data.message || 'Aturan berhasil digenerate ke antrean!');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.runningRuleId = null;
+          })
+          .catch(err => {
+            this.runningRuleId = null;
+            this.showToast('Gagal memproses aturan: ' + err.message, 'error');
+          });
+        },
+
+        get filteredViralReferences() {
+          var list = this.viral_references || [];
+          var q = (this.viralRefSearchQuery || '').toLowerCase().trim();
+          var prod = this.viralRefProductFilter;
+          var self = this;
+
+          if (prod && prod !== 'ALL') {
+            list = list.filter(function(r) { return r.product_id === prod; });
+          }
+
+          if (q) {
+            list = list.filter(function(r) {
+              var t = (r.title || '').toLowerCase();
+              var u1 = (r.hook_thread_1 || '').toLowerCase();
+              var u2 = (r.spill_thread_2 || '').toLowerCase();
+              var pName = (self.getProductName(r.product_id) || '').toLowerCase();
+              return t.indexOf(q) !== -1 || u1.indexOf(q) !== -1 || u2.indexOf(q) !== -1 || pName.indexOf(q) !== -1;
+            });
+          }
+
+          return list;
+        },
+
+        getViralRefThreads(ref) {
+          if (!ref) return [];
+          if (ref.threads_json) {
+            try {
+              var arr = typeof ref.threads_json === 'string' ? JSON.parse(ref.threads_json) : ref.threads_json;
+              if (Array.isArray(arr) && arr.length > 0) return arr;
+            } catch(e) {}
+          }
+          var res = [];
+          if (ref.hook_thread_1) res.push(ref.hook_thread_1);
+          if (ref.spill_thread_2) res.push(ref.spill_thread_2);
+          return res.length > 0 ? res : ['(Konten kosong)'];
+        },
+
+        openAddViralRefModal() {
+          this.isEditingViralRef = false;
+          this.newViralRef = {
+            ref_id: '',
+            product_id: '',
+            title: '',
+            original_url: '',
+            threads: ['']
+          };
+          this.openModal('addViralRefModal');
+        },
+
+        openEditViralRefModal(ref) {
+          this.isEditingViralRef = true;
+          var thList = this.getViralRefThreads(ref);
+          this.newViralRef = {
+            ref_id: ref.ref_id || '',
+            product_id: ref.product_id || '',
+            title: ref.title || '',
+            original_url: ref.original_url || '',
+            threads: thList.length > 0 ? [].concat(thList) : ['']
+          };
+          this.openModal('addViralRefModal');
+        },
+
+        addViralRefThreadNode() {
+          if (!this.newViralRef.threads) this.newViralRef.threads = [];
+          this.newViralRef.threads.push('');
+          this.$nextTick(() => { lucide.createIcons(); });
+        },
+
+        removeViralRefThreadNode(idx) {
+          if (this.newViralRef.threads && this.newViralRef.threads.length > 1) {
+            this.newViralRef.threads.splice(idx, 1);
+          }
+        },
+
+        insertAffiliateTagToRefThread(idx) {
+          if (this.newViralRef.threads && this.newViralRef.threads[idx] !== undefined) {
+            var cur = (this.newViralRef.threads[idx] || '').trim();
+            this.newViralRef.threads[idx] = cur ? (cur + '\n\n[LINK_AFFILIATE]') : '[LINK_AFFILIATE]';
+          }
+        },
+
+        saveViralRef() {
+          if (!this.newViralRef.title || !this.newViralRef.title.trim()) {
+            this.showToast('Judul referensi wajib diisi', 'error');
+            return;
+          }
+          var threads = (this.newViralRef.threads || []).map(function(t) { return (t || '').trim(); }).filter(Boolean);
+          if (threads.length === 0) {
+            this.showToast('Minimal 1 teks utas harus diisi', 'error');
+            return;
+          }
+          this.isSavingViralRef = true;
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'saveViralReference',
+              payload: {
+                ref_id: this.newViralRef.ref_id,
+                product_id: this.newViralRef.product_id,
+                title: this.newViralRef.title.trim(),
+                original_url: this.newViralRef.original_url ? this.newViralRef.original_url.trim() : '',
+                threads: threads,
+                hook_thread_1: threads[0] || '',
+                spill_thread_2: threads[1] || ''
+              }
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast(this.isEditingViralRef ? 'Referensi viral berhasil diperbarui!' : 'Referensi viral berhasil disimpan ke Bank!');
+              this.closeModal('addViralRefModal');
+              this.newViralRef = { ref_id: '', product_id: '', title: '', original_url: '', threads: [''] };
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.isSavingViralRef = false;
+          })
+          .catch(err => {
+            this.isSavingViralRef = false;
+            this.showToast('Gagal menyimpan referensi: ' + err.message, 'error');
+          });
+        },
+
+        remakeViralRefToComposer(ref) {
+          var threads = this.getViralRefThreads(ref);
+          var prodId = ref.product_id || '';
+          var prod = this.products.find(function(p) { return p.product_id === prodId; });
+
+          this.selectedProductId = prodId;
+          this.aiPromptTopic = prod ? prod.product_name : ref.title;
+
+          // Siapkan composer dengan rangkaian utas dari referensi
+          var newThreadList = threads.map(function(t, idx) {
+            return {
+              content: t,
+              product_ids: prodId ? [prodId] : [],
+              product_id: prodId,
+              media_ids: [],
+              media_id: '',
+              _showPicker: false,
+              _showProductPicker: false,
+              _productSearch: '',
+              _showLinkMenu: false,
+              _mediaFilterTab: 'ATTACHED'
+            };
+          });
+
+          // Otomatis lampirkan paket media produk jika tersedia
+          if (prodId) {
+            var sessions = this.getProductReviewSessions(prodId);
+            if (sessions.length > 0 && sessions[0].media_items.length > 0) {
+              newThreadList[0].media_ids = sessions[0].media_items.map(function(m) { return m.media_id; });
+              newThreadList[0].media_id = newThreadList[0].media_ids[0];
+            }
+          }
+
+          this.threadList = newThreadList;
+          this.switchTab('composer');
+          this.showToast('✨ Memanggil Sumopod AI untuk meremake rangkaian utas...');
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'generateSumopodRemake',
+              payload: {
+                product_name: prod ? prod.product_name : (ref.title || ''),
+                selling_points: prod ? (prod.selling_points || '') : '',
+                hook_thread_1: threads[0] || '',
+                spill_thread_2: threads[1] || '',
+                threads: threads
+              }
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok && res.data) {
+              var d = res.data;
+              if (Array.isArray(d.threads) && d.threads.length > 0) {
+                for (var i = 0; i < d.threads.length; i++) {
+                  if (this.threadList[i]) {
+                    this.threadList[i].content = d.threads[i];
+                  } else {
+                    this.threadList.push({
+                      content: d.threads[i],
+                      product_ids: prodId ? [prodId] : [],
+                      product_id: prodId,
+                      media_ids: [],
+                      media_id: '',
+                      _showPicker: false,
+                      _showProductPicker: false,
+                      _productSearch: '',
+                      _showLinkMenu: false,
+                      _mediaFilterTab: 'ATTACHED'
+                    });
+                  }
+                }
+              } else {
+                if (d.hook_1 && this.threadList[0]) this.threadList[0].content = d.hook_1;
+                if (d.spill_2 && this.threadList[1]) this.threadList[1].content = d.spill_2;
+              }
+              this.showToast('✨ Sukses! Sumopod AI telah meremake seluruh utas di Composer.');
+            } else {
+              this.showToast('Teks referensi dimasukkan ke Composer (Remake AI: ' + (res.message || 'limit') + ')', 'error');
+            }
+            this.$nextTick(() => { lucide.createIcons(); });
+          })
+          .catch(() => {
+            this.showToast('Teks referensi dimasukkan ke Composer (AI timeout)', 'error');
+            this.$nextTick(() => { lucide.createIcons(); });
+          });
+        },
+
+        confirmDeleteViralRef(refId) {
+          if (!refId) return;
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'deleteViralReference',
+              payload: { ref_id: refId }
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast('Referensi viral dihapus');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+          });
+        },
+
         saveSystemSettings() {
           if (this.currentScriptUrl && this.currentScriptUrl.trim()) {
             localStorage.setItem('CUSTOM_SCRIPT_URL', this.currentScriptUrl.trim());
           }
+          this.isSavingSettings = true;
           fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -3769,11 +5542,15 @@
           .then(text => {
             const res = JSON.parse(text);
             if (res.ok) {
-              this.showToast('Pengaturan tersimpan');
-              this.closeModal('settingsModal');
+              this.showToast('Pengaturan sistem berhasil disimpan!');
             } else {
               this.showToast(res.message, 'error');
             }
+            this.isSavingSettings = false;
+          })
+          .catch(err => {
+            this.isSavingSettings = false;
+            this.showToast('Gagal menyimpan pengaturan: ' + err.message, 'error');
           });
         }
       };

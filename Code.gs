@@ -52,6 +52,8 @@ function doPost(e) {
       result = saveMediaBatch(payload);
     } else if (action === 'generateAiHook') {
       result = generateAiHook(payload);
+    } else if (action === 'generateThreadOptions') {
+      result = generateThreadOptions(payload);
     } else if (action === 'createPost') {
       result = createPost(payload);
     } else if (action === 'publishPostNow') {
@@ -78,10 +80,28 @@ function doPost(e) {
       result = saveHookTemplate(payload);
     } else if (action === 'deleteHookTemplate') {
       result = deleteHookTemplate(payload);
+    } else if (action === 'saveViralReference') {
+      result = saveViralReference(payload);
+    } else if (action === 'deleteViralReference') {
+      result = deleteViralReference(payload);
+    } else if (action === 'generateSumopodRemake') {
+      result = generateSumopodRemake(payload);
+    } else if (action === 'scheduleAutopilotBatch') {
+      result = scheduleAutopilotBatch(payload);
+    } else if (action === 'saveAutopilotRule') {
+      result = saveAutopilotRule(payload);
+    } else if (action === 'toggleAutopilotRule') {
+      result = toggleAutopilotRule(payload);
+    } else if (action === 'deleteAutopilotRule') {
+      result = deleteAutopilotRule(payload);
+    } else if (action === 'runAutonomousAutopilotWorker') {
+      result = runAutonomousAutopilotWorker(payload ? payload.rule_id : null);
     } else if (action === 'deleteProduct') {
       result = deleteProduct(payload);
     } else if (action === 'deleteMedia') {
       result = deleteMedia(payload);
+    } else if (action === 'deleteMediaSession') {
+      result = deleteMediaSession(payload);
     } else if (action === 'updateQueuePost') {
       result = updateQueuePost(payload);
     } else if (action === 'deleteQueuePost') {
@@ -114,6 +134,8 @@ function setupDatabase() {
     'Thread_Interactions': ['interaction_id', 'post_id', 'threads_post_id', 'account_id', 'comment_id', 'parent_comment_id', 'sender_username', 'author_type', 'content', 'intent_flag', 'reply_status', 'created_at'],
     'Posting_Queue': ['queue_id', 'post_id', 'account_id', 'scheduled_time', 'thread_content_json', 'media_ids_json', 'status', 'error_log', 'executed_at', 'reply_to_id', 'drip_step'],
     'Hook_Bank': ['hook_id', 'category', 'hook_text', 'formula', 'created_at'],
+    'Viral_References': ['ref_id', 'product_id', 'title', 'hook_thread_1', 'spill_thread_2', 'original_url', 'media_urls_json', 'created_at', 'threads_json'],
+    'Autopilot_Rules': ['rule_id', 'name', 'account_ids_json', 'product_id', 'preferred_session_id', 'frequency_per_day', 'views_threshold', 'jitter_minutes', 'status', 'last_run_at', 'created_at', 'max_posts_per_day', 'min_interval_hours', 'last_session_id'],
     'Settings': ['key', 'value']
   };
 
@@ -249,6 +271,8 @@ function getDashboardData(payload) {
 
   var queue = getSheetRecords('Posting_Queue');
   var hooks = getSheetRecords('Hook_Bank');
+  var viralRefs = getSheetRecords('Viral_References');
+  var autopilotRules = getSheetRecords('Autopilot_Rules');
   var interactions = getSheetRecords('Thread_Interactions');
 
   // Urutkan postingan & antrean dari yang paling baru di atas (Descending)
@@ -319,6 +343,8 @@ function getDashboardData(payload) {
     comments: rootComments || [],
     interactions: interactions || [],
     hooks: hooks || [],
+    viral_references: viralRefs || [],
+    autopilot_rules: autopilotRules || [],
     queue: queue || [],
     settings: settings || {}
   };
@@ -646,6 +672,113 @@ function generateAiHook(payload) {
   return { hooks: lines };
 }
 
+// Generator 3 Opsi Caption Dinamis per Utas Menggunakan Sumopod AI (Fallback Gemini)
+function generateThreadOptions(payload) {
+  var settings = getDashboardData().settings || {};
+  var apiKey = settings.sumopod_api_key;
+  var isHook = (Number(payload.thread_index || 0) === 0);
+  var prodName = payload.product_names || payload.product_name || 'Produk Shopee';
+  var sellingPoints = payload.selling_points || '';
+  var currentText = payload.current_text || '';
+
+  // Fallback ke Gemini jika Sumopod API Key belum diisi
+  if (!apiKey && settings.gemini_key) {
+    return generateGeminiThreadOptions(payload, settings.gemini_key);
+  }
+  if (!apiKey) {
+    throw new Error('Sumopod API Key belum dikonfigurasi di Pengaturan Sistem (Settings).');
+  }
+
+  var endpoint = settings.sumopod_endpoint || 'https://api.sumopod.com/v1/chat/completions';
+  var model = settings.sumopod_model || 'gpt-4o-mini';
+
+  var systemPrompt = 'Anda adalah copywriter Meta Threads profesional untuk Shopee Affiliate Indonesia. ' +
+    'Tugas Anda membuat 3 opsi caption alternatif yang natural, santai (slang Indo, curhat, tidak kaku), memancing rasa penasaran audiens. ' +
+    (isHook
+      ? 'Ini adalah Utas #1 (Root Hook). Caption WAJIB BEBAS link eksternal agar distribusi reach organik maksimal di Threads. '
+      : 'Ini adalah Utas Lanjutan/Spill. Caption harus memberikan alasan checkout kuat dan menyertakan tag [LINK_AFFILIATE]. ') +
+    'Keluarkan output HANYA JSON valid berformat: {"options": ["Opsi 1...", "Opsi 2...", "Opsi 3..."]}';
+
+  var userPrompt = 'Produk: ' + prodName + '\n' +
+    (sellingPoints ? ('Keunggulan / Selling Points: ' + sellingPoints + '\n') : '') +
+    (currentText ? ('Teks draf pengguna saat ini: "' + currentText + '"\n') : '') +
+    'Buatkan 3 opsi variasi caption yang memikat dari berbagai sudut pandang (1: Curhat emosional/storytelling, 2: FOMO/racun promo diskon, 3: Rekomendasi to the point/pembuktian).';
+
+  var body = {
+    model: model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: 0.75
+  };
+
+  var response = UrlFetchApp.fetch(endpoint, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'Authorization': 'Bearer ' + apiKey.trim() },
+    payload: JSON.stringify(body),
+    muteHttpExceptions: true
+  });
+
+  var code = response.getResponseCode();
+  var rawText = response.getContentText() || '{}';
+  var resJson = {};
+  try {
+    resJson = JSON.parse(rawText);
+  } catch(e) {
+    throw new Error('Respons Sumopod tidak valid: ' + rawText.substring(0, 100));
+  }
+
+  if (code !== 200 || !resJson.choices || resJson.choices.length === 0) {
+    var errMsg = (resJson.error && resJson.error.message) ? resJson.error.message : ('HTTP ' + code);
+    throw new Error('Sumopod API Error: ' + errMsg);
+  }
+
+  var replyContent = resJson.choices[0].message.content || '';
+  var cleanJsonStr = replyContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+  try {
+    var parsed = JSON.parse(cleanJsonStr);
+    if (Array.isArray(parsed.options) && parsed.options.length > 0) {
+      return { options: parsed.options.slice(0, 3) };
+    }
+  } catch(parseErr) {}
+
+  var lines = replyContent.split('\n')
+    .map(function(s) { return s.replace(/^[0-9\.\-\* ]+/, '').trim(); })
+    .filter(function(s) { return s.length > 10; });
+
+  return { options: lines.slice(0, 3) };
+}
+
+function generateGeminiThreadOptions(payload, apiKey) {
+  var isHook = (Number(payload.thread_index || 0) === 0);
+  var prodName = payload.product_names || payload.product_name || 'Produk Shopee';
+  var sellingPoints = payload.selling_points || '';
+  var promptText = 'Buatkan 3 opsi kalimat caption Meta Threads Indonesia untuk mempromosikan produk: "' + prodName + '"' +
+    (sellingPoints ? (' dengan keunggulan: "' + sellingPoints + '"') : '') +
+    (isHook ? '. Utas #1 (Root Hook pembuka viral, TANPA link eksternal).' : '. Utas Lanjutan dengan tag [LINK_AFFILIATE].') +
+    ' Format balasan HANYA 3 baris teks terpisah per nomor tanpa intro atau outro.';
+
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+  var res = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }),
+    muteHttpExceptions: true
+  });
+  var resJson = JSON.parse(res.getContentText() || '{}');
+  if (res.getResponseCode() !== 200 || !resJson.candidates) {
+    throw new Error('AI Error: Gagal menghasilkan opsi caption');
+  }
+  var rawOutput = resJson.candidates[0].content.parts[0].text || '';
+  var lines = rawOutput.split('\n')
+    .map(function(s) { return s.replace(/^[0-9\.\-\* ]+/, '').trim(); })
+    .filter(function(s) { return s.length > 10; });
+  return { options: lines.slice(0, 3) };
+}
+
 function createPost(payload) {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName('Posts');
@@ -662,25 +795,6 @@ function createPost(payload) {
     nodes = [{ content: String(payload.thread_content_json || ''), media_id: '' }];
   }
   if (!Array.isArray(nodes)) nodes = [nodes];
-
-  // Penomoran otomatis utas (1/X indicator) jika multi-node
-  var totalNodes = nodes.length;
-  if (totalNodes > 1) {
-    for (var nIdx = 0; nIdx < totalNodes; nIdx++) {
-      var nObj = nodes[nIdx];
-      var rawTxt = typeof nObj === 'string' ? nObj : (nObj.content || '');
-      var numPrefix = (nIdx + 1) + '/' + totalNodes + ' ';
-      var hasNumbering = /^\(?\d+\/\d+\)?/i.test(rawTxt.trim());
-      if (!hasNumbering) {
-        if (typeof nObj === 'string') {
-          nodes[nIdx] = numPrefix + rawTxt;
-        } else {
-          nObj.content = numPrefix + rawTxt;
-        }
-      }
-    }
-    payload.thread_content_json = JSON.stringify(nodes);
-  }
 
   var isMultiNode = nodes.length > 1;
   var dripStatus = (isMultiNode && publishMode === 'DRIP_ON_VIEWS') ? 'WAITING_VIEWS' : 'COMPLETED';
@@ -1064,13 +1178,9 @@ function syncPostInsights(payload) {
         }
 
         var chainParentId = threadsPostId;
-        var totalSteps = nodes.length;
         for (var step = 1; step < nodes.length; step++) {
           var subNode = nodes[step];
           var subText = typeof subNode === 'string' ? subNode : (subNode.content || '');
-          if (totalSteps > 1 && !/^\(?\d+\/\d+\)?/i.test(subText.trim())) {
-            subText = (step + 1) + '/' + totalSteps + ' ' + subText;
-          }
           subText = resolveAffiliateLinks(subText, subNode, prodLookup, rowData[headers.indexOf('affiliate_sub_id')], prodId);
 
           var mIds = [];
@@ -1479,6 +1589,634 @@ function quickReplyComment(payload) {
   return { comment_id: liveReplyId, content: finalContent, reply_status: 'REPLIED' };
 }
 
+// Modul Autopilot & Referensi Viral (Dukungan Rangkaian Utas Dinamis)
+function saveViralReference(payload) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Viral_References');
+  if (!sheet) {
+    setupDatabase();
+    sheet = ss.getSheetByName('Viral_References');
+  }
+
+  var refId = payload.ref_id ? String(payload.ref_id).trim() : ('VREF_' + Utilities.getUuid().substring(0, 8));
+  var data = sheet.getDataRange().getValues();
+  var foundRow = -1;
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === refId) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+
+  // Ekstrak rangkaian utas dinamis (Utas 1, 2, 3, dst.)
+  var rawThreads = [];
+  if (Array.isArray(payload.threads) && payload.threads.length > 0) {
+    rawThreads = payload.threads.map(function(t) { return typeof t === 'string' ? t.trim() : (t.content || '').trim(); }).filter(Boolean);
+  } else {
+    if (payload.hook_thread_1) rawThreads.push(String(payload.hook_thread_1).trim());
+    if (payload.spill_thread_2) rawThreads.push(String(payload.spill_thread_2).trim());
+  }
+  if (rawThreads.length === 0) rawThreads = [''];
+
+  var hook1 = rawThreads[0] || (payload.hook_thread_1 || '');
+  var spill2 = rawThreads[1] || (payload.spill_thread_2 || '');
+  var threadsJson = JSON.stringify(rawThreads);
+
+  var rowVals = [
+    refId,
+    payload.product_id || '',
+    payload.title || 'Referensi Viral',
+    hook1,
+    spill2,
+    payload.original_url || '',
+    '[]',
+    payload.created_at || new Date().toISOString(),
+    threadsJson
+  ];
+
+  if (foundRow > 0) {
+    sheet.getRange(foundRow, 1, 1, rowVals.length).setValues([rowVals]);
+  } else {
+    sheet.appendRow(rowVals);
+  }
+
+  return { ref_id: refId };
+}
+
+function deleteViralReference(payload) {
+  var refId = payload.ref_id ? String(payload.ref_id).trim() : '';
+  if (!refId) throw new Error('Reference ID wajib diisi');
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Viral_References');
+  if (!sheet) throw new Error('Sheet Viral_References belum ada');
+
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === refId) {
+      sheet.deleteRow(i + 1);
+      return { success: true };
+    }
+  }
+  throw new Error('Referensi viral tidak ditemukan');
+}
+
+// Generate Variasi Remake dengan Sumopod API
+function generateSumopodRemake(payload) {
+  var settings = getDashboardData().settings || {};
+  var apiKey = settings.sumopod_api_key || payload.api_key;
+  if (!apiKey) throw new Error('Sumopod API Key belum dikonfigurasi di Pengaturan Sistem');
+
+  var endpoint = settings.sumopod_endpoint || 'https://api.sumopod.com/v1/chat/completions';
+  var model = settings.sumopod_model || 'gpt-4o-mini';
+
+  var systemPrompt = 'Anda adalah copywriter Meta Threads profesional untuk Shopee Affiliate. ' +
+    'Tugas Anda membuat remake rangkaian utas viral yang natural, santai (slang Indo/curhat), bebas link eksternal di Utas 1, ' +
+    'dan menyusun Utas lanjutan yang memicu konversi dengan tag [LINK_AFFILIATE]. ' +
+    'Keluarkan output HANYA JSON valid berformat: {"hook_1": "...", "spill_2": "...", "threads": ["Utas 1...", "Utas 2...", ...]}';
+
+  var winnerContext = '';
+  if (payload.winner_hook) {
+    winnerContext = '\n[SELF-LEARNING WINNER CONTEXT - Postingan Juara Sebelumnya Terbukti Sukses Menembus ' +
+      (payload.winner_views || 0) + ' Views]:\n"' + payload.winner_hook + '"\n' +
+      'Gunakan struktur emosi, rasa penasaran, dan gaya hook dari postingan juara di atas sebagai inspirasi utama!\n';
+  }
+
+  var threadsSourceText = '';
+  if (Array.isArray(payload.threads) && payload.threads.length > 0) {
+    threadsSourceText = payload.threads.map(function(t, idx) {
+      return 'Utas Asli #' + (idx + 1) + ': ' + (typeof t === 'string' ? t : (t.content || ''));
+    }).join('\n');
+  } else {
+    threadsSourceText = 'Referensi Hook Viral Asli: ' + (payload.hook_thread_1 || '') + '\n' +
+      'Referensi Spill Asli: ' + (payload.spill_thread_2 || '');
+  }
+
+  var userPrompt = 'Produk: ' + (payload.product_name || '') + '\n' +
+    'Selling Points: ' + (payload.selling_points || '-') + '\n' +
+    threadsSourceText + '\n' +
+    winnerContext + '\n' +
+    'Buatkan 1 versi remake yang segar, memancing rasa penasaran, dan tidak terkesan jualan kaku.';
+
+  var body = {
+    model: model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: 0.7
+  };
+
+  var response = UrlFetchApp.fetch(endpoint, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'Authorization': 'Bearer ' + apiKey.trim() },
+    payload: JSON.stringify(body),
+    muteHttpExceptions: true
+  });
+
+  var code = response.getResponseCode();
+  var rawText = response.getContentText() || '{}';
+  var resJson = {};
+  try {
+    resJson = JSON.parse(rawText);
+  } catch(e) {
+    throw new Error('Respons Sumopod tidak valid: ' + rawText.substring(0, 100));
+  }
+
+  if (code !== 200 || !resJson.choices || resJson.choices.length === 0) {
+    var errMsg = (resJson.error && resJson.error.message) ? resJson.error.message : ('HTTP ' + code);
+    throw new Error('Sumopod API Error: ' + errMsg);
+  }
+
+  var replyContent = resJson.choices[0].message.content || '';
+  var cleanJsonStr = replyContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+  try {
+    var parsed = JSON.parse(cleanJsonStr);
+    var outThreads = Array.isArray(parsed.threads) ? parsed.threads : [];
+    if (outThreads.length === 0) {
+      if (parsed.hook_1) outThreads.push(parsed.hook_1);
+      if (parsed.spill_2) outThreads.push(parsed.spill_2);
+    }
+    return {
+      hook_1: parsed.hook_1 || (outThreads[0] || ''),
+      spill_2: parsed.spill_2 || (outThreads[1] || ''),
+      threads: outThreads
+    };
+  } catch(parseErr) {
+    return {
+      hook_1: replyContent,
+      spill_2: payload.spill_thread_2 || '',
+      threads: [replyContent, payload.spill_thread_2 || ''].filter(Boolean)
+    };
+  }
+}
+
+// Jadwalkan Batch Autopilot dengan Strict Session Binding & Jitter Delay
+function scheduleAutopilotBatch(payload) {
+  var prodId = payload.product_id ? String(payload.product_id).trim() : '';
+  var targetSessionId = payload.session_id ? String(payload.session_id).trim() : '';
+  var accounts = payload.account_ids || [];
+  if (!prodId) throw new Error('Pilih produk target untuk Autopilot');
+  if (!accounts || accounts.length === 0) throw new Error('Centang minimal 1 akun target');
+
+  var allMedia = getSheetRecords('Media');
+  // Ambil paket media utuh HANYA dari sesi ulasan terpilih (No-Random Media)
+  var sessionMedia = [];
+  for (var m = 0; m < allMedia.length; m++) {
+    var row = allMedia[m];
+    if (row.product_id === prodId) {
+      if (targetSessionId && row.session_id === targetSessionId) {
+        sessionMedia.push(row.media_id);
+      } else if (!targetSessionId) {
+        targetSessionId = row.session_id; // kunci ke sesi pertama yang ditemukan
+        sessionMedia.push(row.media_id);
+      }
+    }
+  }
+
+  if (sessionMedia.length === 0) {
+    throw new Error('Produk ini belum memiliki file media dari sesi ulasan yang valid');
+  }
+
+  var prods = getSheetRecords('Products');
+  var prodObj = null;
+  for (var p = 0; p < prods.length; p++) {
+    if (prods[p].product_id === prodId) {
+      prodObj = prods[p];
+      break;
+    }
+  }
+
+  var baseTime = payload.start_time ? new Date(payload.start_time).getTime() : (Date.now() + 10 * 60 * 1000);
+  if (isNaN(baseTime)) baseTime = Date.now() + 10 * 60 * 1000;
+  var jitterBaseMin = Number(payload.jitter_minutes || 15);
+  var threshold = Number(payload.views_threshold || 500);
+
+  var createdPosts = [];
+
+  for (var a = 0; a < accounts.length; a++) {
+    var accId = accounts[a];
+    // Jitter delay acak antar akun (contoh: offset 12-18 menit per giliran)
+    var jitterOffsetMs = (a * jitterBaseMin * 60000) + Math.floor(Math.random() * (jitterBaseMin * 0.4 * 60000));
+    var scheduledDate = new Date(baseTime + jitterOffsetMs);
+
+    var cleanSpill = payload.spill_thread_2 || '';
+    if (cleanSpill.indexOf('[LINK_AFFILIATE') === -1) {
+      var shortAff = prodObj ? (prodObj.shopee_affiliate_url || prodObj.shopee_raw_url || 'shope.ee/affiliate') : 'shope.ee/affiliate';
+      cleanSpill = cleanSpill + '\n\n' + stripProtocol(shortAff);
+    }
+
+    var threadNodes = [
+      {
+        content: payload.hook_thread_1 || 'Rekomendasi terbaik wajib punya!',
+        product_ids: [prodId],
+        product_id: prodId,
+        media_ids: sessionMedia,
+        media_id: sessionMedia[0]
+      },
+      {
+        content: cleanSpill,
+        product_ids: [prodId],
+        product_id: prodId,
+        media_ids: [],
+        media_id: ''
+      }
+    ];
+
+    var postResult = createPost({
+      account_id: accId,
+      product_id: prodId,
+      publish_mode: 'DRIP_ON_VIEWS',
+      thread_content_json: JSON.stringify(threadNodes),
+      media_ids_json: JSON.stringify(sessionMedia),
+      views_threshold: threshold,
+      scheduled_time: scheduledDate.toISOString(),
+      status: 'SCHEDULED'
+    });
+
+    createdPosts.push({
+      post_id: postResult.post_id,
+      account_id: accId,
+      scheduled_time: scheduledDate.toISOString()
+    });
+  }
+
+  return {
+    scheduled_count: createdPosts.length,
+    session_id: targetSessionId,
+    media_count: sessionMedia.length,
+    posts: createdPosts
+  };
+}
+
+// Mesin Autopilot Otonom: Simpan, Toggle & Hapus Aturan Autopilot
+function saveAutopilotRule(payload) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Autopilot_Rules');
+  if (!sheet) {
+    setupDatabase();
+    sheet = ss.getSheetByName('Autopilot_Rules');
+  }
+
+  var ruleId = payload.rule_id ? String(payload.rule_id).trim() : ('RULE_' + Utilities.getUuid().substring(0, 8));
+  var data = sheet.getDataRange().getValues();
+  var foundRow = -1;
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === ruleId) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+
+  var accJson = '[]';
+  if (Array.isArray(payload.account_ids)) {
+    accJson = JSON.stringify(payload.account_ids);
+  } else if (payload.account_ids_json) {
+    accJson = String(payload.account_ids_json);
+  }
+
+  var existingLastSession = '';
+  if (foundRow > 0 && data[foundRow - 1].length >= 14) {
+    existingLastSession = data[foundRow - 1][13] || '';
+  }
+
+  var rowVals = [
+    ruleId,
+    payload.name || ('Aturan Autopilot ' + (payload.product_id || '')),
+    accJson,
+    payload.product_id || '',
+    payload.preferred_session_id || '',
+    Number(payload.frequency_per_day || 2),
+    Number(payload.views_threshold || 500),
+    Number(payload.jitter_minutes || 15),
+    payload.status || 'ACTIVE',
+    payload.last_run_at || '',
+    payload.created_at || new Date().toISOString(),
+    Number(payload.max_posts_per_day || 3),
+    Number(payload.min_interval_hours || 4),
+    payload.last_session_id || existingLastSession
+  ];
+
+  if (foundRow > 0) {
+    sheet.getRange(foundRow, 1, 1, rowVals.length).setValues([rowVals]);
+  } else {
+    sheet.appendRow(rowVals);
+  }
+
+  return { rule_id: ruleId, status: 'saved' };
+}
+
+function toggleAutopilotRule(payload) {
+  var ruleId = payload.rule_id ? String(payload.rule_id).trim() : '';
+  if (!ruleId) throw new Error('Rule ID wajib diisi');
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Autopilot_Rules');
+  if (!sheet) throw new Error('Sheet Autopilot_Rules belum ada');
+
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === ruleId) {
+      var currentStatus = String(data[i][8] || 'ACTIVE').toUpperCase();
+      var newStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+      sheet.getRange(i + 1, 9).setValue(newStatus);
+      return { rule_id: ruleId, status: newStatus };
+    }
+  }
+  throw new Error('Aturan tidak ditemukan');
+}
+
+function deleteAutopilotRule(payload) {
+  var ruleId = payload.rule_id ? String(payload.rule_id).trim() : '';
+  if (!ruleId) throw new Error('Rule ID wajib diisi');
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Autopilot_Rules');
+  if (!sheet) throw new Error('Sheet Autopilot_Rules belum ada');
+
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === ruleId) {
+      sheet.deleteRow(i + 1);
+      return { success: true, rule_id: ruleId };
+    }
+  }
+  throw new Error('Aturan tidak ditemukan');
+}
+
+// Background Cron Worker: Mesin Otonom Penuh (AI Remake + Winner Learning + Smart Session Rotation + Strict Rate Limiting)
+function runAutonomousAutopilotWorker(ruleIdFilter) {
+  var rules = getSheetRecords('Autopilot_Rules');
+  if (!rules || rules.length === 0) {
+    return { generated_count: 0, message: 'Belum ada aturan autopilot tersimpan.' };
+  }
+
+  var activeRules = [];
+  for (var r = 0; r < rules.length; r++) {
+    var rObj = rules[r];
+    if (ruleIdFilter && String(rObj.rule_id).trim() === String(ruleIdFilter).trim()) {
+      activeRules.push(rObj);
+      break;
+    }
+    if (String(rObj.status || '').toUpperCase() === 'ACTIVE') {
+      activeRules.push(rObj);
+    }
+  }
+
+  if (activeRules.length === 0) {
+    return { generated_count: 0, message: 'Tidak ada aturan autopilot yang aktif saat ini.' };
+  }
+
+  var allProducts = getSheetRecords('Products');
+  var prodMap = {};
+  for (var p = 0; p < allProducts.length; p++) {
+    prodMap[allProducts[p].product_id] = allProducts[p];
+  }
+
+  var allMedia = getSheetRecords('Media');
+  var allViralRefs = getSheetRecords('Viral_References');
+  var allAccounts = getSheetRecords('Accounts');
+  var allPosts = getSheetRecords('Posts');
+  var allQueue = getSheetRecords('Posting_Queue');
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ruleSheet = ss.getSheetByName('Autopilot_Rules');
+  var ruleData = ruleSheet ? ruleSheet.getDataRange().getValues() : [];
+  var ruleHeaders = ruleData.length > 0 ? ruleData[0] : [];
+  var lastRunCol = ruleHeaders.indexOf('last_run_at');
+  var ruleIdCol = ruleHeaders.indexOf('rule_id');
+  var lastSessionCol = ruleHeaders.indexOf('last_session_id');
+
+  var totalGenerated = 0;
+  var now = Date.now();
+  var oneDayMs = 24 * 3600 * 1000;
+
+  for (var i = 0; i < activeRules.length; i++) {
+    var rule = activeRules[i];
+    var isManualTrigger = !!ruleIdFilter;
+
+    var freq = Number(rule.frequency_per_day || 2);
+    if (freq <= 0) freq = 2;
+    var intervalMs = (24 / freq) * 3600 * 1000;
+    var lastRunTime = rule.last_run_at ? new Date(rule.last_run_at).getTime() : 0;
+
+    // Throttle frekuensi jika dipanggil oleh cron background (kecuali manual trigger)
+    if (!isManualTrigger && lastRunTime && (now - lastRunTime) < (intervalMs * 0.85)) {
+      continue;
+    }
+
+    var prod = prodMap[rule.product_id];
+    if (!prod) continue;
+
+    // 1. RATE LIMITING & SAFETY GUARDRAIL PER AKUN
+    var maxDailyPerAcc = Number(rule.max_posts_per_day || 3);
+    var minIntervalHours = Number(rule.min_interval_hours || 4);
+    var minIntervalMs = minIntervalHours * 3600 * 1000;
+
+    var rawAccIds = [];
+    try {
+      rawAccIds = typeof rule.account_ids_json === 'string' ? JSON.parse(rule.account_ids_json) : (rule.account_ids_json || []);
+    } catch(eAcc) {
+      rawAccIds = String(rule.account_ids_json || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+    }
+    if (!Array.isArray(rawAccIds) || rawAccIds.length === 0) {
+      if (allAccounts.length > 0) rawAccIds = [allAccounts[0].account_id];
+    }
+
+    // Filter akun yang aman dan belum melampaui limit harian / interval spam
+    var eligibleAccounts = [];
+    for (var aIdx = 0; aIdx < rawAccIds.length; aIdx++) {
+      var aId = cleanAccountId(rawAccIds[aIdx]);
+      var postsToday = 0;
+      var lastAccountPostTime = 0;
+
+      // Hitung postingan dalam 24 jam terakhir dari Posts
+      for (var ps = 0; ps < allPosts.length; ps++) {
+        if (cleanAccountId(allPosts[ps].account_id) === aId) {
+          var pTime = allPosts[ps].created_at ? new Date(allPosts[ps].created_at).getTime() : 0;
+          if ((now - pTime) < oneDayMs) postsToday++;
+          if (pTime > lastAccountPostTime) lastAccountPostTime = pTime;
+        }
+      }
+
+      // Hitung postingan antrean hari ini dari Posting_Queue
+      for (var q = 0; q < allQueue.length; q++) {
+        if (cleanAccountId(allQueue[q].account_id) === aId) {
+          var qTime = allQueue[q].scheduled_time ? new Date(allQueue[q].scheduled_time).getTime() : 0;
+          if ((now - qTime) < oneDayMs && (allQueue[q].status || '').toLowerCase() !== 'failed') postsToday++;
+          if (qTime > lastAccountPostTime) lastAccountPostTime = qTime;
+        }
+      }
+
+      // Jika belum tembus batas harian dan jeda waktu mencukupi (atau manual trigger)
+      if (postsToday < maxDailyPerAcc) {
+        if (isManualTrigger || (now - lastAccountPostTime) >= (minIntervalMs * 0.8)) {
+          eligibleAccounts.push(aId);
+        }
+      }
+    }
+
+    if (eligibleAccounts.length === 0) continue;
+
+    // 2. ROTASI MEDIA SESI ULASAN PINTAR (Round-Robin Bergilir, Anti-Acak & Non-Consecutive)
+    var prodSessions = {};
+    var sessionOrder = [];
+    for (var m = 0; m < allMedia.length; m++) {
+      var med = allMedia[m];
+      if (med.product_id === rule.product_id) {
+        var sId = med.session_id || 'SESI_DEFAULT';
+        if (!prodSessions[sId]) {
+          prodSessions[sId] = [];
+          sessionOrder.push(sId);
+        }
+        prodSessions[sId].push(med.media_id);
+      }
+    }
+
+    var chosenSessionId = rule.preferred_session_id;
+    var chosenMediaIds = [];
+
+    if (chosenSessionId && prodSessions[chosenSessionId] && prodSessions[chosenSessionId].length > 0) {
+      chosenMediaIds = prodSessions[chosenSessionId];
+    } else if (sessionOrder.length > 0) {
+      var lastSessId = rule.last_session_id || '';
+      var nextIdx = 0;
+      var foundLastIdx = sessionOrder.indexOf(lastSessId);
+      if (foundLastIdx !== -1) {
+        nextIdx = (foundLastIdx + 1) % sessionOrder.length;
+      }
+      chosenSessionId = sessionOrder[nextIdx];
+      chosenMediaIds = prodSessions[chosenSessionId];
+    }
+
+    if (chosenMediaIds.length === 0) continue;
+
+    // 3. AI SELF-LEARNING & WINNER CONTEXT (Pindai Postingan View Tertinggi sebagai Acuan Utama)
+    var winnerPost = null;
+    var highestViews = 0;
+
+    for (var w = 0; w < allPosts.length; w++) {
+      var itemP = allPosts[w];
+      if (itemP.status === 'PUBLISHED' && Number(itemP.current_views || 0) > highestViews) {
+        if (!rule.product_id || itemP.product_id === rule.product_id) {
+          highestViews = Number(itemP.current_views);
+          winnerPost = itemP;
+        }
+      }
+    }
+
+    // Jika belum ada post juara spesifik produk, gunakan post juara global
+    if (!winnerPost) {
+      for (var gw = 0; gw < allPosts.length; gw++) {
+        var gItem = allPosts[gw];
+        if (gItem.status === 'PUBLISHED' && Number(gItem.current_views || 0) > highestViews) {
+          highestViews = Number(gItem.current_views);
+          winnerPost = gItem;
+        }
+      }
+    }
+
+    var winnerHookText = '';
+    var winnerViewsCount = 0;
+    if (winnerPost && highestViews >= 50) {
+      winnerViewsCount = highestViews;
+      try {
+        var parsedWNodes = typeof winnerPost.thread_content_json === 'string'
+          ? JSON.parse(winnerPost.thread_content_json)
+          : winnerPost.thread_content_json;
+        if (Array.isArray(parsedWNodes) && parsedWNodes.length > 0) {
+          winnerHookText = typeof parsedWNodes[0] === 'string' ? parsedWNodes[0] : (parsedWNodes[0].content || '');
+          winnerHookText = winnerHookText.replace(/^\(?\d+\/\d+\)?\s*/i, '');
+        }
+      } catch(eWin) {}
+    }
+
+    // Pola referensi viral dari Swipe-File
+    var matchingRefs = [];
+    var fallbackRefs = [];
+    for (var v = 0; v < allViralRefs.length; v++) {
+      if (allViralRefs[v].product_id === rule.product_id) {
+        matchingRefs.push(allViralRefs[v]);
+      } else if (!allViralRefs[v].product_id) {
+        fallbackRefs.push(allViralRefs[v]);
+      }
+    }
+
+    var chosenRef = null;
+    if (matchingRefs.length > 0) {
+      chosenRef = matchingRefs[Math.floor(Math.random() * matchingRefs.length)];
+    } else if (fallbackRefs.length > 0) {
+      chosenRef = fallbackRefs[Math.floor(Math.random() * fallbackRefs.length)];
+    }
+
+    var origHook = chosenRef ? (chosenRef.hook_thread_1 || '') : ('Rekomendasi ' + prod.product_name + ' paling worth it!');
+    var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK_AFFILIATE]';
+
+    // Panggil Sumopod AI dengan Winner Context
+    var remakeResult = { hook_1: origHook, spill_2: origSpill };
+    try {
+      remakeResult = generateSumopodRemake({
+        product_name: prod.product_name,
+        selling_points: prod.selling_points || '',
+        hook_thread_1: origHook,
+        spill_thread_2: origSpill,
+        winner_hook: winnerHookText,
+        winner_views: winnerViewsCount
+      });
+    } catch(aiErr) {
+      // Fallback aman ke teks asli jika limit
+    }
+
+    var hook1 = remakeResult.hook_1 || origHook;
+    var spill2 = remakeResult.spill_2 || origSpill;
+
+    var jitterMin = Number(rule.jitter_minutes || 15);
+    var thresh = Number(rule.views_threshold || 500);
+
+    // Jadwalkan batch untuk akun-akun yang lolos rate limit
+    var baseSchedTime = now + (10 * 60 * 1000);
+    var batchRes = scheduleAutopilotBatch({
+      product_id: rule.product_id,
+      session_id: chosenSessionId,
+      hook_thread_1: hook1,
+      spill_thread_2: spill2,
+      account_ids: eligibleAccounts,
+      start_time: new Date(baseSchedTime).toISOString(),
+      jitter_minutes: jitterMin,
+      views_threshold: thresh
+    });
+
+    var count = (batchRes && batchRes.scheduled_count) ? batchRes.scheduled_count : 0;
+    totalGenerated += count;
+
+    // Simpan waktu eksekusi & riwayat rotasi sesi ulasan terakhir ke sheet
+    if (ruleSheet && ruleIdCol !== -1) {
+      for (var rRow = 1; rRow < ruleData.length; rRow++) {
+        if (String(ruleData[rRow][ruleIdCol]) === String(rule.rule_id)) {
+          if (lastRunCol !== -1) {
+            ruleSheet.getRange(rRow + 1, lastRunCol + 1).setValue(new Date().toISOString());
+          }
+          if (lastSessionCol !== -1 && chosenSessionId) {
+            ruleSheet.getRange(rRow + 1, lastSessionCol + 1).setValue(chosenSessionId);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  return {
+    generated_count: totalGenerated,
+    message: totalGenerated > 0
+      ? ('Autopilot cerdas berhasil: ' + totalGenerated + ' postingan dibuat dengan Winner Learning & Rotasi Sesi.')
+      : 'Semua akun autopilot berada dalam batas aman spam harian (rate limit aktif).'
+  };
+}
+
 // Kelola Master Bank Hook
 function saveHookTemplate(payload) {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -1511,6 +2249,14 @@ function deleteHookTemplate(payload) {
 function checkAndExecuteQueueAndViews() {
   var queueProcessed = 0;
   var postsSynced = 0;
+  var autopilotGenerated = 0;
+
+  try {
+    var autoResult = runAutonomousAutopilotWorker();
+    autopilotGenerated = autoResult && autoResult.generated_count ? autoResult.generated_count : 0;
+  } catch (aErr) {
+    // Isolasi error cron autopilot
+  }
 
   try {
     var queueResult = checkAndPublishQueue();
@@ -1527,6 +2273,7 @@ function checkAndExecuteQueueAndViews() {
   }
 
   return {
+    autopilot_generated: autopilotGenerated,
     queue_processed: queueProcessed,
     posts_synced: postsSynced,
     timestamp: new Date().toISOString()
@@ -1915,16 +2662,9 @@ function executeThreadChain(accountId, token, nodes, mediaMap, prods, subId) {
   }
 
   var lastThreadId = null;
-  var totalNodes = nodes.length;
   for (var n = 0; n < nodes.length; n++) {
     var node = nodes[n];
     var textContent = typeof node === 'string' ? node : (node.content || '');
-
-    // Penomoran otomatis utas (1/X indicator) jika multi-node dan belum tertulis
-    if (totalNodes > 1 && !/^\(?\d+\/\d+\)?/i.test(textContent.trim())) {
-      textContent = (n + 1) + '/' + totalNodes + ' ' + textContent;
-    }
-
     textContent = resolveAffiliateLinks(textContent, node, prodMap, subId, '');
 
     // Kumpulkan daftar media (single ID atau multi-media karusel)
@@ -2246,6 +2986,47 @@ function deleteMedia(payload) {
 
   mediaSheet.deleteRow(targetRow);
   return { success: true, media_id: mediaId, public_id: publicId };
+}
+
+// Hapus seluruh paket sesi ulasan dari database & Cloudinary
+function deleteMediaSession(payload) {
+  var prodId = payload.product_id ? String(payload.product_id).trim() : '';
+  var sessionId = payload.session_id ? String(payload.session_id).trim() : '';
+  if (!sessionId) throw new Error('Session ID wajib diisi');
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var mediaSheet = ss.getSheetByName('Media');
+  if (!mediaSheet) throw new Error('Sheet Media tidak ditemukan');
+
+  var settings = getDashboardData().settings || {};
+  var cloudName = settings.cloudinary_cloud;
+  var apiKey = settings.cloudinary_api_key;
+  var apiSecret = settings.cloudinary_api_secret;
+  var canDeleteCloudinary = cloudName && apiKey && apiSecret;
+
+  var mData = mediaSheet.getDataRange().getValues();
+  var deletedCount = 0;
+
+  for (var m = mData.length - 1; m >= 1; m--) {
+    var rowProd = String(mData[m][1] || '').trim();
+    var rowSess = String(mData[m][2] || '').trim();
+    if (rowSess === sessionId && (!prodId || rowProd === prodId)) {
+      var mediaUrl = String(mData[m][3] || '').trim();
+      var mediaType = mData[m][4] || 'IMAGE';
+      if (canDeleteCloudinary && mediaUrl.indexOf('cloudinary.com') !== -1) {
+        var publicId = extractCloudinaryPublicId(mediaUrl);
+        if (publicId) {
+          try {
+            deleteCloudinaryAsset(cloudName, apiKey, apiSecret, publicId, mediaType);
+          } catch(e) {}
+        }
+      }
+      mediaSheet.deleteRow(m + 1);
+      deletedCount++;
+    }
+  }
+
+  return { success: true, session_id: sessionId, deleted_count: deletedCount };
 }
 
 // Perbarui postingan di antrean (Posts & Posting_Queue)
