@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ThreadAffiliate Engine</title>
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2310b981'/%3E%3Cpath d='M8 16h16M16 8v16' stroke='%23ffffff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.css" rel="stylesheet" type="text/css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
   <style>
     [x-cloak] { display: none !important; }
     .nested-tree-line { border-left: 2px dashed #94a3b8; }
@@ -65,6 +66,9 @@
       <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
         <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> Dashboard
       </button>
+      <button @click="switchTab('composer')" :class="activeTab === 'composer' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
+        <i data-lucide="feather" class="w-4 h-4 mr-2"></i> Post Composer
+      </button>
       <button @click="switchTab('published')" :class="activeTab === 'published' ? 'border-emerald-400 text-emerald-400 bg-slate-800/50 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'" class="py-3 px-3.5 border-b-2 text-xs flex items-center whitespace-nowrap rounded-t-lg transition">
         <i data-lucide="check-circle-2" class="w-4 h-4 mr-2"></i> Postingan Terbit
         <span x-show="publishedPosts.length > 0" class="ml-2 badge badge-xs badge-success text-[9px] font-bold" x-text="publishedPosts.length"></span>
@@ -87,32 +91,36 @@
   </header>
 
   <!-- Mobile Bottom Navigation Bar (App Style) -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex justify-around items-center shadow-2xl safe-area-pb">
-    <button @click="switchTab('dashboard')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px]" :class="activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
-      <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5"></i>
-      <span class="text-[10px]">Home</span>
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-1 py-1.5 flex justify-around items-center shadow-2xl safe-area-pb">
+    <button @click="switchTab('dashboard')" class="flex flex-col items-center justify-center py-1 px-1 rounded-xl transition min-w-[42px]" :class="activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <i data-lucide="layout-dashboard" class="w-4 h-4 mb-0.5"></i>
+      <span class="text-[9px]">Home</span>
     </button>
-    <button @click="switchTab('published')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px]" :class="activeTab === 'published' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
-      <i data-lucide="check-circle-2" class="w-5 h-5 mb-0.5"></i>
-      <span class="text-[10px]">Terbit</span>
+    <button @click="switchTab('composer')" class="flex flex-col items-center justify-center py-1 px-1 rounded-xl transition min-w-[42px]" :class="activeTab === 'composer' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <i data-lucide="feather" class="w-4 h-4 mb-0.5"></i>
+      <span class="text-[9px]">Utas</span>
     </button>
-    <button @click="switchTab('queue')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px] relative" :class="activeTab === 'queue' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
-      <span x-show="queuedPosts.length > 0" class="absolute top-0.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full"></span>
-      <i data-lucide="calendar-clock" class="w-5 h-5 mb-0.5"></i>
-      <span class="text-[10px]">Antrean</span>
+    <button @click="switchTab('published')" class="flex flex-col items-center justify-center py-1 px-1 rounded-xl transition min-w-[42px]" :class="activeTab === 'published' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <i data-lucide="check-circle-2" class="w-4 h-4 mb-0.5"></i>
+      <span class="text-[9px]">Terbit</span>
     </button>
-    <button @click="switchTab('media')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px]" :class="activeTab === 'media' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
-      <i data-lucide="folder-image" class="w-5 h-5 mb-0.5"></i>
-      <span class="text-[10px]">Media</span>
+    <button @click="switchTab('queue')" class="flex flex-col items-center justify-center py-1 px-1 rounded-xl transition min-w-[42px] relative" :class="activeTab === 'queue' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <span x-show="queuedPosts.length > 0" class="absolute top-0.5 right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+      <i data-lucide="calendar-clock" class="w-4 h-4 mb-0.5"></i>
+      <span class="text-[9px]">Antrean</span>
     </button>
-    <button @click="switchTab('inbox')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px] relative" :class="activeTab === 'inbox' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
-      <span x-show="unrepliedCount > 0" class="absolute top-0.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
-      <i data-lucide="messages-square" class="w-5 h-5 mb-0.5"></i>
-      <span class="text-[10px]">Inbox</span>
+    <button @click="switchTab('media')" class="flex flex-col items-center justify-center py-1 px-1 rounded-xl transition min-w-[42px]" :class="activeTab === 'media' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <i data-lucide="folder-image" class="w-4 h-4 mb-0.5"></i>
+      <span class="text-[9px]">Media</span>
     </button>
-    <button @click="switchTab('accounts')" class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition min-w-[50px]" :class="activeTab === 'accounts' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
-      <i data-lucide="users" class="w-5 h-5 mb-0.5"></i>
-      <span class="text-[10px]">Akun</span>
+    <button @click="switchTab('inbox')" class="flex flex-col items-center justify-center py-1 px-1 rounded-xl transition min-w-[42px] relative" :class="activeTab === 'inbox' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <span x-show="unrepliedCount > 0" class="absolute top-0.5 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></span>
+      <i data-lucide="messages-square" class="w-4 h-4 mb-0.5"></i>
+      <span class="text-[9px]">Inbox</span>
+    </button>
+    <button @click="switchTab('accounts')" class="flex flex-col items-center justify-center py-1 px-1 rounded-xl transition min-w-[42px]" :class="activeTab === 'accounts' ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+      <i data-lucide="users" class="w-4 h-4 mb-0.5"></i>
+      <span class="text-[9px]">Akun</span>
     </button>
   </nav>
 
@@ -256,164 +264,70 @@
         </div>
       </div>
     </div>
+
+    <!-- TAB 2: POST COMPOSER (MULTI-THREAD BUILDER) -->
+    <div x-show="activeTab === 'composer'" x-cloak class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2 space-y-4">
 
-        <!-- Panel 1: Akun Pengirim (Broadcast Multi-Akun) & Produk Shopee Terkait -->
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-          <!-- Akun Pengirim dengan Search Bar & Filter Cepat -->
-          <div>
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-              <label class="text-xs font-bold text-slate-900 flex items-center">
-                <i data-lucide="share-2" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Akun Pengirim Target (Broadcast Multi-Akun)
-              </label>
-              <div class="flex items-center space-x-2">
-                <button type="button" @click="selectAllAccounts()" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition" x-text="composerAccounts.length === accounts.length && accounts.length > 0 ? 'Batalkan Semua' : 'Pilih Semua (' + accounts.length + ')'"></button>
-                <span class="badge badge-sm badge-neutral font-mono font-bold" x-text="composerAccounts.length + ' dipilih'"></span>
-              </div>
-            </div>
-
-            <!-- Search Bar Akun & Filter Tabs -->
-            <div class="flex items-center space-x-2 mb-2">
-              <div class="relative flex-1">
-                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
-                <input type="text" x-model="accountSearchQuery" placeholder="Cari username @ atau ID akun..." class="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 bg-slate-50">
-                <button x-show="accountSearchQuery" @click="accountSearchQuery = ''" class="absolute right-2 top-2 text-slate-400 hover:text-slate-600">
-                  <i data-lucide="x" class="w-3 h-3"></i>
-                </button>
-              </div>
-              <div class="flex space-x-1 border border-slate-200 rounded-lg p-0.5 bg-slate-50 flex-shrink-0">
-                <button type="button" @click="accountFilterTab = 'ALL'" :class="accountFilterTab === 'ALL' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Semua</button>
-                <button type="button" @click="accountFilterTab = 'SELECTED'" :class="accountFilterTab === 'SELECTED' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Terpilih</button>
-              </div>
-            </div>
-
-            <!-- Grid Akun Bersih & Ringkas -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1">
-              <template x-for="acc in filteredComposerAccounts" :key="acc.account_id">
-                <label :class="isAccountSelected(acc.account_id) ? 'border-emerald-500 bg-emerald-50/60 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100'" class="p-2 rounded-xl border flex items-center space-x-2 cursor-pointer transition">
-                  <input type="checkbox" :checked="isAccountSelected(acc.account_id)" @change="toggleAccountSelection(acc.account_id)" class="checkbox checkbox-xs checkbox-primary">
-                  <img :src="acc.profile_pic_url || 'https://via.placeholder.com/32'" class="w-6 h-6 rounded-full object-cover bg-slate-200 flex-shrink-0" alt="avatar">
-                  <div class="min-w-0 flex-1">
-                    <div class="text-xs font-bold text-slate-800 truncate" x-text="'@' + acc.username"></div>
-                    <div class="text-[9px] text-slate-400 font-mono truncate" x-text="acc.account_id"></div>
-                  </div>
-                </label>
-              </template>
-            </div>
-            <div x-show="accounts.length === 0" class="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-xl border border-amber-200 flex items-center mt-2">
-              <i data-lucide="alert-circle" class="w-4 h-4 mr-1.5 flex-shrink-0"></i>
-              <span>Belum ada akun Meta terhubung. Silakan sinkronkan akun di tab Akun Meta API.</span>
+        <!-- Panel 1: Akun Pengirim Target (Broadcast Multi-Akun) -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <label class="text-xs font-bold text-slate-900 flex items-center">
+              <i data-lucide="share-2" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Akun Pengirim Target (Broadcast Multi-Akun)
+            </label>
+            <div class="flex items-center space-x-2">
+              <button type="button" @click="selectAllAccounts()" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition" x-text="composerAccounts.length === accounts.length && accounts.length > 0 ? 'Batalkan Semua' : 'Pilih Semua (' + accounts.length + ')'"></button>
+              <span class="badge badge-sm badge-neutral font-mono font-bold" x-text="composerAccounts.length + ' dipilih'"></span>
             </div>
           </div>
 
-          <!-- Pemilihan Produk Shopee Visual dengan Search Bar & Thumbnail Preview -->
-          <div class="pt-3 border-t border-slate-100">
-            <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-bold text-slate-900 flex items-center">
-                <i data-lucide="shopping-bag" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Produk Shopee Terkait
-              </label>
-              <span class="text-[11px] text-slate-400" x-text="products.length + ' produk master tersedia'"></span>
+          <!-- Search Bar Akun & Filter Tabs -->
+          <div class="flex items-center space-x-2">
+            <div class="relative flex-1">
+              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+              <input type="text" x-model="accountSearchQuery" placeholder="Cari username @ atau ID akun..." class="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 bg-slate-50">
+              <button x-show="accountSearchQuery" @click="accountSearchQuery = ''" class="absolute right-2 top-2 text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-3 h-3"></i>
+              </button>
             </div>
+            <div class="flex space-x-1 border border-slate-200 rounded-lg p-0.5 bg-slate-50 flex-shrink-0">
+              <button type="button" @click="accountFilterTab = 'ALL'" :class="accountFilterTab === 'ALL' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Semua</button>
+              <button type="button" @click="accountFilterTab = 'SELECTED'" :class="accountFilterTab === 'SELECTED' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Terpilih</button>
+            </div>
+          </div>
 
-            <!-- Search Bar Produk & Dropdown Custom Berbasis Thumbnail -->
-            <div class="relative" @click.away="showProductDropdown = false">
-              <!-- Jika belum ada produk terpilih: Input Pencarian Produk -->
-              <div x-show="!selectedProductObj" class="relative">
-                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none"></i>
-                <input type="text"
-                       x-model="composerProductSearch"
-                       @focus="showProductDropdown = true"
-                       @click="showProductDropdown = true"
-                       @input="showProductDropdown = true"
-                       placeholder="Ketik nama, kategori, atau ID produk Shopee..."
-                       class="w-full pl-9 pr-16 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
-                <div class="absolute right-2 top-2 flex items-center space-x-1">
-                  <button type="button" x-show="composerProductSearch" @click.stop="composerProductSearch = ''; showProductDropdown = true" class="text-slate-400 hover:text-slate-600 p-0.5">
-                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                  </button>
-                  <button type="button" @click.stop="showProductDropdown = !showProductDropdown" class="text-slate-400 hover:text-slate-700 p-0.5" title="Buka/Tutup Daftar Produk">
-                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200" :class="showProductDropdown ? 'rotate-180 text-emerald-600' : ''"></i>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Kartu Visual Produk Terpilih (Jika Ada) -->
-              <div x-show="selectedProductObj" class="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3">
-                <div class="flex items-center space-x-3 min-w-0">
-                  <div class="w-12 h-12 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                    <template x-if="selectedProductObj && selectedProductObj.product_image_url">
-                      <img :src="selectedProductObj.product_image_url" class="w-full h-full object-cover" alt="thumb">
-                    </template>
-                    <template x-if="!selectedProductObj || !selectedProductObj.product_image_url">
-                      <i data-lucide="package" class="w-6 h-6 text-slate-400"></i>
-                    </template>
-                  </div>
-                  <div class="min-w-0">
-                    <div class="font-bold text-xs text-slate-900 truncate" x-text="selectedProductObj ? selectedProductObj.product_name : ''"></div>
-                    <div class="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
-                      <span class="px-1.5 py-0.2 bg-white rounded border border-slate-200 font-semibold" x-text="selectedProductObj ? selectedProductObj.category : ''"></span>
-                      <span>•</span>
-                      <span class="font-mono font-bold text-emerald-800" x-text="'Rp ' + (selectedProductObj ? Number(selectedProductObj.price || 0).toLocaleString('id-ID') : '0')"></span>
-                      <span>•</span>
-                      <span class="text-slate-600" x-text="inlineProductMedia.length + ' media ulasan'"></span>
-                    </div>
-                  </div>
-                </div>
-                <button type="button" @click="clearSelectedComposerProduct()" class="text-xs font-semibold text-rose-600 hover:text-rose-800 bg-white hover:bg-rose-50 px-2.5 py-1.5 rounded-lg border border-slate-200 transition flex items-center flex-shrink-0">
-                  <i data-lucide="x" class="w-3 h-3 mr-1"></i> Ganti Produk
-                </button>
-              </div>
-
-              <!-- Menu Dropdown Pilihan Produk (Floating) -->
-              <div x-show="showProductDropdown && !selectedProductObj"
-                   class="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-y-auto divide-y divide-slate-100">
-                <!-- Info Status Pencarian & Tombol Refresh -->
-                <div class="p-2 bg-slate-50 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                  <span x-text="'Menampilkan ' + filteredComposerProducts.length + ' dari ' + products.length + ' produk'"></span>
-                  <button type="button" @click.stop="fetchProducts()" :disabled="isLoadingProducts" class="text-emerald-700 hover:underline flex items-center font-bold">
-                    <i data-lucide="refresh-cw" class="w-3 h-3 mr-1" :class="isLoadingProducts ? 'animate-spin' : ''"></i> Refresh
-                  </button>
-                </div>
-
-                <template x-for="p in filteredComposerProducts" :key="p.product_id">
-                  <div @mousedown.prevent="selectComposerProduct(p)" @click="selectComposerProduct(p)" class="p-2.5 hover:bg-emerald-50/70 cursor-pointer flex items-center space-x-3 transition">
-                    <div class="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                      <template x-if="p.product_image_url">
-                        <img :src="p.product_image_url" class="w-full h-full object-cover" alt="thumb">
-                      </template>
-                      <template x-if="!p.product_image_url">
-                        <i data-lucide="package" class="w-4 h-4 text-slate-400"></i>
-                      </template>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                      <div class="text-xs font-bold text-slate-900 truncate" x-text="p.product_name"></div>
-                      <div class="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
-                        <span class="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-medium" x-text="p.category"></span>
-                        <span>•</span>
-                        <span class="font-mono font-bold text-emerald-700" x-text="'Rp ' + Number(p.price || 0).toLocaleString('id-ID')"></span>
-                        <span x-show="p.product_id" class="text-slate-400 font-mono" x-text="'#' + p.product_id"></span>
-                      </div>
-                    </div>
-                  </div>
+          <!-- Grid Akun Bersih & Ringkas -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1">
+            <template x-for="acc in filteredComposerAccounts" :key="acc.account_id">
+              <label :class="isAccountSelected(acc.account_id) ? 'border-emerald-500 bg-emerald-50/60 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100'" class="p-2 rounded-xl border flex items-center space-x-2 cursor-pointer transition">
+                <input type="checkbox" :checked="isAccountSelected(acc.account_id)" @change="toggleAccountSelection(acc.account_id)" class="checkbox checkbox-xs checkbox-primary">
+                <template x-if="acc.profile_pic_url">
+                  <img :src="acc.profile_pic_url" @error="$event.target.style.display='none'" class="w-6 h-6 rounded-full object-cover bg-slate-200 flex-shrink-0" alt="avatar">
                 </template>
-
-                <div x-show="filteredComposerProducts.length === 0" class="p-4 text-center text-xs text-slate-400">
-                  <span x-show="products.length === 0">Belum ada produk di database. Tambahkan produk di tab Media & Produk.</span>
-                  <span x-show="products.length > 0">Tidak ada produk yang cocok dengan kata kunci pencarian.</span>
+                <template x-if="!acc.profile_pic_url">
+                  <div class="w-6 h-6 rounded-full bg-slate-700 text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0" x-text="(acc.username || 'A').charAt(0).toUpperCase()"></div>
+                </template>
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs font-bold text-slate-800 truncate" x-text="'@' + acc.username"></div>
+                  <div class="text-[9px] text-slate-400 font-mono truncate" x-text="acc.account_id"></div>
                 </div>
-              </div>
-            </div>
+              </label>
+            </template>
+          </div>
+          <div x-show="accounts.length === 0" class="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-xl border border-amber-200 flex items-center mt-2">
+            <i data-lucide="alert-circle" class="w-4 h-4 mr-1.5 flex-shrink-0"></i>
+            <span>Belum ada akun Meta terhubung. Silakan sinkronkan akun di tab Akun Meta API.</span>
           </div>
         </div>
 
-        <!-- Panel 2: Multi-Thread Builder Berjenjang (Media Melekat di Setiap Kartu Utas) -->
+        <!-- Panel 2: Multi-Thread Builder Berjenjang (Multi-Produk & Multi-Media Modular per Utas) -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <div class="flex justify-between items-center mb-4">
             <div>
               <h2 class="text-sm font-bold text-slate-900 flex items-center">
-                <i data-lucide="git-commit" class="w-4 h-4 text-emerald-600 mr-2"></i> Rangkaian Utas Berantai (Multi-Thread)
+                <i data-lucide="git-commit" class="w-4 h-4 text-emerald-600 mr-2"></i> Rangkaian Utas Berantai (Multi-Produk & Multi-Media)
               </h2>
-              <p class="text-[11px] text-slate-500 mt-0.5">Utas 1 terbit duluan bersih dari link. Begitu target views tembus, Utas lanjutan menyusul terbit berantai otomatis.</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Setiap utas dapat mengaitkan beberapa produk Shopee dan multi-media karusel secara bersamaan.</p>
             </div>
             <button @click="addThreadNode()" class="text-xs font-bold bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 flex items-center transition shadow-2xs">
               <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> Tambah Utas Lanjutan
@@ -423,24 +337,129 @@
           <div class="space-y-4">
             <template x-for="(thread, index) in threadList" :key="index">
               <div class="p-4 rounded-xl border relative transition" :class="index === 0 ? 'border-emerald-300 ring-1 ring-emerald-100 bg-emerald-50/20' : 'border-slate-200 bg-slate-50/60'">
+                <!-- Header Kartu Utas -->
                 <div class="flex justify-between items-center mb-2.5">
                   <div class="flex items-center space-x-2">
-                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow-2xs" :class="index === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'" x-text="index === 0 ? 'Utas #1 (Root Hook - Bebas Link)' : 'Utas #' + (index + 1) + ' (Sub-Reply Berantai)'"></span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow-2xs" :class="index === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'" x-text="index === 0 ? 'Utas #1 (Root Hook)' : 'Utas #' + (index + 1) + ' (Sub-Reply)'"></span>
+                    <span x-show="threadList.length > 1" class="badge badge-xs badge-primary font-mono font-bold text-[9px]" x-text="'(' + (index + 1) + '/' + threadList.length + ')'"></span>
+                    <span class="badge badge-xs badge-neutral font-bold text-[9px]" x-text="getNodeProducts(thread).length + ' Produk'"></span>
                     <span x-show="thread.media_ids && thread.media_ids.length > 1" class="badge badge-xs badge-info font-bold text-[9px]" x-text="'Karusel ' + thread.media_ids.length + ' item'"></span>
                     <span x-show="thread.media_ids && thread.media_ids.length === 1" class="badge badge-xs badge-neutral text-[9px]">Single Media</span>
                   </div>
                   <div class="flex items-center space-x-2">
-                    <!-- Shortcut Sisipkan Link Affiliate Produk -->
-                    <button type="button" @click="insertAffiliateLink(index)" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md flex items-center transition shadow-2xs" title="Sisipkan tautan affiliate produk yang dipilih">
-                      <i data-lucide="link-2" class="w-3 h-3 mr-1 text-emerald-600"></i> + Sisipkan Link Affiliate Produk
-                    </button>
+                    <!-- Dropdown Sisipkan Link Affiliate Multi-Produk -->
+                    <div class="relative" @click.away="thread._showLinkMenu = false">
+                      <button type="button" @click="thread._showLinkMenu = !thread._showLinkMenu" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md flex items-center transition shadow-2xs" title="Sisipkan tautan affiliate produk terkait di utas ini">
+                        <i data-lucide="link-2" class="w-3 h-3 mr-1 text-emerald-600"></i>
+                        <span>+ Sisipkan Link Affiliate</span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 ml-1 text-emerald-600 transition-transform" :class="thread._showLinkMenu ? 'rotate-180' : ''"></i>
+                      </button>
+
+                      <!-- Menu Dropdown Pilihan Produk untuk Disisipkan ke Caption -->
+                      <div x-show="thread._showLinkMenu" class="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-20 p-2 space-y-1.5 text-xs">
+                        <div class="text-[10px] font-bold uppercase text-slate-400 px-1">Pilih Produk Terkait:</div>
+                        <template x-for="p in getNodeProducts(thread)" :key="p.product_id">
+                          <button type="button" @click="insertSpecificProductLink(thread, p)" class="w-full text-left p-1.5 rounded-lg hover:bg-emerald-50 text-slate-800 flex items-center justify-between transition">
+                            <span class="truncate font-semibold text-[11px]" x-text="p.product_name"></span>
+                            <span class="text-[10px] text-emerald-600 font-bold ml-1 flex-shrink-0">+ Sisip Link</span>
+                          </button>
+                        </template>
+                        <div x-show="getNodeProducts(thread).length > 1" class="pt-1 border-t border-slate-100">
+                          <button type="button" @click="insertAllProductLinks(thread)" class="w-full text-center py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition">
+                            ⚡ Sisipkan Semua Link Sekaligus
+                          </button>
+                        </div>
+                        <div x-show="getNodeProducts(thread).length === 0" class="text-center py-2 text-slate-400 text-[11px]">
+                          Belum ada produk terkait di utas ini.
+                          <button type="button" @click="thread._showLinkMenu = false; thread._showProductPicker = true" class="text-emerald-600 font-bold block mt-1 hover:underline">
+                            + Tambah Produk Sekarang
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
                     <button x-show="index > 0" @click="removeThreadNode(index)" class="text-slate-400 hover:text-rose-500 p-1" title="Hapus Utas Ini">
                       <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                   </div>
                 </div>
 
-                <textarea x-model="thread.content" rows="3" :placeholder="index === 0 ? 'Tulis kalimat pembuka hook viral (disarankan bebas dari link eksternal agar jangkauan organik maksimal)...' : 'Tulis ulasan lanjutan atau seruan checkout produk di sini...'" class="w-full text-xs p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"></textarea>
+                <!-- Bagian Pemilihan Multi-Produk Modular Khusus Utas Ini -->
+                <div class="mb-2.5 p-2.5 bg-white/90 rounded-xl border border-slate-200/90 relative">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center space-x-1.5 text-xs font-bold text-slate-800">
+                      <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-emerald-600"></i>
+                      <span>Produk Shopee Terkait di Utas Ini:</span>
+                      <span class="badge badge-xs badge-neutral font-mono font-bold" x-text="getNodeProducts(thread).length"></span>
+                    </div>
+                    <button type="button" @click="thread._showProductPicker = !thread._showProductPicker" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center transition shadow-2xs">
+                      <i data-lucide="plus" class="w-3 h-3 mr-1"></i>
+                      <span x-text="thread._showProductPicker ? 'Tutup Pilihan' : '+ Tambah / Kelola Produk'"></span>
+                    </button>
+                  </div>
+
+                  <!-- Grid Chips Produk Terkait -->
+                  <div x-show="getNodeProducts(thread).length > 0" class="flex flex-wrap gap-2 mb-1">
+                    <template x-for="p in getNodeProducts(thread)" :key="p.product_id">
+                      <div class="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-1.5 pr-2 space-x-2 text-xs group hover:border-emerald-300 transition">
+                        <div class="w-7 h-7 rounded bg-white border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                          <template x-if="p.product_image_url">
+                            <img :src="p.product_image_url" class="w-full h-full object-cover" alt="thumb">
+                          </template>
+                          <template x-if="!p.product_image_url">
+                            <i data-lucide="package" class="w-3.5 h-3.5 text-slate-400"></i>
+                          </template>
+                        </div>
+                        <div class="min-w-0 max-w-[130px] sm:max-w-[180px]">
+                          <div class="text-[11px] font-bold text-slate-800 truncate" x-text="p.product_name"></div>
+                          <div class="text-[9px] font-mono text-emerald-700" x-text="'Rp ' + Number(p.price || 0).toLocaleString('id-ID')"></div>
+                        </div>
+                        <button type="button" @click="removeNodeProduct(thread, p.product_id)" class="text-slate-400 hover:text-rose-500 p-0.5" title="Lepas Kaitan Produk">
+                          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+
+                  <div x-show="getNodeProducts(thread).length === 0" class="text-[11px] text-slate-400 italic py-1">
+                    Belum ada produk dikaitkan di utas ini. Klik "+ Tambah / Kelola Produk" untuk mengaitkan 1 atau beberapa produk Shopee.
+                  </div>
+
+                  <!-- Panel Checklist Pemilih Multi-Produk Modular -->
+                  <div x-show="thread._showProductPicker" class="mt-2 pt-2 border-t border-slate-200 max-h-56 overflow-y-auto space-y-1.5">
+                    <div class="relative mb-1">
+                      <i data-lucide="search" class="w-3 h-3 text-slate-400 absolute left-2.5 top-2"></i>
+                      <input type="text" x-model="thread._productSearch" placeholder="Cari nama atau ID produk Shopee..." class="w-full pl-7 pr-6 py-1 text-[11px] border border-slate-200 rounded-md bg-white">
+                      <button x-show="thread._productSearch" @click="thread._productSearch = ''" class="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600">
+                        <i data-lucide="x" class="w-2.5 h-2.5"></i>
+                      </button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <template x-for="p in getNodeFilteredProducts(thread)" :key="p.product_id">
+                        <label :class="isNodeProductSelected(thread, p.product_id) ? 'border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-500' : 'border-slate-200 bg-white hover:bg-slate-50'" class="p-1.5 rounded-lg border flex items-center space-x-2 cursor-pointer transition">
+                          <input type="checkbox" :checked="isNodeProductSelected(thread, p.product_id)" @change="toggleNodeProduct(thread, p.product_id)" class="checkbox checkbox-xs checkbox-primary">
+                          <div class="w-7 h-7 rounded bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                            <template x-if="p.product_image_url">
+                              <img :src="p.product_image_url" class="w-full h-full object-cover" alt="thumb">
+                            </template>
+                            <template x-if="!p.product_image_url">
+                              <i data-lucide="package" class="w-3 h-3 text-slate-400"></i>
+                            </template>
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <div class="text-[11px] font-bold text-slate-900 truncate" x-text="p.product_name"></div>
+                            <div class="text-[9px] text-emerald-700 font-mono" x-text="'Rp ' + Number(p.price || 0).toLocaleString('id-ID')"></div>
+                          </div>
+                        </label>
+                      </template>
+                    </div>
+                    <div x-show="getNodeFilteredProducts(thread).length === 0" class="text-center py-3 text-[11px] text-slate-400">
+                      Tidak ada produk ditemukan.
+                    </div>
+                  </div>
+                </div>
+
+                <textarea x-model="thread.content" rows="3" :placeholder="index === 0 ? 'Tulis kalimat pembuka hook viral (disarankan bebas dari link eksternal agar jangkauan organik maksimal)...' : 'Tulis ulasan lanjutan atau seruan checkout produk... Gunakan tombol + Sisipkan Link Affiliate di atas.'" class="w-full text-xs p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"></textarea>
 
                 <!-- Lampiran Media Khusus Melekat di Kartu Utas Ini -->
                 <div class="mt-2.5 pt-2.5 border-t border-slate-200/80">
@@ -471,7 +490,10 @@
                             <template x-if="getMediaById(mId).media_type === 'VIDEO'">
                               <div class="w-6 h-6 bg-slate-800 text-white flex items-center justify-center rounded text-[8px] font-bold">MP4</div>
                             </template>
-                            <span class="text-[11px] font-mono text-slate-700 max-w-[120px] truncate" x-text="getMediaById(mId).session_id"></span>
+                            <div class="max-w-[120px] truncate">
+                              <span class="text-[10px] font-bold text-slate-700 block truncate" x-text="getMediaProductName(getMediaById(mId).product_id)"></span>
+                              <span class="text-[9px] font-mono text-slate-400 block truncate" x-text="getMediaById(mId).session_id"></span>
+                            </div>
                           </div>
                         </template>
                         <button type="button" @click="toggleMediaForThread(thread, mId)" class="text-slate-400 hover:text-rose-500">
@@ -481,14 +503,23 @@
                     </template>
                   </div>
 
-                  <!-- Panel Thumbnail Picker Media Produk Terkait -->
-                  <div x-show="thread._showPicker" class="p-3 bg-white rounded-xl border border-slate-200 max-h-52 overflow-y-auto mt-1">
-                    <div class="text-[10px] text-slate-500 mb-2 flex justify-between items-center">
-                      <span x-text="selectedProductId ? 'Pilih media ulasan produk ini (maks 10 item):' : 'Pilih dari semua media vault:'"></span>
-                      <span class="font-mono font-bold text-slate-700" x-text="(thread.media_ids ? thread.media_ids.length : 0) + ' / 10 terpilih'"></span>
+                  <!-- Panel Thumbnail Picker Media Produk Terkait / Vault -->
+                  <div x-show="thread._showPicker" class="p-3 bg-white rounded-xl border border-slate-200 max-h-60 overflow-y-auto mt-1 space-y-2">
+                    <!-- Filter Tabs Kategori Media -->
+                    <div class="flex items-center space-x-1 overflow-x-auto pb-1 text-[10px]">
+                      <button type="button" @click="thread._mediaFilterTab = 'ATTACHED'" :class="(thread._mediaFilterTab === 'ATTACHED' || !thread._mediaFilterTab) ? 'bg-slate-900 text-white font-bold' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded whitespace-nowrap">
+                        Produk Utas Ini (<span x-text="getNodeProducts(thread).length"></span>)
+                      </button>
+                      <template x-for="p in getNodeProducts(thread)" :key="p.product_id">
+                        <button type="button" @click="thread._mediaFilterTab = p.product_id" :class="thread._mediaFilterTab === p.product_id ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded whitespace-nowrap truncate max-w-[120px]" x-text="p.product_name"></button>
+                      </template>
+                      <button type="button" @click="thread._mediaFilterTab = 'VAULT'" :class="thread._mediaFilterTab === 'VAULT' ? 'bg-slate-900 text-white font-bold' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded whitespace-nowrap">
+                        Semua Vault (<span x-text="mediaList.length"></span>)
+                      </button>
                     </div>
+
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <template x-for="item in getProductMediaForPicker(selectedProductId)" :key="item.media_id">
+                      <template x-for="item in getNodeMediaForPicker(thread)" :key="item.media_id">
                         <label :class="isMediaSelectedForThread(thread, item.media_id) ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50'" class="p-1.5 rounded-lg border flex items-center space-x-2 cursor-pointer hover:bg-slate-100 transition relative">
                           <input type="checkbox" :checked="isMediaSelectedForThread(thread, item.media_id)" @change="toggleMediaForThread(thread, item.media_id)" class="checkbox checkbox-xs checkbox-primary">
                           <template x-if="item.media_type === 'IMAGE'">
@@ -498,7 +529,8 @@
                             <div class="w-8 h-8 bg-slate-800 text-white rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0">MP4</div>
                           </template>
                           <div class="min-w-0 flex-1">
-                            <div class="text-[10px] font-bold text-slate-800 truncate" x-text="item.session_id"></div>
+                            <div class="text-[10px] font-bold text-slate-800 truncate" x-text="getMediaProductName(item.product_id)"></div>
+                            <div class="text-[9px] text-slate-500 truncate font-mono" x-text="item.session_id"></div>
                             <div class="flex items-center space-x-1 mt-0.5">
                               <span x-show="isCooldownActive(item.cooldown_until)" class="text-[8px] font-bold text-amber-600">Cooldown</span>
                               <span x-show="!isCooldownActive(item.cooldown_until)" class="text-[8px] font-bold text-emerald-600">Fresh</span>
@@ -507,8 +539,8 @@
                         </label>
                       </template>
                     </div>
-                    <div x-show="getProductMediaForPicker(selectedProductId).length === 0" class="text-center py-4 text-slate-400 text-xs">
-                      Belum ada media untuk produk ini. Unggah media di tab Media Vault & Produk.
+                    <div x-show="getNodeMediaForPicker(thread).length === 0" class="text-center py-4 text-slate-400 text-xs">
+                      Belum ada media untuk filter ini. Unggah media di tab Media & Produk.
                     </div>
                   </div>
                 </div>
@@ -788,6 +820,9 @@
                       <button type="button" @click="openEditProductModal(item)" title="Edit Produk" class="p-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
                         <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                       </button>
+                      <button type="button" @click="confirmDeleteProduct(item)" title="Hapus Produk & Media Terkait" class="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                      </button>
                       <button type="button" @click="openUploadForProduct(item)" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl inline-flex items-center transition shadow-xs">
                         <i data-lucide="cloud-upload" class="w-3.5 h-3.5 mr-1.5"></i> + Upload Media
                       </button>
@@ -808,6 +843,7 @@
     <!-- TAB 2: POSTINGAN TERBIT (PUBLISHED ONLY) -->
     <div x-show="activeTab === 'published'" x-cloak class="space-y-4">
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+        <!-- Header & Action Buttons -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 class="text-sm font-bold text-slate-900 flex items-center">
@@ -827,11 +863,53 @@
           </div>
         </div>
 
+        <!-- Filter & Search Toolbar -->
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <!-- Search Bar -->
+          <div class="relative flex-1 min-w-[200px]">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" x-model="publishedSearchQuery" @input="publishedPage = 1" placeholder="Cari isi postingan atau nama akun..." class="w-full pl-9 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500">
+            <button x-show="publishedSearchQuery" @click="publishedSearchQuery = ''; publishedPage = 1" class="absolute right-2 top-2 text-slate-400 hover:text-slate-600">
+              <i data-lucide="x" class="w-3 h-3"></i>
+            </button>
+          </div>
+
+          <!-- Date Filter & Auto-Reply Filter & Per-Page -->
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <!-- Filter Tanggal -->
+            <div class="flex items-center space-x-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
+              <input type="date" x-model="publishedFilterDate" @change="publishedPage = 1" class="text-xs bg-transparent text-slate-700 outline-none">
+              <button x-show="publishedFilterDate" @click="publishedFilterDate = ''; publishedPage = 1" title="Hapus Filter Tanggal" class="text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-3 h-3"></i>
+              </button>
+            </div>
+
+            <!-- Filter Status Auto-Reply -->
+            <div class="flex items-center space-x-1 bg-white border border-slate-200 rounded-lg p-0.5">
+              <button type="button" @click="publishedFilterReply = 'ALL'; publishedPage = 1" :class="publishedFilterReply === 'ALL' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Semua</button>
+              <button type="button" @click="publishedFilterReply = 'SENT'; publishedPage = 1" :class="publishedFilterReply === 'SENT' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Terkirim</button>
+              <button type="button" @click="publishedFilterReply = 'WAITING'; publishedPage = 1" :class="publishedFilterReply === 'WAITING' ? 'bg-amber-600 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Menunggu</button>
+            </div>
+
+            <!-- Per-Page Selector -->
+            <div class="flex items-center space-x-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-600">
+              <span>Baris:</span>
+              <select x-model.number="publishedPerPage" @change="publishedPage = 1" class="bg-transparent font-semibold outline-none cursor-pointer">
+                <option :value="10">10</option>
+                <option :value="20">20</option>
+                <option :value="50">50</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table View -->
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50 text-slate-800 uppercase font-semibold border-b">
               <tr>
-                <th class="p-3">Post ID / Akun</th>
+                <th class="p-3">Akun & Waktu Terbit</th>
                 <th class="p-3">Konten Postingan</th>
                 <th class="p-3">Metrik Live Threads</th>
                 <th class="p-3">Progres Trigger</th>
@@ -840,20 +918,28 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-              <template x-for="p in publishedPosts" :key="p.post_id">
-                <tr class="hover:bg-slate-50/70">
-                  <td class="p-3">
-                    <div class="font-mono font-bold text-slate-900" x-text="p.post_id"></div>
-                    <div class="text-[11px] text-slate-500 font-medium" x-text="'@' + getAccountName(p.account_id)"></div>
+              <template x-for="p in paginatedPublishedPosts" :key="p.post_id">
+                <tr class="hover:bg-slate-50/70 transition">
+                  <td class="p-3 whitespace-nowrap">
+                    <div class="flex items-center space-x-2.5">
+                      <div class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs flex-shrink-0" x-text="(getAccountName(p.account_id) || 'A').charAt(0).toUpperCase()"></div>
+                      <div>
+                        <div class="font-bold text-slate-900 text-xs" x-text="'@' + getAccountName(p.account_id)"></div>
+                        <div class="text-[10px] text-slate-500 mt-0.5 flex items-center">
+                          <i data-lucide="clock" class="w-3 h-3 mr-1 text-slate-400"></i>
+                          <span x-text="formatDateTime(p.created_at)"></span>
+                        </div>
+                      </div>
+                    </div>
                   </td>
-                  <td class="p-3 max-w-xs">
-                    <p class="truncate text-slate-700 text-xs" x-text="parseFirstThread(p.thread_content_json)"></p>
-                    <div class="mt-1 flex items-center space-x-2 text-[10px] text-slate-400 font-mono">
-                      <span x-show="p.threads_post_id" x-text="'ID: ' + p.threads_post_id"></span>
+                  <td class="p-3 max-w-sm">
+                    <p class="truncate text-slate-700 text-xs font-medium" x-text="parseFirstThread(p.thread_content_json)"></p>
+                    <div class="mt-1 flex items-center space-x-2 text-[10px]">
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium" x-text="getThreadNodeCount(p.thread_content_json) + ' Utas'"></span>
                     </div>
                   </td>
                   <td class="p-3">
-                    <div class="flex items-center space-x-3 text-xs">
+                    <div class="flex items-center space-x-2.5 text-xs">
                       <span class="inline-flex items-center font-bold text-slate-800" title="Views">
                         <i data-lucide="eye" class="w-3.5 h-3.5 mr-1 text-slate-400"></i>
                         <span x-text="Number(p.current_views || 0).toLocaleString('id-ID')"></span>
@@ -862,10 +948,12 @@
                         <i data-lucide="heart" class="w-3.5 h-3.5 mr-1"></i>
                         <span x-text="Number(p.likes_count || 0).toLocaleString('id-ID')"></span>
                       </span>
-                      <span class="inline-flex items-center font-semibold text-blue-600" title="Balasan">
+                      <!-- Tombol Interaktif Lihat Komentar -->
+                      <button type="button" @click="openPostComments(p)" class="inline-flex items-center font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded transition" title="Lihat Daftar Komentar Postingan Ini">
                         <i data-lucide="message-circle" class="w-3.5 h-3.5 mr-1"></i>
                         <span x-text="Number(p.replies_count || 0).toLocaleString('id-ID')"></span>
-                      </span>
+                        <span class="text-[9px] ml-1 underline">Komentar</span>
+                      </button>
                     </div>
                   </td>
                   <td class="p-3">
@@ -884,11 +972,14 @@
                   </td>
                   <td class="p-3 text-right">
                     <div class="flex items-center justify-end space-x-1.5">
-                      <button @click="syncPostMetrics(p.post_id)" :disabled="syncingPostId === p.post_id" title="Tarik Metrik & Balasan Terbaru" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center disabled:opacity-50">
+                      <button @click="openPostComments(p)" title="Lihat Komentar & Percakapan" class="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg inline-flex items-center border border-blue-200 transition">
+                        <i data-lucide="messages-square" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button @click="syncPostMetrics(p.post_id)" :disabled="syncingPostId === p.post_id" title="Tarik Metrik & Balasan Terbaru" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center disabled:opacity-50 transition">
                         <span x-show="syncingPostId === p.post_id" class="animate-spin"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
                         <i x-show="syncingPostId !== p.post_id" data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                       </button>
-                      <a x-show="p.permalink || p.threads_post_id" :href="p.permalink || ('https://www.threads.net')" target="_blank" title="Buka di Threads.net" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center">
+                      <a x-show="p.permalink || p.threads_post_id" :href="p.permalink || ('https://www.threads.net')" target="_blank" title="Buka di Threads.net" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center transition">
                         <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                       </a>
                     </div>
@@ -898,8 +989,33 @@
             </tbody>
           </table>
         </div>
-        <div x-show="publishedPosts.length === 0" class="text-center py-12 text-xs text-slate-400">
-          Belum ada postingan yang terbit. Klik "+ Buat Postingan Baru" untuk menerbitkan konten ke Threads.
+
+        <!-- Pagination Bar -->
+        <div x-show="filteredPublishedPosts.length > 0" class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
+          <div class="flex items-center space-x-1">
+            <span>Menampilkan</span>
+            <span class="font-bold text-slate-800" x-text="((publishedPage - 1) * publishedPerPage) + 1"></span>
+            <span>-</span>
+            <span class="font-bold text-slate-800" x-text="Math.min(publishedPage * publishedPerPage, filteredPublishedPosts.length)"></span>
+            <span>dari</span>
+            <span class="font-bold text-slate-800" x-text="filteredPublishedPosts.length"></span>
+            <span>postingan terbit</span>
+          </div>
+
+          <div class="flex items-center space-x-1.5 self-end sm:self-auto">
+            <button @click="publishedPage = Math.max(1, publishedPage - 1)" :disabled="publishedPage <= 1" class="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition font-semibold">
+              Prev
+            </button>
+            <span class="px-2 font-mono font-bold text-slate-700" x-text="publishedPage + ' / ' + publishedTotalPages"></span>
+            <button @click="publishedPage = Math.min(publishedTotalPages, publishedPage + 1)" :disabled="publishedPage >= publishedTotalPages" class="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition font-semibold">
+              Next
+            </button>
+          </div>
+        </div>
+
+        <div x-show="filteredPublishedPosts.length === 0" class="text-center py-12 text-xs text-slate-400">
+          <span x-show="publishedSearchQuery || publishedFilterDate || publishedFilterReply !== 'ALL'">Tidak ada postingan yang sesuai dengan filter atau kata kunci.</span>
+          <span x-show="!publishedSearchQuery && !publishedFilterDate && publishedFilterReply === 'ALL' && publishedPosts.length === 0">Belum ada postingan yang terbit. Klik "+ Buat Postingan Baru" untuk menerbitkan konten ke Threads.</span>
         </div>
       </div>
     </div>
@@ -930,9 +1046,9 @@
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50 text-slate-800 uppercase font-semibold border-b">
               <tr>
-                <th class="p-3">Post ID / Akun</th>
+                <th class="p-3">Akun & Dibuat</th>
                 <th class="p-3">Konten Utas</th>
-                <th class="p-3">Rencana Waktu / Mode</th>
+                <th class="p-3">Jadwal Tayang</th>
                 <th class="p-3">Status Antrean</th>
                 <th class="p-3 text-right">Eksekusi</th>
               </tr>
@@ -940,16 +1056,28 @@
             <tbody class="divide-y divide-slate-100">
               <template x-for="p in queuedPosts" :key="p.post_id">
                 <tr class="hover:bg-slate-50/70">
-                  <td class="p-3">
-                    <div class="font-mono font-bold text-slate-900" x-text="p.post_id"></div>
-                    <div class="text-[11px] text-slate-500 font-medium" x-text="'@' + getAccountName(p.account_id)"></div>
+                  <td class="p-3 whitespace-nowrap">
+                    <div class="flex items-center space-x-2.5">
+                      <div class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs flex-shrink-0" x-text="(getAccountName(p.account_id) || 'A').charAt(0).toUpperCase()"></div>
+                      <div>
+                        <div class="font-bold text-slate-900 text-xs" x-text="'@' + getAccountName(p.account_id)"></div>
+                        <div class="text-[10px] text-slate-400 mt-0.5 flex items-center">
+                          <i data-lucide="clock" class="w-3 h-3 mr-1 text-slate-400"></i>
+                          <span x-text="formatDateTime(p.created_at)"></span>
+                        </div>
+                      </div>
+                    </div>
                   </td>
                   <td class="p-3 max-w-sm">
-                    <p class="truncate text-slate-700 text-xs" x-text="parseFirstThread(p.thread_content_json)"></p>
-                    <div class="text-[10px] text-slate-400 mt-0.5" x-text="'Ambang Views: ' + (p.views_threshold || 500)"></div>
+                    <p class="truncate text-slate-700 text-xs font-medium" x-text="parseFirstThread(p.thread_content_json)"></p>
+                    <div class="mt-1 flex items-center space-x-2 text-[10px] text-slate-500">
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium" x-text="getThreadNodeCount(p.thread_content_json) + ' Utas'"></span>
+                      <span>•</span>
+                      <span x-text="'Target: ' + (p.views_threshold || 500) + ' views'"></span>
+                    </div>
                   </td>
                   <td class="p-3 whitespace-nowrap">
-                    <span class="text-[11px] text-slate-700 font-mono" x-text="p.created_at ? new Date(p.created_at).toLocaleString('id-ID') : 'Segera'"></span>
+                    <div class="text-xs text-slate-800 font-medium" x-text="formatDateTime(p.scheduled_time || p.created_at)"></div>
                     <div class="text-[10px] text-indigo-600 font-semibold mt-0.5">Auto-Drip on Views</div>
                   </td>
                   <td class="p-3">
@@ -959,12 +1087,20 @@
                       'bg-rose-100 text-rose-800': p.status === 'FAILED'
                     }" class="px-2 py-0.5 rounded-full font-bold uppercase text-[9px]" x-text="p.status"></span>
                   </td>
-                  <td class="p-3 text-right">
-                    <button @click="publishExistingPost(p.post_id)" :disabled="actionPostId === p.post_id" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold inline-flex items-center">
-                      <span x-show="actionPostId === p.post_id" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
-                      <i x-show="actionPostId !== p.post_id" data-lucide="send" class="w-3 h-3 mr-1"></i>
-                      Terbitkan Sekarang
-                    </button>
+                  <td class="p-3 text-right whitespace-nowrap">
+                    <div class="flex items-center justify-end space-x-1.5">
+                      <button @click="openEditQueuePost(p)" title="Edit Antrean" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center transition">
+                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button @click="confirmDeleteQueuePost(p.post_id)" title="Hapus / Batalkan Antrean" class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg inline-flex items-center transition">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button @click="publishExistingPost(p.post_id)" :disabled="actionPostId === p.post_id" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold inline-flex items-center shadow-xs">
+                        <span x-show="actionPostId === p.post_id" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
+                        <i x-show="actionPostId !== p.post_id" data-lucide="send" class="w-3 h-3 mr-1"></i>
+                        Terbitkan
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </template>
@@ -1025,7 +1161,7 @@
 
         <div class="space-y-4">
           <template x-for="cmt in filteredComments" :key="cmt.comment_id">
-            <div class="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+            <div class="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3" x-data="{ expanded: false }">
               <!-- Komentar Root (Level 0) -->
               <div class="flex justify-between items-start">
                 <div class="flex items-start space-x-3">
@@ -1061,40 +1197,52 @@
                 </button>
               </div>
 
-              <!-- Nested Tree View (Level 1 & Sub-Replies, responsif untuk layar HP) -->
-              <template x-if="cmt.replies && cmt.replies.length > 0">
-                <div class="pl-3 sm:pl-6 nested-tree-line space-y-2.5 mt-2">
-                  <template x-for="reply in cmt.replies" :key="reply.comment_id">
-                    <div class="p-2.5 sm:p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
-                      <div class="flex justify-between items-start">
-                        <div class="flex items-start space-x-2">
-                          <div class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0" x-text="reply.sender_username.charAt(0).toUpperCase()"></div>
-                          <div>
-                            <div class="flex items-center space-x-1.5">
+              <!-- Nested Tree View Berjenjang Responsif (Maksimal Indentasi Level 3 & Collapse/Expand) -->
+              <template x-if="getThreadReplies(cmt).length > 0">
+                <div class="space-y-2 mt-2 pt-2 border-t border-slate-100">
+                  <template x-for="reply in (expanded || getThreadReplies(cmt).length <= 2 ? getThreadReplies(cmt) : getThreadReplies(cmt).slice(0, 1))" :key="reply.comment_id">
+                    <div class="rounded-xl border border-slate-200/80 p-2.5 sm:p-3 transition"
+                         :class="{
+                           'ml-2 sm:ml-4 bg-slate-50 border-l-4 border-l-emerald-500': reply.visualDepth === 1,
+                           'ml-4 sm:ml-7 bg-slate-50/90 border-l-4 border-l-blue-500': reply.visualDepth === 2,
+                           'ml-6 sm:ml-10 bg-slate-100/80 border-l-4 border-l-indigo-500': reply.visualDepth >= 3
+                         }">
+                      <div class="flex justify-between items-start gap-2">
+                        <div class="flex items-start space-x-2 min-w-0 flex-1">
+                          <div class="w-5 h-5 rounded-full text-white flex items-center justify-center font-bold text-[9px] flex-shrink-0"
+                               :class="reply.author_type === 'OWNER' ? 'bg-emerald-600' : 'bg-slate-700'"
+                               x-text="reply.sender_username.charAt(0).toUpperCase()"></div>
+                          <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-1.5">
                               <span class="font-bold text-xs text-slate-900" x-text="'@' + reply.sender_username"></span>
-                              <span x-show="reply.intent_flag" class="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[8px] font-bold">Intent</span>
+                              
+                              <!-- Label Membalas @username untuk Level 4+ yang diratakan di Level 3 -->
+                              <span x-show="reply.isDeepReply" class="inline-flex items-center text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded font-medium">
+                                <i data-lucide="corner-down-right" class="w-3 h-3 mr-0.5"></i>
+                                <span x-text="'Membalas @' + reply.replyTo"></span>
+                              </span>
+
+                              <span x-show="reply.intent_flag" class="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[8px] font-bold">Spill Intent</span>
+                              <span x-show="reply.author_type === 'OWNER'" class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[8px] font-bold uppercase">Owner</span>
                             </div>
-                            <p class="text-xs text-slate-700 mt-0.5" x-text="reply.content"></p>
+                            <p class="text-xs text-slate-700 mt-1" x-text="reply.content"></p>
+                            <div class="text-[9px] text-slate-400 font-mono mt-0.5" x-text="reply.created_at ? reply.created_at.substring(0, 16).replace('T', ' ') : ''"></div>
                           </div>
                         </div>
-                        <button @click="openQuickReply(reply)" class="text-[11px] text-slate-500 hover:text-emerald-600 font-semibold flex items-center flex-shrink-0 p-1">
-                          <i data-lucide="reply" class="w-3 h-3 mr-0.5"></i> Balas
+                        <button @click="openQuickReply(reply)" class="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold flex items-center flex-shrink-0 bg-white border border-slate-200 px-2 py-0.5 rounded shadow-2xs hover:bg-slate-50 transition">
+                          <i data-lucide="reply" class="w-3 h-3 mr-1"></i> Balas
                         </button>
                       </div>
-
-                      <!-- Sub-Nested Level 2 (Bercabang ke dalam) -->
-                      <template x-if="reply.replies && reply.replies.length > 0">
-                        <div class="pl-3 sm:pl-5 nested-tree-line space-y-2 mt-2">
-                          <template x-for="sub in reply.replies" :key="sub.comment_id">
-                            <div class="p-2 bg-white rounded-lg border border-slate-200 text-xs">
-                              <span class="font-bold text-slate-800" x-text="'@' + sub.sender_username"></span>:
-                              <span class="text-slate-600" x-text="sub.content"></span>
-                            </div>
-                          </template>
-                        </div>
-                      </template>
                     </div>
                   </template>
+
+                  <!-- Tombol Collapse / Expand Balasan Lainnya -->
+                  <div x-show="getThreadReplies(cmt).length > 2" class="pt-1 pl-2 sm:pl-4">
+                    <button type="button" @click="expanded = !expanded; $nextTick(() => { lucide.createIcons(); })" class="inline-flex items-center text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-xl transition shadow-2xs">
+                      <i :data-lucide="expanded ? 'chevron-up' : 'chevron-down'" class="w-3.5 h-3.5 mr-1.5 text-emerald-600"></i>
+                      <span x-text="expanded ? 'Sembunyikan balasan' : ('Lihat ' + (getThreadReplies(cmt).length - 1) + ' balasan lainnya')"></span>
+                    </button>
+                  </div>
                 </div>
               </template>
             </div>
@@ -1129,7 +1277,12 @@
             <template x-for="acc in accounts" :key="acc.account_id">
               <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between space-x-3">
                 <div class="flex items-center space-x-3 min-w-0 flex-1">
-                  <img :src="acc.profile_pic_url || 'https://via.placeholder.com/40'" class="w-9 h-9 rounded-full bg-slate-200 object-cover flex-shrink-0" alt="Avatar">
+                  <template x-if="acc.profile_pic_url">
+                    <img :src="acc.profile_pic_url" @error="$event.target.style.display='none'" class="w-9 h-9 rounded-full bg-slate-200 object-cover flex-shrink-0" alt="Avatar">
+                  </template>
+                  <template x-if="!acc.profile_pic_url">
+                    <div class="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs flex-shrink-0" x-text="(acc.username || 'A').charAt(0).toUpperCase()"></div>
+                  </template>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center space-x-1.5">
                       <span class="text-xs font-bold text-slate-900 truncate" x-text="'@' + acc.username"></span>
@@ -1138,11 +1291,16 @@
                     <div class="text-[10px] text-slate-500 font-mono truncate" x-text="'ID: ' + acc.account_id"></div>
                   </div>
                 </div>
-                <button @click="pingAccount(acc.account_id)" :disabled="testingAccountId === acc.account_id" class="px-2.5 py-1 text-[11px] font-semibold bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg flex items-center flex-shrink-0 shadow-sm disabled:opacity-50">
-                  <span x-show="testingAccountId === acc.account_id" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
-                  <i x-show="testingAccountId !== acc.account_id" data-lucide="activity" class="w-3 h-3 mr-1 text-emerald-600"></i>
-                  <span x-text="testingAccountId === acc.account_id ? 'Menguji...' : 'Uji Ping'"></span>
-                </button>
+                <div class="flex items-center space-x-1.5 flex-shrink-0">
+                  <button @click="pingAccount(acc.account_id)" :disabled="testingAccountId === acc.account_id" class="px-2.5 py-1 text-[11px] font-semibold bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg flex items-center shadow-sm disabled:opacity-50">
+                    <span x-show="testingAccountId === acc.account_id" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
+                    <i x-show="testingAccountId !== acc.account_id" data-lucide="activity" class="w-3 h-3 mr-1 text-emerald-600"></i>
+                    <span x-text="testingAccountId === acc.account_id ? 'Menguji...' : 'Uji Ping'"></span>
+                  </button>
+                  <button @click="confirmDeleteAccount(acc)" title="Putuskan / Hapus Akun" class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg flex items-center transition">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
               </div>
             </template>
           </div>
@@ -1151,304 +1309,6 @@
     </div>
 
   </main>
-
-  <!-- MODAL POST COMPOSER INTERAKTIF (POP-UP LENGKAP) -->
-  <div x-show="modals.composerModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto">
-    <div @click.away="closeModal('composerModal')" class="bg-white max-w-5xl w-full rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
-      <!-- Modal Header -->
-      <div class="px-5 py-4 border-b border-slate-200 bg-slate-900 text-white flex justify-between items-center flex-shrink-0">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-8 h-8 rounded-lg bg-emerald-500 text-slate-950 flex items-center justify-center font-black">
-            <i data-lucide="feather" class="w-4 h-4"></i>
-          </div>
-          <div>
-            <h3 class="text-sm font-bold tracking-tight">Post Composer & Multi-Thread Builder</h3>
-            <p class="text-[11px] text-slate-400">Susun rangkaian utas Shopee Affiliate dengan auto-drip delayed link</p>
-          </div>
-        </div>
-        <button @click="closeModal('composerModal')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <!-- Modal Body (Scrollable) -->
-      <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-slate-50/50">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div class="lg:col-span-2 space-y-4">
-            <!-- Panel 1: Akun Pengirim & Produk Shopee -->
-            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-4">
-              <!-- Akun Pengirim Target -->
-              <div>
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                  <label class="text-xs font-bold text-slate-900 flex items-center">
-                    <i data-lucide="share-2" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Akun Pengirim Target (Broadcast Multi-Akun)
-                  </label>
-                  <div class="flex items-center space-x-2">
-                    <button type="button" @click="selectAllAccounts()" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg" x-text="composerAccounts.length === accounts.length && accounts.length > 0 ? 'Batalkan Semua' : 'Pilih Semua (' + accounts.length + ')'"></button>
-                    <span class="badge badge-sm badge-neutral font-mono font-bold" x-text="composerAccounts.length + ' dipilih'"></span>
-                  </div>
-                </div>
-
-                <!-- Search Akun -->
-                <div class="flex items-center space-x-2 mb-2">
-                  <div class="relative flex-1">
-                    <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
-                    <input type="text" x-model="accountSearchQuery" placeholder="Cari username @ atau ID akun..." class="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 bg-slate-50">
-                  </div>
-                  <div class="flex space-x-1 border border-slate-200 rounded-lg p-0.5 bg-slate-50 flex-shrink-0">
-                    <button type="button" @click="accountFilterTab = 'ALL'" :class="accountFilterTab === 'ALL' ? 'bg-slate-900 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Semua</button>
-                    <button type="button" @click="accountFilterTab = 'SELECTED'" :class="accountFilterTab === 'SELECTED' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600'" class="px-2 py-1 rounded text-[10px]">Terpilih</button>
-                  </div>
-                </div>
-
-                <!-- Grid Akun -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto pr-1">
-                  <template x-for="acc in filteredComposerAccounts" :key="acc.account_id">
-                    <label :class="isAccountSelected(acc.account_id) ? 'border-emerald-500 bg-emerald-50/60 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100'" class="p-2 rounded-xl border flex items-center space-x-2 cursor-pointer transition">
-                      <input type="checkbox" :checked="isAccountSelected(acc.account_id)" @change="toggleAccountSelection(acc.account_id)" class="checkbox checkbox-xs checkbox-primary">
-                      <img :src="acc.profile_pic_url || 'https://via.placeholder.com/32'" class="w-6 h-6 rounded-full object-cover bg-slate-200 flex-shrink-0" alt="avatar">
-                      <div class="min-w-0 flex-1">
-                        <div class="text-xs font-bold text-slate-800 truncate" x-text="'@' + acc.username"></div>
-                      </div>
-                    </label>
-                  </template>
-                </div>
-              </div>
-
-              <!-- Pemilihan Produk Shopee -->
-              <div class="pt-3 border-t border-slate-100">
-                <div class="flex items-center justify-between mb-2">
-                  <label class="text-xs font-bold text-slate-900 flex items-center">
-                    <i data-lucide="shopping-bag" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Produk Shopee Terkait
-                  </label>
-                  <span class="text-[11px] text-slate-400" x-text="products.length + ' produk master'"></span>
-                </div>
-
-                <div class="relative" @click.away="showProductDropdown = false">
-                  <div x-show="!selectedProductObj" class="relative">
-                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none"></i>
-                    <input type="text" x-model="composerProductSearch" @focus="showProductDropdown = true" @click="showProductDropdown = true" placeholder="Ketik nama, kategori, atau ID produk..." class="w-full pl-9 pr-16 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
-                    <button type="button" @click.stop="showProductDropdown = !showProductDropdown" class="absolute right-2 top-2 text-slate-400 hover:text-slate-700 p-0.5">
-                      <i data-lucide="chevron-down" class="w-4 h-4 transition-transform" :class="showProductDropdown ? 'rotate-180 text-emerald-600' : ''"></i>
-                    </button>
-                  </div>
-
-                  <div x-show="selectedProductObj" class="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3">
-                    <div class="flex items-center space-x-3 min-w-0">
-                      <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                        <template x-if="selectedProductObj && selectedProductObj.product_image_url">
-                          <img :src="selectedProductObj.product_image_url" class="w-full h-full object-cover" alt="thumb">
-                        </template>
-                        <template x-if="!selectedProductObj || !selectedProductObj.product_image_url">
-                          <i data-lucide="package" class="w-5 h-5 text-slate-400"></i>
-                        </template>
-                      </div>
-                      <div class="min-w-0">
-                        <div class="font-bold text-xs text-slate-900 truncate" x-text="selectedProductObj ? selectedProductObj.product_name : ''"></div>
-                        <div class="text-[10px] text-slate-500 mt-0.5 font-mono" x-text="'Rp ' + (selectedProductObj ? Number(selectedProductObj.price || 0).toLocaleString('id-ID') : '0')"></div>
-                      </div>
-                    </div>
-                    <button type="button" @click="clearSelectedComposerProduct()" class="text-xs font-semibold text-rose-600 bg-white hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-slate-200 transition">
-                      Ganti
-                    </button>
-                  </div>
-
-                  <!-- Dropdown Hasil Produk -->
-                  <div x-show="showProductDropdown && !selectedProductObj" class="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto divide-y divide-slate-100">
-                    <template x-for="p in filteredComposerProducts" :key="p.product_id">
-                      <div @mousedown.prevent="selectComposerProduct(p)" class="p-2.5 hover:bg-emerald-50/70 cursor-pointer flex items-center space-x-3">
-                        <div class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                          <template x-if="p.product_image_url">
-                            <img :src="p.product_image_url" class="w-full h-full object-cover" alt="thumb">
-                          </template>
-                          <template x-if="!p.product_image_url">
-                            <i data-lucide="package" class="w-4 h-4 text-slate-400"></i>
-                          </template>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                          <div class="text-xs font-bold text-slate-900 truncate" x-text="p.product_name"></div>
-                          <div class="text-[10px] text-slate-500 mt-0.5 font-mono" x-text="'Rp ' + Number(p.price || 0).toLocaleString('id-ID')"></div>
-                        </div>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Panel 2: Multi-Thread Builder Berjenjang -->
-            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3">
-              <div class="flex justify-between items-center mb-1">
-                <div>
-                  <h3 class="text-xs font-bold text-slate-900 flex items-center">
-                    <i data-lucide="git-commit" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Rangkaian Utas Berantai
-                  </h3>
-                </div>
-                <button type="button" @click="addThreadNode()" class="text-xs font-bold bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 flex items-center transition">
-                  <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> Tambah Utas
-                </button>
-              </div>
-
-              <div class="space-y-3">
-                <template x-for="(thread, index) in threadList" :key="index">
-                  <div class="p-3.5 rounded-xl border relative" :class="index === 0 ? 'border-emerald-300 ring-1 ring-emerald-100 bg-emerald-50/20' : 'border-slate-200 bg-slate-50/60'">
-                    <div class="flex justify-between items-center mb-2">
-                      <div class="flex items-center space-x-2">
-                        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded shadow-2xs" :class="index === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'" x-text="index === 0 ? 'Utas #1 (Root Hook)' : 'Utas #' + (index + 1) + ' (Sub-Reply)'"></span>
-                        <span x-show="thread.media_ids && thread.media_ids.length > 0" class="badge badge-xs badge-info font-bold text-[9px]" x-text="thread.media_ids.length + ' Media'"></span>
-                      </div>
-                      <div class="flex items-center space-x-2">
-                        <button type="button" @click="insertAffiliateLink(index)" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center">
-                          <i data-lucide="link-2" class="w-3 h-3 mr-1 text-emerald-600"></i> + Sisipkan Link Affiliate
-                        </button>
-                        <button x-show="index > 0" @click="removeThreadNode(index)" class="text-slate-400 hover:text-rose-500 p-0.5">
-                          <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                      </div>
-                    </div>
-
-                    <textarea x-model="thread.content" rows="3" :placeholder="index === 0 ? 'Tulis kalimat pembuka hook viral bebas dari link...' : 'Tulis ulasan lanjutan atau seruan checkout produk di sini...'" class="w-full text-xs p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"></textarea>
-
-                    <!-- Lampiran Media Khusus Utas Ini -->
-                    <div class="mt-2 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-600">
-                      <div class="flex items-center space-x-1.5 font-medium">
-                        <i data-lucide="images" class="w-3.5 h-3.5 text-slate-500"></i>
-                        <span x-text="(thread.media_ids ? thread.media_ids.length : 0) + ' media terlampir'"></span>
-                      </div>
-                      <button type="button" @click="thread._showPicker = !thread._showPicker" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded">
-                        <i data-lucide="folder-image" class="w-3 h-3 mr-1"></i>
-                        <span x-text="thread._showPicker ? 'Tutup Media' : 'Pilih Media'"></span>
-                      </button>
-                    </div>
-
-                    <!-- Picker Media -->
-                    <div x-show="thread._showPicker" class="p-2.5 bg-white rounded-xl border border-slate-200 max-h-44 overflow-y-auto mt-2">
-                      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <template x-for="item in getProductMediaForPicker(selectedProductId)" :key="item.media_id">
-                          <label :class="isMediaSelectedForThread(thread, item.media_id) ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50'" class="p-1.5 rounded-lg border flex items-center space-x-2 cursor-pointer hover:bg-slate-100 transition">
-                            <input type="checkbox" :checked="isMediaSelectedForThread(thread, item.media_id)" @change="toggleMediaForThread(thread, item.media_id)" class="checkbox checkbox-xs checkbox-primary">
-                            <template x-if="item.media_type === 'IMAGE'">
-                              <img :src="item.media_url" class="w-8 h-8 object-cover rounded flex-shrink-0" alt="thumb">
-                            </template>
-                            <template x-if="item.media_type === 'VIDEO'">
-                              <div class="w-8 h-8 bg-slate-800 text-white rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0">MP4</div>
-                            </template>
-                            <div class="min-w-0 flex-1 text-[10px] truncate" x-text="item.session_id"></div>
-                          </label>
-                        </template>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </div>
-
-            <!-- Panel 3: Views Trigger Setting -->
-            <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200">
-              <div class="flex items-center justify-between mb-3">
-                <h4 class="text-xs font-bold text-slate-900 flex items-center">
-                  <i data-lucide="zap" class="w-4 h-4 text-amber-500 mr-1.5"></i> Strategi Auto-Drip Views
-                </h4>
-                <span class="badge badge-success badge-outline text-[10px] font-bold">Otomatis</span>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <label :class="publishMode === 'DRIP_ON_VIEWS' ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50/50'" class="p-2.5 rounded-xl border flex items-start space-x-2 cursor-pointer">
-                  <input type="radio" value="DRIP_ON_VIEWS" x-model="publishMode" class="radio radio-xs radio-primary mt-0.5">
-                  <div class="text-[11px]">
-                    <span class="font-bold text-slate-900 block">Auto-Drip on Views</span>
-                    <span class="text-slate-500 block leading-tight">Utas 1 tayang duluan. Saat target views tembus, Utas lanjutan terbit otomatis.</span>
-                  </div>
-                </label>
-                <label :class="publishMode === 'ALL_IMMEDIATE' ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500' : 'border-slate-200 bg-slate-50/50'" class="p-2.5 rounded-xl border flex items-start space-x-2 cursor-pointer">
-                  <input type="radio" value="ALL_IMMEDIATE" x-model="publishMode" class="radio radio-xs radio-primary mt-0.5">
-                  <div class="text-[11px]">
-                    <span class="font-bold text-slate-900 block">Posting Sekaligus</span>
-                    <span class="text-slate-500 block leading-tight">Semua utas (Utas 1 s/d terakhir) langsung tayang berantai bersamaan.</span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-semibold text-slate-700 mb-1">Ambang Target Views</label>
-                  <input type="number" x-model.number="postViewsThreshold" class="w-full p-2 text-xs border border-slate-300 rounded-lg font-mono font-bold" placeholder="500">
-                </div>
-                <div>
-                  <label class="block text-xs font-semibold text-slate-700 mb-1">Jadwal Tayang (Opsional)</label>
-                  <input type="datetime-local" x-model="scheduledDateTime" class="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white">
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- AI Hook Studio & Swipe-File Bank -->
-          <div class="space-y-4">
-            <!-- Bank Hook -->
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="text-xs font-bold text-slate-900 flex items-center">
-                  <i data-lucide="bookmark" class="w-3.5 h-3.5 text-emerald-600 mr-1.5"></i> Bank Hook Viral
-                </h4>
-                <button type="button" @click="openModal('addHookModal')" class="text-[11px] font-bold text-emerald-700 hover:underline">+ Tambah</button>
-              </div>
-              <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                <template x-for="hk in filteredHooks" :key="hk.hook_id">
-                  <div class="p-2 bg-slate-50 rounded-lg border border-slate-100 text-xs">
-                    <div class="flex justify-between items-center mb-0.5">
-                      <span class="badge badge-xs badge-neutral text-[8px]" x-text="hk.category"></span>
-                      <button @click="applyHook(hk.hook_text)" class="text-[10px] text-emerald-600 font-bold hover:underline">Sisipkan</button>
-                    </div>
-                    <p class="text-slate-700 italic text-[11px]" x-text="hk.hook_text"></p>
-                  </div>
-                </template>
-              </div>
-            </div>
-
-            <!-- AI Hook Studio -->
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
-              <div class="flex items-center justify-between">
-                <h4 class="text-xs font-bold text-slate-900 flex items-center">
-                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-600 mr-1.5"></i> AI Hook Studio
-                </h4>
-                <span class="badge badge-xs badge-purple">Gemini 1.5</span>
-              </div>
-              <input type="text" x-model="aiPromptTopic" placeholder="Topik / Nama produk..." class="w-full text-xs p-2 border border-slate-300 rounded-lg">
-              <button @click="generateHooks()" :disabled="isGeneratingAi" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg flex items-center justify-center">
-                <span x-show="isGeneratingAi" class="animate-spin mr-1.5"><i data-lucide="loader" class="w-3 h-3"></i></span>
-                <span x-text="isGeneratingAi ? 'Menulis Hook...' : 'Buat 3 Hook Viral'"></span>
-              </button>
-              <div class="space-y-1.5 max-h-36 overflow-y-auto" x-show="generatedHooks.length > 0">
-                <template x-for="(hook, idx) in generatedHooks" :key="idx">
-                  <div class="p-2 bg-purple-50/60 rounded border border-purple-100 text-xs flex justify-between items-start gap-1">
-                    <p x-text="hook" class="italic text-[11px]"></p>
-                    <button @click="applyHook(hook)" class="text-purple-700 font-bold text-[10px] uppercase">Pakai</button>
-                  </div>
-                </template>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Modal Footer Action Bar -->
-      <div class="px-5 py-3.5 bg-white border-t border-slate-200 flex flex-col sm:flex-row sm:justify-end gap-2 flex-shrink-0">
-        <button type="button" @click="closeModal('composerModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl">
-          Tutup
-        </button>
-        <button type="button" @click="submitPost('DRAFT')" :disabled="isLoading" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-xl">
-          Simpan Draft
-        </button>
-        <button type="button" @click="submitPost('SCHEDULED')" :disabled="isLoading" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl flex items-center justify-center">
-          <i data-lucide="calendar" class="w-3.5 h-3.5 mr-1.5 text-slate-300"></i> Jadwalkan Utas
-        </button>
-        <button type="button" @click="submitPost('PUBLISH_NOW')" :disabled="isLoading" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center shadow-sm">
-          <span x-show="isLoading" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
-          <i x-show="!isLoading" data-lucide="send" class="w-3.5 h-3.5 mr-1.5"></i> Posting Sekarang
-        </button>
-      </div>
-    </div>
-  </div>
 
   <!-- ADD HOOK MODAL -->
   <div x-show="modals.addHookModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
@@ -1480,6 +1340,68 @@
       <div class="mt-4 flex justify-end space-x-2">
         <button @click="closeModal('addHookModal')" class="px-3.5 py-1.5 text-xs text-slate-600 rounded-lg">Batal</button>
         <button @click="saveHook()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">Simpan ke Bank</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DAFTAR KOMENTAR POSTINGAN TERBIT -->
+  <div x-show="modals.postCommentsModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div @click.away="closeModal('postCommentsModal')" class="bg-white max-w-xl w-full rounded-2xl shadow-2xl p-5 border border-slate-200 max-h-[85vh] flex flex-col">
+      <!-- Modal Header -->
+      <div class="flex justify-between items-start mb-3 pb-3 border-b border-slate-100">
+        <div>
+          <div class="flex items-center space-x-2">
+            <h3 class="text-sm font-bold text-slate-900">Komentar Postingan</h3>
+          </div>
+          <div class="flex items-center space-x-2 text-[11px] text-slate-500 mt-0.5">
+            <span class="font-bold text-slate-800" x-text="'@' + (selectedPostForComments ? getAccountName(selectedPostForComments.account_id) : '')"></span>
+            <span>•</span>
+            <span x-text="getCommentsForPost(selectedPostForComments).length + ' komentar tersimpan'"></span>
+          </div>
+        </div>
+        <button @click="closeModal('postCommentsModal')" class="p-1 rounded-lg text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <!-- Preview Postingan Snippet -->
+      <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 italic mb-3 line-clamp-2" x-text="selectedPostForComments ? parseFirstThread(selectedPostForComments.thread_content_json) : ''"></div>
+
+      <!-- Body: List Komentar -->
+      <div class="flex-1 overflow-y-auto pr-1 space-y-2.5">
+        <template x-for="c in getCommentsForPost(selectedPostForComments)" :key="c.comment_id || c.interaction_id">
+          <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
+            <div class="flex justify-between items-start">
+              <div class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-[10px]" x-text="(c.sender_username || 'U').charAt(0).toUpperCase()"></div>
+                <div>
+                  <span class="font-bold text-xs text-slate-900" x-text="'@' + c.sender_username"></span>
+                  <span x-show="c.intent_flag" class="ml-1 px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[8px] font-bold">Spill Intent</span>
+                </div>
+              </div>
+              <button @click="closeModal('postCommentsModal'); openQuickReply(c)" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded transition">
+                Balas
+              </button>
+            </div>
+            <p class="text-xs text-slate-800 pl-8" x-text="c.content"></p>
+            <div class="pl-8 text-[9px] text-slate-400 font-mono" x-text="c.created_at ? c.created_at.substring(0, 16).replace('T', ' ') : ''"></div>
+          </div>
+        </template>
+
+        <div x-show="getCommentsForPost(selectedPostForComments).length === 0" class="text-center py-10 text-xs text-slate-400 space-y-2">
+          <i data-lucide="message-square-dashed" class="w-8 h-8 text-slate-300 mx-auto"></i>
+          <p>Belum ada komentar tersimpan untuk postingan ini.</p>
+          <button type="button" @click="if (selectedPostForComments) syncPostMetrics(selectedPostForComments.post_id)" :disabled="selectedPostForComments && syncingPostId === selectedPostForComments.post_id" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold inline-flex items-center">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1.5" :class="selectedPostForComments && syncingPostId === selectedPostForComments.post_id ? 'animate-spin' : ''"></i>
+            Tarik Komentar dari Threads API
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+        <button type="button" @click="closeModal('postCommentsModal'); switchTab('inbox')" class="text-emerald-700 hover:underline font-bold flex items-center">
+          <i data-lucide="messages-square" class="w-3.5 h-3.5 mr-1"></i> Buka di Unified Inbox
+        </button>
+        <button type="button" @click="closeModal('postCommentsModal')" class="px-3.5 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Tutup</button>
       </div>
     </div>
   </div>
@@ -1595,8 +1517,11 @@
                   <div class="text-slate-400 text-[10px] font-mono mt-0.5 truncate" x-text="item.media_id"></div>
                 </div>
                 <div class="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1">
-                  <button type="button" @click="attachInlineMedia(item.media_id); closeModal('productMediaModal'); openComposer()" class="w-full py-1 px-2 bg-slate-900 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-lg flex items-center justify-center transition">
-                    <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Pakai di Composer
+                  <button type="button" @click="attachInlineMedia(item.media_id); closeModal('productMediaModal'); openComposer()" class="flex-1 py-1 px-2 bg-slate-900 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-lg flex items-center justify-center transition">
+                    <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Pakai
+                  </button>
+                  <button type="button" @click="confirmDeleteMedia(item.media_id)" title="Hapus Media" class="p-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                   </button>
                 </div>
               </div>
@@ -1785,6 +1710,88 @@
     </div>
   </div>
 
+  <!-- MODAL EDIT POSTINGAN ANTREAN (MODUL ANTREAN & JADWAL) -->
+  <div x-show="modals.editQueueModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div @click.away="!isUpdatingQueue && closeModal('editQueueModal')" class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            <i data-lucide="pencil" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Edit Postingan Antrean</h3>
+          </div>
+        </div>
+        <button @click="closeModal('editQueueModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs overflow-y-auto flex-1 pr-1">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Akun Threads Pengirim</label>
+          <select x-model="editingQueuePost.account_id" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+            <template x-for="acc in accounts" :key="acc.account_id">
+              <option :value="acc.account_id" x-text="'@' + acc.username + ' (' + acc.account_id + ')'"></option>
+            </template>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Konten Utas #1 (Root Hook)</label>
+          <textarea x-model="editingQueuePost.root_content" rows="3" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Ambang Target Views</label>
+            <input type="number" x-model.number="editingQueuePost.views_threshold" class="w-full p-2 border border-slate-300 rounded-lg font-mono bg-white">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Status Antrean</label>
+            <select x-model="editingQueuePost.status" class="w-full p-2 border border-slate-300 rounded-lg bg-white font-semibold">
+              <option value="SCHEDULED">SCHEDULED</option>
+              <option value="DRAFT">DRAFT</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Jadwal Tayang Otomatis</label>
+          <input type="datetime-local" x-model="editingQueuePost.scheduled_time" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button type="button" @click="closeModal('editQueueModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Batal</button>
+        <button type="button" @click="saveQueuePostEdit()" :disabled="isUpdatingQueue" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center transition shadow-sm disabled:opacity-50">
+          <span x-show="isUpdatingQueue" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+          <span x-text="isUpdatingQueue ? 'Menyimpan...' : 'Simpan Perubahan'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM CONFIRMATION MODAL (PENGGANTI NATIVE CONFIRM) -->
+  <div x-show="modals.confirmModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div @click.away="!isDeleting && closeModal('confirmModal')" class="bg-white max-w-sm w-full rounded-2xl shadow-2xl p-5 border border-slate-200 text-center space-y-3">
+      <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h3 class="text-sm font-bold text-slate-900" x-text="confirmData.title"></h3>
+        <p class="text-xs text-slate-500 mt-1" x-text="confirmData.message"></p>
+      </div>
+      <div class="pt-2 flex justify-center space-x-2">
+        <button type="button" :disabled="isDeleting" @click="closeModal('confirmModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition">
+          Batal
+        </button>
+        <button type="button" :disabled="isDeleting" @click="executeConfirmAction()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center transition shadow-sm disabled:opacity-50">
+          <span x-show="isDeleting" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+          <span x-text="isDeleting ? 'Menghapus...' : confirmData.confirmText"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- SETTINGS MODAL -->
   <div x-show="modals.settingsModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
     <div @click.away="closeModal('settingsModal')" class="bg-white max-w-md w-full rounded-2xl shadow-xl p-5">
@@ -1793,6 +1800,11 @@
         <button @click="closeModal('settingsModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
       <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Deployment Script URL (Google Apps Script)</label>
+          <input type="text" x-model="currentScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" class="w-full p-2 border border-slate-300 rounded-lg font-mono text-[11px]">
+          <span class="text-[10px] text-slate-400 mt-0.5 block">Pastikan Web App di-Deploy: Execute as: "Me", Access: "Anyone".</span>
+        </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Gemini API Key</label>
           <input type="password" x-model="settings.gemini_key" class="w-full p-2 border border-slate-300 rounded-lg font-mono">
@@ -1836,7 +1848,7 @@
   </div>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0GGOAcu15PuikgDeIS6LrR9mo3IeK3VX7Uklb1ft9rzohMO-UqOGV59kJ9woXkONa/exec';
+    const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0GGOAcu15PuikgDeIS6LrR9mo3IeK3VX7Uklb1ft9rzohMO-UqOGV59kJ9woXkONa/exec';
 
     function threadApp() {
       return {
@@ -1854,12 +1866,21 @@
 
         // Form Post Composer
         selectedProductId: '',
-        composerProductSearch: '',
-        showProductDropdown: false,
         accountSearchQuery: '',
         accountFilterTab: 'ALL',
         publishMode: 'DRIP_ON_VIEWS',
-        threadList: [{ content: '', media_id: '', media_ids: [], _showPicker: false }],
+        threadList: [{
+          content: '',
+          product_ids: [],
+          product_id: '',
+          media_ids: [],
+          media_id: '',
+          _showPicker: false,
+          _showProductPicker: false,
+          _productSearch: '',
+          _showLinkMenu: false,
+          _mediaFilterTab: 'ATTACHED'
+        }],
         selectedVaultMedia: [],
         postViewsThreshold: 500,
         scheduledDateTime: '',
@@ -1872,10 +1893,22 @@
         generatedHooks: [],
 
         get publishedPosts() {
-          return this.posts.filter(p => p.status === 'PUBLISHED');
+          return this.posts
+            .filter(function(p) { return p.status === 'PUBLISHED'; })
+            .sort(function(a, b) {
+              var tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+              var tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+              return tB - tA;
+            });
         },
         get queuedPosts() {
-          return this.posts.filter(p => p.status !== 'PUBLISHED');
+          return this.posts
+            .filter(function(p) { return p.status !== 'PUBLISHED'; })
+            .sort(function(a, b) {
+              var tA = new Date(a.scheduled_time || a.created_at || 0).getTime();
+              var tB = new Date(b.scheduled_time || b.created_at || 0).getTime();
+              return tB - tA;
+            });
         },
         get unrepliedCount() {
           return this.comments.filter(c => c.author_type !== 'OWNER' && c.reply_status !== 'REPLIED').length;
@@ -1923,12 +1956,112 @@
         // Bank Hook
         newHook: { category: 'Curhat/Story', hook_text: '', formula: '' },
 
+        // Postingan Terbit Filter & Pagination
+        publishedSearchQuery: '',
+        publishedFilterDate: '',
+        publishedFilterReply: 'ALL',
+        publishedPage: 1,
+        publishedPerPage: 10,
+        selectedPostForComments: null,
+
+        formatDateTime(isoStr) {
+          if (!isoStr) return '-';
+          try {
+            var d = new Date(isoStr);
+            if (isNaN(d.getTime())) return String(isoStr);
+            return d.toLocaleDateString('id-ID', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+          } catch(e) {
+            return String(isoStr);
+          }
+        },
+
+        getThreadNodeCount(jsonStr) {
+          try {
+            var arr = JSON.parse(jsonStr);
+            return Array.isArray(arr) ? arr.length : 1;
+          } catch(e) {
+            return 1;
+          }
+        },
+
+        get filteredPublishedPosts() {
+          var list = this.publishedPosts;
+          var q = (this.publishedSearchQuery || '').toLowerCase().trim();
+          var date = this.publishedFilterDate;
+          var reply = this.publishedFilterReply;
+          var self = this;
+
+          if (q) {
+            list = list.filter(function(p) {
+              var content = self.parseFirstThread(p.thread_content_json).toLowerCase();
+              var acc = self.getAccountName(p.account_id).toLowerCase();
+              var pid = String(p.post_id || '').toLowerCase();
+              var thId = String(p.threads_post_id || '').toLowerCase();
+              return content.indexOf(q) !== -1 || acc.indexOf(q) !== -1 || pid.indexOf(q) !== -1 || thId.indexOf(q) !== -1;
+            });
+          }
+
+          if (date) {
+            list = list.filter(function(p) {
+              if (!p.created_at) return false;
+              return String(p.created_at).substring(0, 10) === date;
+            });
+          }
+
+          if (reply !== 'ALL') {
+            list = list.filter(function(p) {
+              var isSent = (p.auto_reply_sent === true || String(p.auto_reply_sent).toLowerCase() === 'true');
+              return reply === 'SENT' ? isSent : !isSent;
+            });
+          }
+
+          return list;
+        },
+
+        get publishedTotalPages() {
+          return Math.max(1, Math.ceil(this.filteredPublishedPosts.length / this.publishedPerPage));
+        },
+
+        get paginatedPublishedPosts() {
+          var start = (this.publishedPage - 1) * this.publishedPerPage;
+          return this.filteredPublishedPosts.slice(start, start + this.publishedPerPage);
+        },
+
+        getCommentsForPost(post) {
+          if (!post) return [];
+          var pid = String(post.post_id || '');
+          var thId = String(post.threads_post_id || '');
+          return this.comments.filter(function(c) {
+            return (pid && String(c.post_id) === pid) || (thId && String(c.threads_post_id) === thId);
+          });
+        },
+
+        openPostComments(post) {
+          this.selectedPostForComments = post;
+          this.openModal('postCommentsModal');
+        },
+
         // Modals & Toasts
-        modals: { replyModal: false, addProductModal: false, uploadMediaModal: false, productMediaModal: false, settingsModal: false, addHookModal: false, composerModal: false },
+        modals: { replyModal: false, addProductModal: false, uploadMediaModal: false, productMediaModal: false, settingsModal: false, addHookModal: false, composerModal: false, postCommentsModal: false, confirmModal: false, editQueueModal: false },
         targetComment: null,
         replyContent: '',
+        isDeleting: false,
+        isUpdatingQueue: false,
+        confirmData: { title: '', message: '', actionType: '', targetId: '', confirmText: 'Ya, Hapus' },
+        editingQueuePost: { post_id: '', account_id: '', root_content: '', views_threshold: 500, scheduled_time: '', status: 'SCHEDULED' },
+        currentScriptUrl: localStorage.getItem('CUSTOM_SCRIPT_URL') || DEFAULT_SCRIPT_URL,
         settings: { gemini_key: '', cloudinary_cloud: '', cloudinary_preset: '' },
         toast: { visible: false, message: '', type: 'success' },
+
+        getScriptUrl() {
+          return (this.currentScriptUrl && this.currentScriptUrl.trim()) ? this.currentScriptUrl.trim() : DEFAULT_SCRIPT_URL;
+        },
 
         initApp() {
           this.fetchInitialData();
@@ -1953,9 +2086,20 @@
 
         openComposer() {
           if (!this.threadList || this.threadList.length === 0) {
-            this.threadList = [{ content: '', media_id: '', media_ids: [], _showPicker: false }];
+            this.threadList = [{
+              content: '',
+              product_ids: [],
+              product_id: '',
+              media_ids: [],
+              media_id: '',
+              _showPicker: false,
+              _showProductPicker: false,
+              _productSearch: '',
+              _showLinkMenu: false,
+              _mediaFilterTab: 'ATTACHED'
+            }];
           }
-          this.openModal('composerModal');
+          this.switchTab('composer');
         },
 
         // Multi-Account Selection Helpers
@@ -1998,29 +2142,110 @@
           return list;
         },
 
-        get filteredComposerProducts() {
-          if (!this.products || this.products.length === 0) return [];
-          if (!this.composerProductSearch || !this.composerProductSearch.trim()) {
-            return this.products;
+        getNodeProducts(thread) {
+          if (!thread) return [];
+          var pids = thread.product_ids || [];
+          if (pids.length === 0 && thread.product_id) pids = [thread.product_id];
+          var self = this;
+          return pids.map(function(pid) {
+            return self.products.find(function(p) { return p.product_id === pid; }) || { product_id: pid, product_name: pid, price: 0 };
+          });
+        },
+
+        toggleNodeProduct(thread, prodId) {
+          if (!thread.product_ids) thread.product_ids = [];
+          var idx = thread.product_ids.indexOf(prodId);
+          if (idx > -1) {
+            thread.product_ids.splice(idx, 1);
+          } else {
+            thread.product_ids.push(prodId);
           }
-          var q = this.composerProductSearch.toLowerCase().trim();
+          thread.product_id = thread.product_ids.length > 0 ? thread.product_ids[0] : '';
+          this.$nextTick(() => { lucide.createIcons(); });
+        },
+
+        isNodeProductSelected(thread, prodId) {
+          return (thread.product_ids || []).indexOf(prodId) > -1 || thread.product_id === prodId;
+        },
+
+        removeNodeProduct(thread, prodId) {
+          if (!thread.product_ids) thread.product_ids = [];
+          var idx = thread.product_ids.indexOf(prodId);
+          if (idx > -1) thread.product_ids.splice(idx, 1);
+          if (thread.product_id === prodId) {
+            thread.product_id = thread.product_ids.length > 0 ? thread.product_ids[0] : '';
+          }
+          this.$nextTick(() => { lucide.createIcons(); });
+        },
+
+        insertSpecificProductLink(thread, prod) {
+          if (!prod) return;
+          var tag = '[LINK_AFFILIATE:' + prod.product_id + ']';
+          var line = '👉 Cek ' + prod.product_name + ': ' + tag;
+          var current = thread.content ? thread.content.trim() : '';
+          thread.content = current ? (current + '\n\n' + line) : line;
+          thread._showLinkMenu = false;
+          this.showToast('Link affiliate "' + prod.product_name + '" disisipkan');
+        },
+
+        insertAllProductLinks(thread) {
+          var prods = this.getNodeProducts(thread);
+          if (prods.length === 0) return;
+          var lines = prods.map(function(p) {
+            return '👉 Cek ' + p.product_name + ': [LINK_AFFILIATE:' + p.product_id + ']';
+          }).join('\n');
+          var current = thread.content ? thread.content.trim() : '';
+          thread.content = current ? (current + '\n\n' + lines) : lines;
+          thread._showLinkMenu = false;
+          this.showToast('Semua link produk di utas ini disisipkan');
+        },
+
+        getNodeFilteredProducts(thread) {
+          if (!this.products || this.products.length === 0) return [];
+          var q = (thread._productSearch || '').toLowerCase().trim();
+          if (!q) return this.products;
           return this.products.filter(function(p) {
             var name = (p.product_name || '').toLowerCase();
             var cat = (p.category || '').toLowerCase();
             var id = String(p.product_id || '').toLowerCase();
-            var sp = (p.selling_points || '').toLowerCase();
-            return name.indexOf(q) !== -1 || cat.indexOf(q) !== -1 || id.indexOf(q) !== -1 || sp.indexOf(q) !== -1;
+            return name.indexOf(q) !== -1 || cat.indexOf(q) !== -1 || id.indexOf(q) !== -1;
           });
+        },
+
+        getNodeMediaForPicker(thread) {
+          var filter = thread._mediaFilterTab || 'ATTACHED';
+          var pids = thread.product_ids || [];
+          if (pids.length === 0 && thread.product_id) pids = [thread.product_id];
+
+          if (filter === 'ATTACHED') {
+            if (pids.length > 0) {
+              return this.mediaList.filter(function(m) { return pids.indexOf(m.product_id) > -1; });
+            }
+            return this.mediaList;
+          }
+          if (filter === 'VAULT') {
+            return this.mediaList;
+          }
+          return this.mediaList.filter(function(m) { return m.product_id === filter; });
+        },
+
+        getMediaProductName(prodId) {
+          if (!prodId) return 'Umum';
+          var p = this.products.find(function(item) { return item.product_id === prodId; });
+          return p ? p.product_name : prodId;
         },
 
         fetchProducts() {
           this.isLoadingProducts = true;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'getProducts', payload: {} })
           })
-          .then(r => r.text())
+          .then(r => {
+            if (r.status === 404) throw new Error('404: Endpoint Web App tidak ditemukan');
+            return r.text();
+          })
           .then(text => {
             const res = JSON.parse(text);
             if (res.ok) {
@@ -2032,39 +2257,6 @@
           .catch(() => {
             this.isLoadingProducts = false;
           });
-        },
-
-        get selectedProductObj() {
-          if (!this.selectedProductId) return null;
-          var pid = this.selectedProductId;
-          return this.products.find(function(p) { return p.product_id === pid; }) || null;
-        },
-
-        selectComposerProduct(prod) {
-          this.selectedProductId = prod ? prod.product_id : '';
-          this.composerProductSearch = '';
-          this.showProductDropdown = false;
-          this.showToast('Produk ' + (prod ? prod.product_name : '') + ' dipilih');
-        },
-
-        clearSelectedComposerProduct() {
-          this.selectedProductId = '';
-          this.composerProductSearch = '';
-          this.showProductDropdown = false;
-        },
-
-        get inlineProductMedia() {
-          if (!this.selectedProductId) return this.mediaList;
-          var pid = this.selectedProductId;
-          return this.mediaList.filter(function(m) { return m.product_id === pid; });
-        },
-
-        getProductMediaForPicker(prodId) {
-          if (prodId) {
-            var list = this.mediaList.filter(function(m) { return m.product_id === prodId; });
-            if (list.length > 0) return list;
-          }
-          return this.mediaList;
         },
 
         attachInlineMedia(mediaId) {
@@ -2086,17 +2278,19 @@
         },
 
         addThreadNode() {
-          this.threadList.push({ content: '', media_id: '', media_ids: [], _showPicker: false });
+          this.threadList.push({
+            content: '',
+            product_ids: [],
+            product_id: '',
+            media_ids: [],
+            media_id: '',
+            _showPicker: false,
+            _showProductPicker: false,
+            _productSearch: '',
+            _showLinkMenu: false,
+            _mediaFilterTab: 'ATTACHED'
+          });
           this.$nextTick(() => { lucide.createIcons(); });
-        },
-
-        insertAffiliateLink(index) {
-          if (!this.threadList[index]) return;
-          var prod = this.products.find(p => p.product_id === this.selectedProductId);
-          var affiliateUrl = prod ? (prod.shopee_affiliate_url || prod.shopee_raw_url || '[LINK_AFFILIATE]') : '[LINK_AFFILIATE]';
-          var current = this.threadList[index].content ? this.threadList[index].content.trim() : '';
-          this.threadList[index].content = current ? (current + '\n\n' + affiliateUrl) : affiliateUrl;
-          this.showToast('Link affiliate berhasil disisipkan ke Utas #' + (index + 1));
         },
 
         toggleVaultMedia(mediaId) {
@@ -2201,6 +2395,36 @@
           }
         },
 
+        getThreadReplies(rootCmt) {
+          if (!rootCmt) return [];
+          var list = [];
+          function traverse(parent, depth, parentUser) {
+            if (!parent.replies || !Array.isArray(parent.replies)) return;
+            for (var i = 0; i < parent.replies.length; i++) {
+              var rep = parent.replies[i];
+              list.push({
+                comment_id: rep.comment_id || rep.interaction_id || ('rep_' + Math.random()),
+                account_id: rep.account_id || parent.account_id,
+                post_id: rep.post_id || parent.post_id,
+                sender_username: rep.sender_username || 'user',
+                author_type: rep.author_type || 'AUDIENCE',
+                content: rep.content || '',
+                intent_flag: rep.intent_flag,
+                reply_status: rep.reply_status,
+                created_at: rep.created_at,
+                depth: depth,
+                visualDepth: Math.min(depth, 3),
+                isDeepReply: depth >= 4,
+                replyTo: (depth >= 4 ? parentUser : ''),
+                replies: rep.replies || []
+              });
+              traverse(rep, depth + 1, rep.sender_username || 'user');
+            }
+          }
+          traverse(rootCmt, 1, rootCmt.sender_username || 'user');
+          return list;
+        },
+
         get filteredComments() {
           var list = this.comments;
 
@@ -2224,7 +2448,7 @@
 
         syncInboxApi() {
           this.isSyncingInbox = true;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'syncInboxComments', payload: {} })
@@ -2293,8 +2517,15 @@
         sendProductToAi(item) {
           this.selectedProductId = item.product_id;
           this.aiPromptTopic = item.product_name;
+          if (this.threadList.length > 0) {
+            if (!this.threadList[0].product_ids) this.threadList[0].product_ids = [];
+            if (this.threadList[0].product_ids.indexOf(item.product_id) === -1) {
+              this.threadList[0].product_ids.push(item.product_id);
+            }
+            this.threadList[0].product_id = item.product_id;
+          }
           this.openComposer();
-          this.showToast('Produk & selling points dikirim ke AI Hook Studio');
+          this.showToast('Produk & selling points dikirim ke AI Hook Studio & Utas #1');
         },
 
         get filteredProducts() {
@@ -2333,12 +2564,17 @@
 
         fetchInitialData() {
           this.isLoading = true;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'getDashboardData', payload: {} })
           })
-          .then(r => r.text())
+          .then(r => {
+            if (r.status === 404) {
+              throw new Error('404: URL Web App tidak aktif. Pastikan Web App sudah di-Deploy (Execute as: Me, Access: Anyone).');
+            }
+            return r.text();
+          })
           .then(text => {
             const res = JSON.parse(text);
             if (res.ok) {
@@ -2374,7 +2610,7 @@
           var selectedProd = this.products.find(p => p.product_id === this.selectedProductId);
           var sellingPoints = selectedProd ? selectedProd.selling_points : '';
 
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -2447,7 +2683,7 @@
           }
 
           try {
-            var resp = await fetch(SCRIPT_URL, {
+            var resp = await fetch(this.getScriptUrl(), {
               method: 'POST',
               headers: { 'Content-Type': 'text/plain;charset=utf-8' },
               body: JSON.stringify({
@@ -2504,19 +2740,48 @@
 
           this.showToast('Memproses broadcast ke ' + totalTargets + ' akun Threads...');
 
+          var primaryProdId = '';
+          for (var p = 0; p < this.threadList.length; p++) {
+            var pids = this.threadList[p].product_ids || [];
+            if (pids.length > 0) {
+              primaryProdId = pids[0];
+              break;
+            } else if (this.threadList[p].product_id) {
+              primaryProdId = this.threadList[p].product_id;
+              break;
+            }
+          }
+
+          var totalNodesCount = this.threadList.length;
+          var serializedNodes = this.threadList.map(function(t, idx) {
+            var pids = t.product_ids || [];
+            if (pids.length === 0 && t.product_id) pids = [t.product_id];
+            var txt = t.content || '';
+            if (totalNodesCount > 1 && !/^\(?\d+\/\d+\)?/i.test(txt.trim())) {
+              txt = (idx + 1) + '/' + totalNodesCount + ' ' + txt;
+            }
+            return {
+              content: txt,
+              product_ids: pids,
+              product_id: pids.length > 0 ? pids[0] : '',
+              media_ids: t.media_ids || [],
+              media_id: (t.media_ids && t.media_ids.length > 0) ? t.media_ids[0] : (t.media_id || '')
+            };
+          });
+
           for (var i = 0; i < targetAccounts.length; i++) {
             var accId = targetAccounts[i];
             try {
-              var resp = await fetch(SCRIPT_URL, {
+              var resp = await fetch(this.getScriptUrl(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
                   action: 'createPost',
                   payload: {
                     account_id: accId,
-                    product_id: this.selectedProductId,
+                    product_id: primaryProdId,
                     publish_mode: this.publishMode,
-                    thread_content_json: JSON.stringify(this.threadList),
+                    thread_content_json: JSON.stringify(serializedNodes),
                     media_ids_json: JSON.stringify(allMediaIds),
                     views_threshold: this.postViewsThreshold,
                     auto_reply_content: '',
@@ -2537,11 +2802,24 @@
           if (successCount > 0) {
             var actionName = status === 'PUBLISH_NOW' ? 'diterbitkan' : 'dijadwalkan/disimpan';
             this.showToast('Sukses! Utas berhasil ' + actionName + ' untuk ' + successCount + ' dari ' + totalTargets + ' akun.');
-            this.closeModal('composerModal');
             this.fetchInitialData();
             if (status === 'PUBLISH_NOW') {
-              this.threadList = [{ content: '', media_id: '', media_ids: [], _showPicker: false }];
+              this.threadList = [{
+                content: '',
+                product_ids: [],
+                product_id: '',
+                media_ids: [],
+                media_id: '',
+                _showPicker: false,
+                _showProductPicker: false,
+                _productSearch: '',
+                _showLinkMenu: false,
+                _mediaFilterTab: 'ATTACHED'
+              }];
               this.selectedVaultMedia = [];
+              this.switchTab('published');
+            } else {
+              this.switchTab('queue');
             }
           } else {
             this.showToast('Gagal memproses pengiriman ke akun-akun yang dipilih', 'error');
@@ -2550,7 +2828,7 @@
 
         syncPostMetrics(postId) {
           this.syncingPostId = postId;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -2581,7 +2859,7 @@
 
         syncAllMetrics() {
           this.isCheckingViews = true;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'syncAllPublishedPosts', payload: {} })
@@ -2606,7 +2884,7 @@
         publishExistingPost(postId) {
           this.actionPostId = postId;
           this.showToast('Menerbitkan postingan ke Threads API...');
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -2633,7 +2911,7 @@
 
         executeQueueAndViewsNow() {
           this.isExecutingQueueAndViews = true;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'checkAndExecuteQueueAndViews', payload: {} })
@@ -2660,7 +2938,7 @@
             this.showToast('Teks hook tidak boleh kosong', 'error');
             return;
           }
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'saveHookTemplate', payload: this.newHook })
@@ -2705,7 +2983,7 @@
 
         activateAutoTrigger() {
           this.isSettingTrigger = true;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -2726,6 +3004,157 @@
           .catch(() => {
             this.isSettingTrigger = false;
             this.showToast('Gagal memasang trigger', 'error');
+          });
+        },
+
+        confirmDeleteProduct(prod) {
+          this.confirmData = {
+            title: 'Hapus Produk Master?',
+            message: 'Produk "' + (prod.product_name || prod.product_id) + '" beserta seluruh file media ulasannya akan dihapus dari sistem.',
+            actionType: 'DELETE_PRODUCT',
+            targetId: prod.product_id,
+            confirmText: 'Ya, Hapus Produk'
+          };
+          this.openModal('confirmModal');
+        },
+
+        confirmDeleteMedia(mediaId) {
+          this.confirmData = {
+            title: 'Hapus File Media?',
+            message: 'Media ID ' + mediaId + ' akan dihapus permanen dari database.',
+            actionType: 'DELETE_MEDIA',
+            targetId: mediaId,
+            confirmText: 'Ya, Hapus Media'
+          };
+          this.openModal('confirmModal');
+        },
+
+        confirmDeleteQueuePost(postId) {
+          this.confirmData = {
+            title: 'Batalkan & Hapus Antrean?',
+            message: 'Postingan antrean ' + postId + ' akan dibatalkan dan dihapus dari jadwal tayang.',
+            actionType: 'DELETE_QUEUE',
+            targetId: postId,
+            confirmText: 'Ya, Batalkan'
+          };
+          this.openModal('confirmModal');
+        },
+
+        confirmDeleteAccount(acc) {
+          this.confirmData = {
+            title: 'Putuskan Tautan Akun Threads?',
+            message: 'Tautan akun @' + (acc.username || acc.account_id) + ' akan diputuskan dan dihapus dari dashboard.',
+            actionType: 'DELETE_ACCOUNT',
+            targetId: acc.account_id,
+            confirmText: 'Ya, Putuskan'
+          };
+          this.openModal('confirmModal');
+        },
+
+        executeConfirmAction() {
+          this.isDeleting = true;
+          var type = this.confirmData.actionType;
+          var targetId = this.confirmData.targetId;
+          var actionName = '';
+          var payloadData = {};
+
+          if (type === 'DELETE_PRODUCT') {
+            actionName = 'deleteProduct';
+            payloadData = { product_id: targetId };
+          } else if (type === 'DELETE_MEDIA') {
+            actionName = 'deleteMedia';
+            payloadData = { media_id: targetId };
+          } else if (type === 'DELETE_QUEUE') {
+            actionName = 'deleteQueuePost';
+            payloadData = { post_id: targetId };
+          } else if (type === 'DELETE_ACCOUNT') {
+            actionName = 'deleteThreadsAccount';
+            payloadData = { account_id: targetId };
+          }
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: actionName, payload: payloadData })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast('Data berhasil dihapus');
+              this.closeModal('confirmModal');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.isDeleting = false;
+          })
+          .catch(err => {
+            this.isDeleting = false;
+            this.showToast('Gagal menghapus data: ' + err.message, 'error');
+          });
+        },
+
+        openEditQueuePost(post) {
+          var rootText = this.parseFirstThread(post.thread_content_json);
+          var schedTime = '';
+          if (post.created_at) {
+            try {
+              var d = new Date(post.created_at);
+              if (!isNaN(d.getTime())) {
+                schedTime = d.toISOString().slice(0, 16);
+              }
+            } catch(e) {}
+          }
+          this.editingQueuePost = {
+            post_id: post.post_id,
+            account_id: post.account_id,
+            root_content: rootText,
+            views_threshold: Number(post.views_threshold || 500),
+            scheduled_time: schedTime,
+            status: post.status || 'SCHEDULED'
+          };
+          this.openModal('editQueueModal');
+        },
+
+        saveQueuePostEdit() {
+          if (!this.editingQueuePost.root_content.trim()) {
+            this.showToast('Teks postingan tidak boleh kosong', 'error');
+            return;
+          }
+          this.isUpdatingQueue = true;
+          var updatedNodes = [{ content: this.editingQueuePost.root_content.trim(), media_id: '' }];
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'updateQueuePost',
+              payload: {
+                post_id: this.editingQueuePost.post_id,
+                account_id: this.editingQueuePost.account_id,
+                thread_content_json: JSON.stringify(updatedNodes),
+                views_threshold: this.editingQueuePost.views_threshold,
+                scheduled_time: this.editingQueuePost.scheduled_time,
+                status: this.editingQueuePost.status
+              }
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast('Perubahan antrean berhasil disimpan');
+              this.closeModal('editQueueModal');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.isUpdatingQueue = false;
+          })
+          .catch(err => {
+            this.isUpdatingQueue = false;
+            this.showToast('Gagal memperbarui antrean: ' + err.message, 'error');
           });
         },
 
@@ -2755,7 +3184,7 @@
             return;
           }
           this.isSyncingToken = true;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -2779,7 +3208,7 @@
 
         pingAccount(accountId) {
           this.testingAccountId = accountId;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -2814,7 +3243,7 @@
         sendReply() {
           if (!this.targetComment) return;
           this.isSendingReply = true;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -2847,7 +3276,7 @@
             return;
           }
           this.isSavingProduct = true;
-          fetch(SCRIPT_URL, {
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -2876,7 +3305,10 @@
         },
 
         saveSystemSettings() {
-          fetch(SCRIPT_URL, {
+          if (this.currentScriptUrl && this.currentScriptUrl.trim()) {
+            localStorage.setItem('CUSTOM_SCRIPT_URL', this.currentScriptUrl.trim());
+          }
+          fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
