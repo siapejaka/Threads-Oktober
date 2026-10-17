@@ -822,6 +822,57 @@
   <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzoVXi5UfG6dxZlENLhvH__GoK7XBgDJu8bYdUtQxzcEoNVqe5NbBbh8CbY-ujviYgX/exec';
 
+    // Bridge google.script.run for External deploy mode compatibility
+    if (typeof window.google === 'undefined') { window.google = {}; }
+    if (!window.google.script) { window.google.script = {}; }
+    window.google.script.run = (function() {
+      function ScriptRunner(sCb, fCb) {
+        this.sCb = sCb || function() {};
+        this.fCb = fCb || function() {};
+      }
+      ScriptRunner.prototype.withSuccessHandler = function(fn) {
+        return new ScriptRunner(fn, this.fCb);
+      };
+      ScriptRunner.prototype.withFailureHandler = function(fn) {
+        return new ScriptRunner(this.sCb, fn);
+      };
+      function send(runner, action, payload) {
+        fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: action, payload: payload || {} })
+        })
+        .then(function(r) { return r.text(); })
+        .then(function(text) {
+          try {
+            var res = JSON.parse(text);
+            if (res.ok) { runner.sCb(res.data); }
+            else { runner.fCb(new Error(res.message || 'Error server')); }
+          } catch(e) { runner.fCb(e); }
+        })
+        .catch(function(err) { runner.fCb(err); });
+      }
+      ScriptRunner.prototype.saveProduct = function(productData) {
+        send(this, 'saveProduct', productData);
+      };
+      ScriptRunner.prototype.getProducts = function(cb) {
+        send(this, 'getProducts', {});
+      };
+      ScriptRunner.prototype.uploadMedia = function(base64Data, fileName, mimeType, productId, reviewGroup) {
+        send(this, 'uploadMedia', {
+          base64Data: base64Data,
+          fileName: fileName,
+          mimeType: mimeType,
+          productId: productId,
+          reviewGroup: reviewGroup
+        });
+      };
+      ScriptRunner.prototype.getProductImages = function(productId) {
+        send(this, 'getProductImages', { productId: productId });
+      };
+      return new ScriptRunner();
+    })();
+
     function app() {
       return {
         currentTab: 'composer',
@@ -1183,12 +1234,20 @@
           }
           this.loadingProduct = true;
           const self = this;
-          this.apiCall('saveProduct', this.newProduct, function(res) {
-            self.loadingProduct = false;
-            self.showToast('Produk ' + res.product_id + ' tersimpan!');
-            self.newProduct = { product_name: '', category: '', affiliate_url: '', description: '' };
-            self.loadInitialData();
-          });
+
+          google.script.run
+            .withSuccessHandler(function(res) {
+              self.loadingProduct = false;
+              var msg = (res && res.message) ? res.message : 'Produk berhasil disimpan';
+              self.showToast(msg, 'success');
+              self.newProduct = { product_name: '', category: '', affiliate_url: '', description: '' };
+              self.loadInitialData();
+            })
+            .withFailureHandler(function(err) {
+              self.loadingProduct = false;
+              self.showToast('Gagal menyimpan produk: ' + (err.message || err), 'error');
+            })
+            .saveProduct(this.newProduct);
         },
 
         deleteProduct: function(prodId) {
@@ -1208,11 +1267,20 @@
 
         applyProductToComposer: function(prodId) {
           if (!prodId) { return; }
+          const self = this;
           const prod = this.products.find(function(p) { return p.product_id === prodId; });
           if (prod) {
             this.composer.affiliate_url = prod.affiliate_url;
             this.aiPrompt.topic = prod.product_name;
-            this.showToast('Link & nama produk diaplikasikan');
+
+            this.apiCall('getProductImages', { productId: prodId }, function(mediaList) {
+              if (mediaList && mediaList.length > 0) {
+                self.composer.selected_media_url = mediaList[0].cloudinary_url;
+                self.showToast('Produk & media dimuat ke Composer (' + mediaList.length + ' media)');
+              } else {
+                self.showToast('Link & info produk diaplikasikan');
+              }
+            });
           }
         },
 
@@ -1237,16 +1305,20 @@
             const file = files[idx];
             const reader = new FileReader();
             reader.onload = function(e) {
-              const base64Data = e.target.result.split(',')[1];
-              self.apiCall('uploadMediaToCloudinaryBackend', {
+              const base64Data = String(e.target.result).split(',')[1];
+              self.apiCall('uploadMedia', {
                 base64Data: base64Data,
                 fileName: file.name,
                 mimeType: file.type,
-                product_id: self.uploadSession.product_id || '',
-                review_group: self.uploadSession.custom_rev_id || ''
+                productId: self.uploadSession.product_id || '',
+                reviewGroup: self.uploadSession.custom_rev_id || ''
               }, function() {
                 uploadIndex(idx + 1);
               });
+            };
+            reader.onerror = function() {
+              self.showToast('Gagal membaca file ' + file.name, 'error');
+              uploadIndex(idx + 1);
             };
             reader.readAsDataURL(file);
           }

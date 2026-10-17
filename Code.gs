@@ -16,14 +16,24 @@ function doPost(e) {
 
     if (action === 'getDashboardData') {
       result = getDashboardData();
-    } else if (action === 'syncThreadsAccount') {
-      result = syncThreadsAccount(payload);
+    } else if (action === 'getProducts') {
+      result = getProducts();
     } else if (action === 'saveProduct') {
       result = saveProduct(payload);
     } else if (action === 'deleteProduct') {
       result = deleteProduct(payload);
-    } else if (action === 'uploadMediaToCloudinaryBackend') {
-      result = uploadMediaToCloudinaryBackend(payload);
+    } else if (action === 'uploadMedia' || action === 'uploadMediaToCloudinaryBackend') {
+      result = uploadMedia(
+        payload.base64Data,
+        payload.fileName,
+        payload.mimeType,
+        payload.productId || payload.product_id,
+        payload.reviewGroup || payload.review_group
+      );
+    } else if (action === 'getProductImages') {
+      result = getProductImages(payload.productId || payload.product_id || payload);
+    } else if (action === 'syncThreadsAccount') {
+      result = syncThreadsAccount(payload);
     } else if (action === 'generateHooksWithAI') {
       result = generateHooksWithAI(payload);
     } else if (action === 'savePostToQueue') {
@@ -313,6 +323,8 @@ function getDashboardData() {
 
   return serializeForClient({
     accounts: accounts,
+    products: products,
+    productMedia: productMedia,
     media: media,
     queue: queue,
     inbox: rootComments,
