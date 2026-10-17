@@ -43,8 +43,14 @@ function doPost(e) {
       result = saveSettings(payload);
     } else if (action === 'checkAndPublishQueue') {
       result = checkAndPublishQueue();
+    } else if (action === 'checkAndExecuteQueueAndViews') {
+      result = checkAndExecuteQueueAndViews();
     } else if (action === 'setupTimeDrivenTrigger') {
-      result = setupTimeDrivenTrigger();
+      result = setupTimeDrivenTrigger(payload);
+    } else if (action === 'saveHookTemplate') {
+      result = saveHookTemplate(payload);
+    } else if (action === 'deleteHookTemplate') {
+      result = deleteHookTemplate(payload);
     } else if (action === 'setupDb') {
       result = setupDatabase();
     } else {
@@ -69,6 +75,7 @@ function setupDatabase() {
     'Posts': ['post_id', 'account_id', 'thread_content_json', 'media_ids_json', 'product_id', 'affiliate_sub_id', 'views_threshold', 'current_views', 'status', 'threads_post_id', 'auto_reply_content', 'auto_reply_sent', 'created_at', 'likes_count', 'replies_count', 'permalink'],
     'Comments': ['comment_id', 'post_id', 'account_id', 'parent_comment_id', 'sender_username', 'content', 'intent_flag', 'status', 'created_at'],
     'Posting_Queue': ['queue_id', 'post_id', 'account_id', 'scheduled_time', 'thread_content_json', 'media_ids_json', 'status', 'error_log', 'executed_at'],
+    'Hook_Bank': ['hook_id', 'category', 'hook_text', 'formula', 'created_at'],
     'Settings': ['key', 'value']
   };
 
@@ -80,6 +87,20 @@ function setupDatabase() {
     var headers = schema[tab];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   }
+
+  // Isi default Hook Bank jika masih kosong
+  var hookSheet = ss.getSheetByName('Hook_Bank');
+  if (hookSheet && hookSheet.getLastRow() <= 1) {
+    var defaultHooks = [
+      ['HK_001', 'Curhat/Story', 'Nyesel banget baru tau barang ini sekarang, padahal udah capek-capek nyari...', '[Penyesalan] + [Solusi Masalah]', new Date().toISOString()],
+      ['HK_002', 'Racun Promo', 'Jangan bilang-bilang olshop sebelah, tapi barang seworth-it ini lagi flash sale 70%...', '[Kerahasiaan/FOMO] + [Diskon Besar]', new Date().toISOString()],
+      ['HK_003', 'Kontroversial', 'Stop buang duit beli merk mahal kalau produk lokal 50 ribuan ini kualitasnya 11-12.', '[Tantang Persepsi] + [Komparasi Nilai]', new Date().toISOString()],
+      ['HK_004', 'Sebelum-Sesudah', 'Tadinya skeptis liat review sliweran di FYP, tapi pas paketnya dateng dan dicoba langsung bengong...', '[Skeptis] + [Pembuktian Nyata]', new Date().toISOString()],
+      ['HK_005', 'Spill Toko', 'Buat yang kemarin DM nanyain belinya di mana, mending cek thread ini sebelum stoknya abis lagi.', '[Sosial Proof] + [Urgensi Stok]', new Date().toISOString()]
+    ];
+    hookSheet.getRange(2, 1, defaultHooks.length, defaultHooks[0].length).setValues(defaultHooks);
+  }
+
   return { status: 'Database siap digunakan' };
 }
 
@@ -187,20 +208,24 @@ function getDashboardData(payload) {
   }
 
   var queue = getSheetRecords('Posting_Queue');
+  var hooks = getSheetRecords('Hook_Bank');
 
-  // ponytail: nested tree diproses di server level-1 flat join, upgrade rekursif bila kedalaman balasan > 2
-  var rootComments = [];
+  // Bangun struktur pohon komentar berjenjang (nested tree) rekursif
   var commentMap = {};
   for (var c = 0; c < rawComments.length; c++) {
-    rawComments[c].replies = [];
-    commentMap[rawComments[c].comment_id] = rawComments[c];
+    var item = rawComments[c];
+    item.replies = [];
+    commentMap[String(item.comment_id)] = item;
   }
+
+  var rootComments = [];
   for (var k = 0; k < rawComments.length; k++) {
-    var cmt = rawComments[k];
-    if (cmt.parent_comment_id && commentMap[cmt.parent_comment_id]) {
-      commentMap[cmt.parent_comment_id].replies.push(cmt);
+    var cmtItem = rawComments[k];
+    var parentId = cmtItem.parent_comment_id ? String(cmtItem.parent_comment_id).trim() : '';
+    if (parentId && commentMap[parentId]) {
+      commentMap[parentId].replies.push(cmtItem);
     } else {
-      rootComments.push(cmt);
+      rootComments.push(cmtItem);
     }
   }
 
@@ -210,6 +235,7 @@ function getDashboardData(payload) {
     media: media,
     posts: posts,
     comments: rootComments,
+    hooks: hooks,
     queue: queue,
     settings: settings
   };
@@ -756,19 +782,46 @@ function syncPostInsights(payload) {
   };
 }
 
-// Sinkronkan seluruh postingan yang sudah terbit
+// Sinkronkan postingan aktif secara cerdas untuk menghemat kuota UrlFetch & Meta API
 function syncAllPublishedPosts() {
   var posts = getSheetRecords('Posts');
-  var updated = 0;
+  var now = Date.now();
+  var twoDaysMs = 48 * 60 * 60 * 1000;
+
+  // Filter kandidat postingan:
+  // 1. Yang belum kirim auto-reply (prioritas monetisasi utama)
+  // 2. Atau yang berumur di bawah 48 jam (masih aktif mendapat views)
+  var candidates = [];
   for (var i = 0; i < posts.length; i++) {
-    if (posts[i].status === 'PUBLISHED' && posts[i].threads_post_id) {
-      try {
-        syncPostInsights({ post_id: posts[i].post_id });
-        updated++;
-      } catch (e) {}
+    var p = posts[i];
+    if (p.status === 'PUBLISHED' && p.threads_post_id) {
+      var isReplySent = (p.auto_reply_sent === true || String(p.auto_reply_sent).toLowerCase() === 'true');
+      var postTime = p.created_at ? new Date(p.created_at).getTime() : 0;
+      var isFresh = (now - postTime) < twoDaysMs;
+
+      if (!isReplySent || isFresh) {
+        candidates.push({ post: p, priority: !isReplySent ? 1 : 2 });
+      }
     }
   }
-  return { updated: updated, message: 'Berhasil sinkronisasi metrik untuk ' + updated + ' postingan.' };
+
+  // Urutkan: prioritas auto-reply belum terkirim paling atas
+  candidates.sort(function(a, b) { return a.priority - b.priority; });
+
+  // Batasi maks 4 postingan per eksekusi agar hemat kuota & durasi < 8 detik
+  var maxBatch = Math.min(candidates.length, 4);
+  var updated = 0;
+  for (var k = 0; k < maxBatch; k++) {
+    try {
+      syncPostInsights({ post_id: candidates[k].post.post_id });
+      updated++;
+    } catch (e) {}
+  }
+
+  return {
+    updated: updated,
+    message: 'Sinkronisasi cerdas: ' + updated + ' postingan aktif diproses.'
+  };
 }
 
 function checkViewTriggersAndReply(payload) {
@@ -778,12 +831,11 @@ function checkViewTriggersAndReply(payload) {
 function quickReplyComment(payload) {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var cmtSheet = ss.getSheetByName('Comments');
-  var postSheet = ss.getSheetByName('Posts');
-  var prodSheet = ss.getSheetByName('Products');
 
-  // Ambil data sub_id & raw Shopee URL
   var posts = getSheetRecords('Posts');
   var prods = getSheetRecords('Products');
+  var accounts = getSheetRecords('Accounts');
+
   var targetPost = null;
   for (var p = 0; p < posts.length; p++) {
     if (posts[p].post_id === payload.post_id) {
@@ -803,22 +855,85 @@ function quickReplyComment(payload) {
     affiliateLink += '?sub_id=' + (targetPost.affiliate_sub_id || 'aff_sub');
   }
 
-  var finalContent = (payload.reply_content || '').replace('[LINK_AFFILIATE]', affiliateLink);
-  var newId = 'CMT_' + Utilities.getUuid().substring(0, 8);
+  var finalContent = (payload.reply_content || '').replace(/\[LINK_AFFILIATE\]/g, affiliateLink);
+  var parentCommentId = payload.comment_id;
+  var targetAccId = cleanAccountId(payload.account_id);
+
+  var token = '';
+  var username = 'AdminAgent';
+  for (var a = 0; a < accounts.length; a++) {
+    if (cleanAccountId(accounts[a].account_id) === targetAccId) {
+      token = cleanToken(accounts[a].access_token);
+      username = accounts[a].username || username;
+      break;
+    }
+  }
+  if (!token && accounts.length > 0) {
+    token = cleanToken(accounts[0].access_token);
+    username = accounts[0].username || username;
+  }
+
+  var liveReplyId = 'CMT_' + Utilities.getUuid().substring(0, 8);
+  if (token && parentCommentId) {
+    try {
+      liveReplyId = publishThreadsNode(targetAccId, token, finalContent, null, parentCommentId);
+    } catch (e) {
+      // jika gagal live tetap catat id lokal
+    }
+  }
 
   cmtSheet.appendRow([
-    newId,
+    liveReplyId,
     payload.post_id,
     payload.account_id,
-    payload.comment_id, // parent comment ID (nested)
-    'AdminAgent',
+    parentCommentId,
+    username,
     finalContent,
     false,
     'PUBLISHED',
     new Date().toISOString()
   ]);
 
-  return { comment_id: newId, content: finalContent };
+  return { comment_id: liveReplyId, content: finalContent };
+}
+
+// Kelola Master Bank Hook
+function saveHookTemplate(payload) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Hook_Bank');
+  var hookId = payload.hook_id || ('HK_' + Utilities.getUuid().substring(0, 6));
+  sheet.appendRow([
+    hookId,
+    payload.category || 'General',
+    payload.hook_text || '',
+    payload.formula || '',
+    new Date().toISOString()
+  ]);
+  return { hook_id: hookId };
+}
+
+function deleteHookTemplate(payload) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Hook_Bank');
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(payload.hook_id)) {
+      sheet.deleteRow(i + 1);
+      return { success: true };
+    }
+  }
+  throw new Error('Hook template tidak ditemukan');
+}
+
+// Background Worker: Eksekusi antrean tayang DAN auto-reply saat views tembus
+function checkAndExecuteQueueAndViews() {
+  var queueResult = checkAndPublishQueue();
+  var viewsResult = syncAllPublishedPosts();
+  return {
+    queue_processed: queueResult.processed,
+    posts_synced: viewsResult.updated,
+    timestamp: new Date().toISOString()
+  };
 }
 
 function saveSettings(payload) {
@@ -840,19 +955,27 @@ function saveSettings(payload) {
   return { status: 'Pengaturan tersimpan' };
 }
 
-// Pasang Google Apps Script time-driven trigger setiap 10 menit
-function setupTimeDrivenTrigger() {
+// Pasang Google Apps Script time-driven trigger (1 menit / 5 menit)
+function setupTimeDrivenTrigger(payload) {
+  var interval = (payload && payload.interval) ? Number(payload.interval) : 5;
+  if ([1, 5, 10, 15].indexOf(interval) === -1) interval = 5;
+
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'checkAndPublishQueue') {
+    var fn = triggers[i].getHandlerFunction();
+    if (fn === 'checkAndPublishQueue' || fn === 'checkAndExecuteQueueAndViews') {
       ScriptApp.deleteTrigger(triggers[i]);
     }
   }
-  ScriptApp.newTrigger('checkAndPublishQueue')
+
+  ScriptApp.newTrigger('checkAndExecuteQueueAndViews')
     .timeBased()
-    .everyMinutes(10)
+    .everyMinutes(interval)
     .create();
-  return { status: 'Trigger checkAndPublishQueue berhasil diaktifkan setiap 10 menit' };
+
+  return {
+    status: 'Trigger background aktif otomatis setiap ' + interval + ' menit! Antrean & views dimonitor realtime.'
+  };
 }
 
 // Helper polling kesiapan kontainer media sebelum dipublikasi

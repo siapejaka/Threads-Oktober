@@ -161,8 +161,45 @@
         </div>
       </div>
 
-      <!-- AI Hook Studio -->
+      <!-- AI Hook Studio & Bank Hook Swipe File -->
       <div class="space-y-4">
+        <!-- Bank Hook Viral Library -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-bold text-slate-900 flex items-center">
+              <i data-lucide="bookmark" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Bank Hook Viral
+            </h3>
+            <button @click="openModal('addHookModal')" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center">
+              <i data-lucide="plus" class="w-3.5 h-3.5 mr-0.5"></i> Tambah
+            </button>
+          </div>
+
+          <!-- Kategori Filter -->
+          <div class="flex space-x-1 overflow-x-auto pb-1 mb-2">
+            <button @click="hookFilter = 'ALL'" :class="hookFilter === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap">Semua</button>
+            <template x-for="cat in hookCategories" :key="cat">
+              <button @click="hookFilter = cat" :class="hookFilter === cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap" x-text="cat"></button>
+            </template>
+          </div>
+
+          <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <template x-for="hk in filteredHooks" :key="hk.hook_id">
+              <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50/50 transition">
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800" x-text="hk.category"></span>
+                  <div class="flex space-x-2">
+                    <button @click="useHookForAi(hk)" title="Pakai sebagai referensi Gemini AI" class="text-[10px] text-purple-600 font-bold hover:underline">Pakai AI</button>
+                    <button @click="applyHook(hk.hook_text)" title="Tempel langsung ke Thread #1" class="text-[10px] text-emerald-600 font-bold hover:underline">Sisipkan</button>
+                  </div>
+                </div>
+                <p class="text-xs text-slate-800 italic" x-text="hk.hook_text"></p>
+                <span class="text-[9px] text-slate-400 mt-1 block font-mono" x-text="'Rumus: ' + (hk.formula || '-')"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- AI Hook Studio -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-xs font-bold text-slate-900 flex items-center">
@@ -330,9 +367,10 @@
             <p class="text-xs text-slate-500">Pantau performa real-time tayangan, like, balasan, serta status auto-reply.</p>
           </div>
           <div class="flex items-center space-x-2">
-            <button @click="runQueueNow()" :disabled="isProcessingQueue" class="text-xs bg-slate-800 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-700 flex items-center">
-              <span x-show="isProcessingQueue" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
-              Proses Antrean
+            <button @click="executeQueueAndViewsNow()" :disabled="isExecutingQueueAndViews" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-indigo-700 flex items-center shadow-sm">
+              <span x-show="isExecutingQueueAndViews" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+              <i x-show="!isExecutingQueueAndViews" data-lucide="zap" class="w-3.5 h-3.5 mr-1.5"></i>
+              Jalankan Scheduler & Cek Views
             </button>
             <button @click="syncAllMetrics()" :disabled="isCheckingViews" class="text-xs bg-emerald-600 text-white px-3.5 py-1.5 rounded-lg font-semibold hover:bg-emerald-700 flex items-center shadow-sm">
               <span x-show="isCheckingViews" class="animate-spin mr-1.5"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></span>
@@ -452,41 +490,70 @@
           </div>
         </div>
 
-        <div class="space-y-3">
+        <div class="space-y-4">
           <template x-for="cmt in filteredComments" :key="cmt.comment_id">
-            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/40">
+            <div class="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+              <!-- Komentar Root (Level 0) -->
               <div class="flex justify-between items-start">
                 <div class="flex items-start space-x-3">
-                  <div class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xs text-slate-700" x-text="cmt.sender_username.charAt(0).toUpperCase()"></div>
+                  <div class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs" x-text="cmt.sender_username.charAt(0).toUpperCase()"></div>
                   <div>
                     <div class="flex items-center space-x-2">
                       <span class="font-bold text-xs text-slate-900" x-text="'@' + cmt.sender_username"></span>
-                      <span x-show="cmt.intent_flag" class="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[9px] font-bold">Intent Spill Link</span>
+                      <span x-show="cmt.intent_flag" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[9px] font-bold flex items-center">
+                        <i data-lucide="zap" class="w-3 h-3 mr-0.5"></i> Spill Intent
+                      </span>
                     </div>
-                    <p class="text-xs text-slate-700 mt-1" x-text="cmt.content"></p>
+                    <p class="text-xs text-slate-800 mt-1" x-text="cmt.content"></p>
+                    <div class="text-[10px] text-slate-400 mt-1 font-mono" x-text="'ID: ' + cmt.comment_id"></div>
                   </div>
                 </div>
-                <button @click="openQuickReply(cmt)" class="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center">
+                <button @click="openQuickReply(cmt)" class="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold flex items-center">
                   <i data-lucide="reply" class="w-3.5 h-3.5 mr-1"></i> Quick Reply
                 </button>
               </div>
 
-              <!-- Nested Level-1 Reply -->
+              <!-- Nested Tree View (Level 1 & Sub-Replies) -->
               <template x-if="cmt.replies && cmt.replies.length > 0">
-                <div class="mt-3 pl-5 nested-tree-line space-y-2">
+                <div class="pl-6 nested-tree-line space-y-2.5 mt-2">
                   <template x-for="reply in cmt.replies" :key="reply.comment_id">
-                    <div class="p-2.5 bg-white rounded-lg border border-slate-200 text-xs">
-                      <div class="flex justify-between items-center mb-0.5">
-                        <span class="font-bold text-slate-900" x-text="'@' + reply.sender_username"></span>
-                        <span class="text-[10px] text-slate-400" x-text="reply.created_at"></span>
+                    <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                      <div class="flex justify-between items-start">
+                        <div class="flex items-start space-x-2.5">
+                          <div class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]" x-text="reply.sender_username.charAt(0).toUpperCase()"></div>
+                          <div>
+                            <div class="flex items-center space-x-2">
+                              <span class="font-bold text-xs text-slate-900" x-text="'@' + reply.sender_username"></span>
+                              <span x-show="reply.intent_flag" class="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[8px] font-bold">Intent</span>
+                            </div>
+                            <p class="text-xs text-slate-700 mt-0.5" x-text="reply.content"></p>
+                          </div>
+                        </div>
+                        <button @click="openQuickReply(reply)" class="text-[11px] text-slate-500 hover:text-emerald-600 font-semibold flex items-center">
+                          <i data-lucide="reply" class="w-3 h-3 mr-0.5"></i> Balas
+                        </button>
                       </div>
-                      <p class="text-slate-600" x-text="reply.content"></p>
+
+                      <!-- Sub-Nested Level 2 (Bercabang ke dalam) -->
+                      <template x-if="reply.replies && reply.replies.length > 0">
+                        <div class="pl-5 nested-tree-line space-y-2 mt-2">
+                          <template x-for="sub in reply.replies" :key="sub.comment_id">
+                            <div class="p-2 bg-white rounded-lg border border-slate-200 text-xs">
+                              <span class="font-bold text-slate-800" x-text="'@' + sub.sender_username"></span>:
+                              <span class="text-slate-600" x-text="sub.content"></span>
+                            </div>
+                          </template>
+                        </div>
+                      </template>
                     </div>
                   </template>
                 </div>
               </template>
             </div>
           </template>
+          <div x-show="filteredComments.length === 0" class="text-center py-10 text-xs text-slate-400">
+            Belum ada komentar untuk kategori ini.
+          </div>
         </div>
       </div>
     </div>
@@ -536,6 +603,40 @@
     </div>
 
   </main>
+
+  <!-- ADD HOOK MODAL -->
+  <div x-show="modals.addHookModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+    <div @click.away="closeModal('addHookModal')" class="bg-white max-w-md w-full rounded-2xl shadow-xl p-5">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-sm font-bold text-slate-900">Tambah Hook ke Bank Swipe-File</h3>
+        <button @click="closeModal('addHookModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Kategori Hook</label>
+          <select x-model="newHook.category" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+            <option value="Curhat/Story">Curhat/Story</option>
+            <option value="Racun Promo">Racun Promo</option>
+            <option value="Kontroversial">Kontroversial</option>
+            <option value="Sebelum-Sesudah">Sebelum-Sesudah</option>
+            <option value="Spill Toko">Spill Toko</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Kalimat Hook Pembuka</label>
+          <textarea x-model="newHook.hook_text" rows="3" placeholder="Contoh: Nyesel banget baru tau barang ini sekarang..." class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Rumus / Formula Copywriting</label>
+          <input type="text" x-model="newHook.formula" placeholder="Contoh: [Masalah] + [Solusi Cepat]" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+      </div>
+      <div class="mt-4 flex justify-end space-x-2">
+        <button @click="closeModal('addHookModal')" class="px-3.5 py-1.5 text-xs text-slate-600 rounded-lg">Batal</button>
+        <button @click="saveHook()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">Simpan ke Bank</button>
+      </div>
+    </div>
+  </div>
 
   <!-- QUICK REPLY MODAL -->
   <div x-show="modals.replyModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
@@ -618,13 +719,21 @@
           <label class="block font-semibold text-slate-700 mb-1">Cloudinary Upload Preset (Unsigned)</label>
           <input type="text" x-model="settings.cloudinary_preset" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
-        <div class="pt-2 border-t">
-          <label class="block font-semibold text-slate-700 mb-1">Background Automation</label>
-          <button @click="activateAutoTrigger()" :disabled="isSettingTrigger" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-semibold flex items-center justify-center">
+        <div class="pt-2 border-t space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="block font-semibold text-slate-700">Interval Scheduler & Auto-Reply</label>
+            <select x-model.number="triggerInterval" class="border border-slate-300 rounded px-2 py-1 text-xs bg-white font-semibold">
+              <option :value="1">1 Menit (Ultra Cepat)</option>
+              <option :value="5">5 Menit (Disarankan)</option>
+              <option :value="10">10 Menit (Santai)</option>
+            </select>
+          </div>
+          <button @click="activateAutoTrigger()" :disabled="isSettingTrigger" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center justify-center shadow-sm">
             <span x-show="isSettingTrigger" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
-            <i x-show="!isSettingTrigger" data-lucide="clock" class="w-3.5 h-3.5 mr-1.5 text-emerald-600"></i>
-            Pasang Time-Trigger (10 Menit)
+            <i x-show="!isSettingTrigger" data-lucide="zap" class="w-3.5 h-3.5 mr-1.5"></i>
+            <span x-text="'Aktifkan Trigger Tiap ' + triggerInterval + ' Menit'"></span>
           </button>
+          <p class="text-[10px] text-slate-400">Hemat kuota aktif: hanya memeriksa antrean aktif & postingan berpotensi auto-reply.</p>
         </div>
       </div>
       <div class="mt-4 flex justify-end space-x-2">
@@ -652,6 +761,8 @@
         mediaList: [],
         posts: [],
         comments: [],
+        hooks: [],
+        hookFilter: 'ALL',
         inboxFilter: 'ALL',
 
         // Form Post Composer
@@ -682,13 +793,18 @@
         isSettingTrigger: false,
         isSyncingToken: false,
         isSendingReply: false,
+        isExecutingQueueAndViews: false,
         actionPostId: null,
         testingAccountId: null,
         syncingPostId: null,
         inputAccessToken: '',
+        triggerInterval: 5,
+
+        // Bank Hook
+        newHook: { category: 'Curhat/Story', hook_text: '', formula: '' },
 
         // Modals & Toasts
-        modals: { replyModal: false, addProductModal: false, settingsModal: false },
+        modals: { replyModal: false, addProductModal: false, settingsModal: false, addHookModal: false },
         targetComment: null,
         replyContent: '',
         settings: { gemini_key: '', cloudinary_cloud: '', cloudinary_preset: '' },
@@ -726,8 +842,26 @@
 
         applyHook(text) {
           if (this.threadList.length > 0) {
-            this.threadList[0].content = text + '\n\n' + this.threadList[0].content;
+            var current = (this.threadList[0].content || '').trim();
+            this.threadList[0].content = text + (current ? '\n\n' + current : '');
+            this.showToast('Hook berhasil disisipkan ke Thread #1');
           }
+        },
+
+        useHookForAi(hk) {
+          this.aiPromptTopic = (this.aiPromptTopic || 'Produk Rekomendasi') + ' (Gaya: ' + hk.hook_text + ')';
+          this.showToast('Hook dijadikan referensi prompt AI');
+        },
+
+        get hookCategories() {
+          const cats = new Set();
+          this.hooks.forEach(h => { if (h.category) cats.add(h.category); });
+          return Array.from(cats);
+        },
+
+        get filteredHooks() {
+          if (this.hookFilter === 'ALL') return this.hooks;
+          return this.hooks.filter(h => h.category === this.hookFilter);
         },
 
         isCooldownActive(dateStr) {
@@ -776,6 +910,7 @@
               this.mediaList = res.data.media || [];
               this.posts = res.data.posts || [];
               this.comments = res.data.comments || [];
+              this.hooks = res.data.hooks || [];
               this.settings = res.data.settings || this.settings;
               if (this.accounts.length > 0 && !this.selectedAccountId) {
                 this.selectedAccountId = this.accounts[0].account_id;
@@ -1009,6 +1144,54 @@
           });
         },
 
+        executeQueueAndViewsNow() {
+          this.isExecutingQueueAndViews = true;
+          fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'checkAndExecuteQueueAndViews', payload: {} })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast('Scheduler berhasil: ' + res.data.queue_processed + ' antrean tayang, ' + res.data.posts_synced + ' metrik/reply diperbarui.');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.isExecutingQueueAndViews = false;
+          })
+          .catch(() => {
+            this.isExecutingQueueAndViews = false;
+            this.showToast('Gagal menjalankan scheduler', 'error');
+          });
+        },
+
+        saveHook() {
+          if (!this.newHook.hook_text.trim()) {
+            this.showToast('Teks hook tidak boleh kosong', 'error');
+            return;
+          }
+          fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'saveHookTemplate', payload: this.newHook })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast('Hook berhasil ditambahkan ke Bank');
+              this.closeModal('addHookModal');
+              this.newHook = { category: 'Curhat/Story', hook_text: '', formula: '' };
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+          });
+        },
+
         runQueueNow() {
           this.isProcessingQueue = true;
           fetch(SCRIPT_URL, {
@@ -1038,7 +1221,10 @@
           fetch(SCRIPT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'setupTimeDrivenTrigger', payload: {} })
+            body: JSON.stringify({
+              action: 'setupTimeDrivenTrigger',
+              payload: { interval: this.triggerInterval }
+            })
           })
           .then(r => r.text())
           .then(text => {
