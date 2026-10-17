@@ -19,6 +19,8 @@ function doPost(e) {
       result = getDashboardData(payload);
     } else if (action === 'syncThreadsAccount') {
       result = syncThreadsAccount(payload);
+    } else if (action === 'pingThreadsAccount') {
+      result = pingThreadsAccount(payload);
     } else if (action === 'saveProduct') {
       result = saveProduct(payload);
     } else if (action === 'saveMediaRecord') {
@@ -27,12 +29,22 @@ function doPost(e) {
       result = generateAiHook(payload);
     } else if (action === 'createPost') {
       result = createPost(payload);
+    } else if (action === 'publishPostNow') {
+      result = publishPostNow(payload);
     } else if (action === 'checkViewTriggersAndReply') {
       result = checkViewTriggersAndReply(payload);
+    } else if (action === 'syncPostInsights') {
+      result = syncPostInsights(payload);
+    } else if (action === 'syncAllPublishedPosts') {
+      result = syncAllPublishedPosts();
     } else if (action === 'quickReplyComment') {
       result = quickReplyComment(payload);
     } else if (action === 'saveSettings') {
       result = saveSettings(payload);
+    } else if (action === 'checkAndPublishQueue') {
+      result = checkAndPublishQueue();
+    } else if (action === 'setupTimeDrivenTrigger') {
+      result = setupTimeDrivenTrigger();
     } else if (action === 'setupDb') {
       result = setupDatabase();
     } else {
@@ -54,8 +66,9 @@ function setupDatabase() {
     'Accounts': ['account_id', 'username', 'profile_pic_url', 'access_token', 'token_expires_at', 'status', 'updated_at'],
     'Products': ['product_id', 'product_name', 'shopee_raw_url', 'category', 'price', 'created_at'],
     'Media': ['media_id', 'product_id', 'session_id', 'media_url', 'media_type', 'file_hash', 'uploaded_at', 'cooldown_until'],
-    'Posts': ['post_id', 'account_id', 'thread_content_json', 'media_ids_json', 'product_id', 'affiliate_sub_id', 'views_threshold', 'current_views', 'status', 'threads_post_id', 'auto_reply_content', 'auto_reply_sent', 'created_at'],
+    'Posts': ['post_id', 'account_id', 'thread_content_json', 'media_ids_json', 'product_id', 'affiliate_sub_id', 'views_threshold', 'current_views', 'status', 'threads_post_id', 'auto_reply_content', 'auto_reply_sent', 'created_at', 'likes_count', 'replies_count', 'permalink'],
     'Comments': ['comment_id', 'post_id', 'account_id', 'parent_comment_id', 'sender_username', 'content', 'intent_flag', 'status', 'created_at'],
+    'Posting_Queue': ['queue_id', 'post_id', 'account_id', 'scheduled_time', 'thread_content_json', 'media_ids_json', 'status', 'error_log', 'executed_at'],
     'Settings': ['key', 'value']
   };
 
@@ -68,6 +81,59 @@ function setupDatabase() {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   }
   return { status: 'Database siap digunakan' };
+}
+
+// Sanitizer token Meta: bersihkan kutip, baris baru, spasi, prefiks Bearer, dan unwrap JSON/URL
+function cleanToken(raw) {
+  if (!raw) return '';
+  var s = String(raw).trim();
+
+  // Ekstrak jika user menempelkan respons JSON lengkap {"access_token":"..."}
+  if (s.indexOf('{') !== -1 && s.indexOf('access_token') !== -1) {
+    try {
+      var parsed = JSON.parse(s);
+      if (parsed.access_token) {
+        s = String(parsed.access_token);
+      }
+    } catch (e) {
+      var match = s.match(/"access_token"\s*:\s*"([^"]+)"/);
+      if (match && match[1]) {
+        s = match[1];
+      }
+    }
+  }
+
+  // Ekstrak jika user menempelkan query string atau URL dengan ?access_token=
+  if (s.indexOf('access_token=') !== -1) {
+    var parts = s.split('access_token=');
+    if (parts.length > 1) {
+      s = parts[1].split('&')[0];
+    }
+  }
+
+  // Decode URI jika token ter-encode sebelumnya
+  try {
+    if (s.indexOf('%') !== -1) {
+      s = decodeURIComponent(s);
+    }
+  } catch (e) {}
+
+  s = s.replace(/^["'“”‘’`]+|["'“”‘’`]+$/g, '');
+  s = s.replace(/^Bearer\s+/i, '');
+  s = s.replace(/[\r\n\t\s\u200B-\u200D\uFEFF]/g, '');
+  return s.trim();
+}
+
+// Sanitizer account_id: cegah distorsi scientific notation angka 17 digit Threads
+function cleanAccountId(id) {
+  if (id === null || id === undefined) return '';
+  var s = String(id).replace(/^'/, '').trim();
+  if (s.indexOf('e+') !== -1 || s.indexOf('E+') !== -1) {
+    try {
+      s = Number(s).toFixed(0);
+    } catch(e) {}
+  }
+  return s;
 }
 
 // Serializer anti-error: konversi Date rekursif menjadi ISO String
@@ -120,6 +186,8 @@ function getDashboardData(payload) {
     settings[settingsRows[s].key] = settingsRows[s].value;
   }
 
+  var queue = getSheetRecords('Posting_Queue');
+
   // ponytail: nested tree diproses di server level-1 flat join, upgrade rekursif bila kedalaman balasan > 2
   var rootComments = [];
   var commentMap = {};
@@ -142,30 +210,50 @@ function getDashboardData(payload) {
     media: media,
     posts: posts,
     comments: rootComments,
+    queue: queue,
     settings: settings
   };
 }
 
 function syncThreadsAccount(payload) {
-  var token = payload.access_token;
+  var token = cleanToken(payload.access_token);
   if (!token) throw new Error('Access Token Meta wajib diisi');
 
+  // Request otentikasi tunggal sesuai spek Meta Threads Graph API
   var url = 'https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url&access_token=' + encodeURIComponent(token);
-  var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  var resp = UrlFetchApp.fetch(url, {
+    method: 'get',
+    muteHttpExceptions: true
+  });
   var status = resp.getResponseCode();
   var resJson = JSON.parse(resp.getContentText() || '{}');
+
+  if (status !== 200 || !resJson.id) {
+    var fallbackResp = UrlFetchApp.fetch('https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url', {
+      method: 'get',
+      headers: { 'Authorization': 'Bearer ' + token },
+      muteHttpExceptions: true
+    });
+    var fbStatus = fallbackResp.getResponseCode();
+    var fbJson = JSON.parse(fallbackResp.getContentText() || '{}');
+    if (fbStatus === 200 && fbJson.id) {
+      resJson = fbJson;
+      status = fbStatus;
+    }
+  }
 
   if (status !== 200 || !resJson.id) {
     throw new Error('Gagal verifikasi token Threads: ' + (resJson.error ? resJson.error.message : 'Invalid Token'));
   }
 
+  var rawId = String(resJson.id).trim();
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName('Accounts');
   var data = sheet.getDataRange().getValues();
   var foundRow = -1;
 
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(resJson.id)) {
+    if (cleanAccountId(data[i][0]) === cleanAccountId(rawId)) {
       foundRow = i + 1;
       break;
     }
@@ -174,7 +262,7 @@ function syncThreadsAccount(payload) {
   var nowIso = new Date().toISOString();
   var expiryIso = new Date(Date.now() + 60 * 24 * 3600 * 1000).toISOString(); // 60 hari
   var rowValues = [
-    String(resJson.id),
+    "'" + rawId,
     resJson.username || '',
     resJson.threads_profile_picture_url || '',
     token,
@@ -193,6 +281,88 @@ function syncThreadsAccount(payload) {
     account_id: String(resJson.id),
     username: resJson.username || '',
     profile_pic_url: resJson.threads_profile_picture_url || ''
+  };
+}
+
+function pingThreadsAccount(payload) {
+  var rawAccId = cleanAccountId(payload.account_id);
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Accounts');
+  if (!sheet) throw new Error('Sheet Accounts tidak ditemukan');
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) throw new Error('Belum ada akun di database');
+
+  var headers = data[0];
+  var tokenCol = headers.indexOf('access_token');
+  if (tokenCol === -1) tokenCol = 3;
+  var idCol = headers.indexOf('account_id');
+  if (idCol === -1) idCol = 0;
+  var statusCol = headers.indexOf('status');
+  if (statusCol === -1) statusCol = 5;
+  var updatedCol = headers.indexOf('updated_at');
+  if (updatedCol === -1) updatedCol = 6;
+
+  var token = '';
+  var targetRow = -1;
+
+  for (var i = 1; i < data.length; i++) {
+    if (cleanAccountId(data[i][idCol]) === rawAccId) {
+      token = cleanToken(data[i][tokenCol]);
+      targetRow = i + 1;
+      break;
+    }
+  }
+
+  if (!token && data.length >= 2) {
+    token = cleanToken(data[1][tokenCol]);
+    targetRow = 2;
+  }
+
+  if (!token) throw new Error('Access Token tidak ditemukan untuk akun ini');
+
+  // Panggil endpoint otentikasi Threads
+  var url = 'https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url&access_token=' + encodeURIComponent(token);
+  var resp = UrlFetchApp.fetch(url, {
+    method: 'get',
+    muteHttpExceptions: true
+  });
+  var status = resp.getResponseCode();
+  var resJson = JSON.parse(resp.getContentText() || '{}');
+
+  if (status !== 200 || !resJson.id) {
+    var fallbackUrl = 'https://graph.threads.net/me?fields=id,username,threads_profile_picture_url&access_token=' + encodeURIComponent(token);
+    var fallbackResp = UrlFetchApp.fetch(fallbackUrl, {
+      method: 'get',
+      muteHttpExceptions: true
+    });
+    if (fallbackResp.getResponseCode() === 200) {
+      var fbJson = JSON.parse(fallbackResp.getContentText() || '{}');
+      if (fbJson.id) {
+        resJson = fbJson;
+        status = 200;
+      }
+    }
+  }
+
+  if (status !== 200 || !resJson.id) {
+    if (targetRow > 0) {
+      sheet.getRange(targetRow, statusCol + 1).setValue('EXPIRED');
+    }
+    throw new Error('Meta API Ping Gagal: ' + (resJson.error ? resJson.error.message : 'Invalid Token'));
+  }
+
+  if (targetRow > 0) {
+    sheet.getRange(targetRow, tokenCol + 1).setValue(token);
+    sheet.getRange(targetRow, statusCol + 1).setValue('ACTIVE');
+    sheet.getRange(targetRow, updatedCol + 1).setValue(new Date().toISOString());
+  }
+
+  return {
+    account_id: String(resJson.id),
+    username: resJson.username || '',
+    status: 'ACTIVE',
+    message: 'Koneksi aktif! Token Meta @' + (resJson.username || '') + ' valid.'
   };
 }
 
@@ -273,6 +443,42 @@ function createPost(payload) {
   var sheet = ss.getSheetByName('Posts');
   var postId = 'POST_' + Utilities.getUuid().substring(0, 8);
   var subId = (payload.account_id || 'acc') + '_' + postId;
+  var status = payload.status || 'SCHEDULED';
+  var publishedThreadId = '';
+
+  // Jika user memilih posting langsung sekarang
+  if (status === 'PUBLISH_NOW') {
+    var accounts = getSheetRecords('Accounts');
+    var token = '';
+    var targetAccId = cleanAccountId(payload.account_id);
+    for (var a = 0; a < accounts.length; a++) {
+      if (cleanAccountId(accounts[a].account_id) === targetAccId) {
+        token = cleanToken(accounts[a].access_token);
+        break;
+      }
+    }
+    if (!token && accounts.length === 1) {
+      token = cleanToken(accounts[0].access_token);
+      targetAccId = cleanAccountId(accounts[0].account_id);
+    }
+    if (!token) throw new Error('Access Token Meta tidak ditemukan untuk akun ini. Silakan sinkronkan ulang token di menu Akun Meta API.');
+
+    var mediaRecords = getSheetRecords('Media');
+    var mediaMap = {};
+    for (var m = 0; m < mediaRecords.length; m++) {
+      mediaMap[String(mediaRecords[m].media_id).trim()] = mediaRecords[m];
+    }
+
+    var nodes = [];
+    try {
+      nodes = typeof payload.thread_content_json === 'string' ? JSON.parse(payload.thread_content_json) : payload.thread_content_json;
+    } catch(e) {
+      nodes = [{ content: String(payload.thread_content_json || ''), media_id: '' }];
+    }
+
+    publishedThreadId = executeThreadChain(payload.account_id, token, nodes, mediaMap);
+    status = 'PUBLISHED';
+  }
 
   var row = [
     postId,
@@ -282,56 +488,291 @@ function createPost(payload) {
     payload.product_id || '',
     subId,
     Number(payload.views_threshold || 500),
-    0, // current views
-    payload.status || 'SCHEDULED',
-    'TH_' + Math.floor(100000 + Math.random() * 900000), // mock thread ID
+    0,
+    status,
+    publishedThreadId,
     payload.auto_reply_content || '',
-    false, // auto_reply_sent
+    false,
     new Date().toISOString()
   ];
   sheet.appendRow(row);
-  return { post_id: postId, sub_id: subId };
-}
 
-function checkViewTriggersAndReply(payload) {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = ss.getSheetByName('Posts');
-  var data = sheet.getDataRange().getValues();
-  var triggeredCount = 0;
-
-  for (var i = 1; i < data.length; i++) {
-    var postId = data[i][0];
-    var threshold = Number(data[i][6] || 0);
-    var currentViews = Number(data[i][7] || 0);
-    var autoReplySent = (data[i][11] === true || String(data[i][11]).toLowerCase() === 'true');
-
-    // Simulasi pertambahan traffic tayangan
-    currentViews += Math.floor(150 + Math.random() * 300);
-    sheet.getRange(i + 1, 8).setValue(currentViews);
-
-    if (currentViews >= threshold && !autoReplySent) {
-      // Trigger reply terkirim
-      sheet.getRange(i + 1, 12).setValue(true);
-      triggeredCount++;
-
-      // Simulasikan komentar terkirim pada sheet Comments
-      var cmtSheet = ss.getSheetByName('Comments');
-      var cmtId = 'CMT_' + Utilities.getUuid().substring(0, 8);
-      cmtSheet.appendRow([
-        cmtId,
+  if (status === 'SCHEDULED') {
+    var qSheet = ss.getSheetByName('Posting_Queue');
+    if (qSheet) {
+      var qId = 'Q_' + Utilities.getUuid().substring(0, 8);
+      var schedIso = payload.scheduled_time ? new Date(payload.scheduled_time).toISOString() : new Date().toISOString();
+      qSheet.appendRow([
+        qId,
         postId,
-        data[i][1], // account_id
-        '', // root
-        'SystemAutoReply',
-        data[i][10], // auto_reply_content
-        false,
-        'PUBLISHED',
-        new Date().toISOString()
+        payload.account_id,
+        schedIso,
+        payload.thread_content_json,
+        payload.media_ids_json || '[]',
+        'Scheduled',
+        '',
+        ''
       ]);
     }
   }
 
-  return { message: 'Pemeriksaan views selesai. ' + triggeredCount + ' auto-reply link berhasil dieksekusi.' };
+  return { post_id: postId, sub_id: subId, status: status, threads_post_id: publishedThreadId };
+}
+
+function publishPostNow(payload) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var postId = payload.post_id;
+  if (!postId) throw new Error('Post ID wajib disertakan');
+
+  var postSheet = ss.getSheetByName('Posts');
+  var postData = postSheet.getDataRange().getValues();
+  var targetRow = -1;
+  var targetPost = null;
+
+  for (var i = 1; i < postData.length; i++) {
+    if (String(postData[i][0]) === String(postId)) {
+      targetRow = i + 1;
+      targetPost = {
+        post_id: postData[i][0],
+        account_id: postData[i][1],
+        thread_content_json: postData[i][2],
+        media_ids_json: postData[i][3]
+      };
+      break;
+    }
+  }
+
+  if (!targetPost) throw new Error('Postingan dengan ID tersebut tidak ditemukan');
+
+  var accounts = getSheetRecords('Accounts');
+  var token = '';
+  var targetAccId = cleanAccountId(targetPost.account_id);
+  for (var a = 0; a < accounts.length; a++) {
+    if (cleanAccountId(accounts[a].account_id) === targetAccId) {
+      token = cleanToken(accounts[a].access_token);
+      break;
+    }
+  }
+  if (!token && accounts.length === 1) {
+    token = cleanToken(accounts[0].access_token);
+    targetAccId = cleanAccountId(accounts[0].account_id);
+  }
+  if (!token) throw new Error('Access Token Meta tidak ditemukan untuk akun ini.');
+
+  var mediaRecords = getSheetRecords('Media');
+  var mediaMap = {};
+  for (var m = 0; m < mediaRecords.length; m++) {
+    mediaMap[String(mediaRecords[m].media_id).trim()] = mediaRecords[m];
+  }
+
+  var nodes = [];
+  try {
+    nodes = typeof targetPost.thread_content_json === 'string' ? JSON.parse(targetPost.thread_content_json) : targetPost.thread_content_json;
+  } catch(e) {
+    nodes = [{ content: String(targetPost.thread_content_json || ''), media_id: '' }];
+  }
+
+  var publishedThreadId = executeThreadChain(targetPost.account_id, token, nodes, mediaMap);
+
+  postSheet.getRange(targetRow, 9).setValue('PUBLISHED');
+  postSheet.getRange(targetRow, 10).setValue(publishedThreadId);
+
+  var qSheet = ss.getSheetByName('Posting_Queue');
+  if (qSheet) {
+    var qData = qSheet.getDataRange().getValues();
+    for (var q = 1; q < qData.length; q++) {
+      if (String(qData[q][1]) === String(postId)) {
+        qSheet.getRange(q + 1, 7).setValue('Posted');
+        qSheet.getRange(q + 1, 8).setValue('');
+        qSheet.getRange(q + 1, 9).setValue(new Date().toISOString());
+      }
+    }
+  }
+
+  return { post_id: postId, threads_post_id: publishedThreadId, status: 'PUBLISHED' };
+}
+
+// Sinkronisasi metrik live (Views, Likes, Balasan) dan komentar dari Meta Threads API
+function syncPostInsights(payload) {
+  var postId = payload.post_id;
+  if (!postId) throw new Error('Post ID wajib disertakan');
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var postSheet = ss.getSheetByName('Posts');
+  var postData = postSheet.getDataRange().getValues();
+  var headers = postData[0];
+
+  var idCol = headers.indexOf('post_id');
+  var accCol = headers.indexOf('account_id');
+  var viewsCol = headers.indexOf('current_views');
+  var thresholdCol = headers.indexOf('views_threshold');
+  var thIdCol = headers.indexOf('threads_post_id');
+  var replySentCol = headers.indexOf('auto_reply_sent');
+  var autoReplyContentCol = headers.indexOf('auto_reply_content');
+  var likesCol = headers.indexOf('likes_count');
+  var repliesCol = headers.indexOf('replies_count');
+  var linkCol = headers.indexOf('permalink');
+
+  // Pastikan kolom baru terpasang di sheet jika belum ada
+  var lastCol = headers.length;
+  if (likesCol === -1) {
+    likesCol = lastCol++;
+    postSheet.getRange(1, likesCol + 1).setValue('likes_count');
+  }
+  if (repliesCol === -1) {
+    repliesCol = lastCol++;
+    postSheet.getRange(1, repliesCol + 1).setValue('replies_count');
+  }
+  if (linkCol === -1) {
+    linkCol = lastCol++;
+    postSheet.getRange(1, linkCol + 1).setValue('permalink');
+  }
+
+  var targetRow = -1;
+  var rowData = null;
+  for (var i = 1; i < postData.length; i++) {
+    if (String(postData[i][idCol]) === String(postId)) {
+      targetRow = i + 1;
+      rowData = postData[i];
+      break;
+    }
+  }
+
+  if (!rowData) throw new Error('Postingan tidak ditemukan di database');
+  var threadsPostId = String(rowData[thIdCol] || '').trim();
+  if (!threadsPostId) throw new Error('Postingan ini belum memiliki Threads Media ID (belum terbit di Threads)');
+
+  var accounts = getSheetRecords('Accounts');
+  var targetAccId = cleanAccountId(rowData[accCol]);
+  var token = '';
+  for (var a = 0; a < accounts.length; a++) {
+    if (cleanAccountId(accounts[a].account_id) === targetAccId) {
+      token = cleanToken(accounts[a].access_token);
+      break;
+    }
+  }
+  if (!token && accounts.length > 0) {
+    token = cleanToken(accounts[0].access_token);
+  }
+  if (!token) throw new Error('Token Meta tidak ditemukan untuk akun ini');
+
+  var views = Number(rowData[viewsCol] || 0);
+  var likes = Number(rowData[likesCol] || 0);
+  var replies = Number(rowData[repliesCol] || 0);
+  var permalink = String(rowData[linkCol] || '');
+
+  // 1. Ambil permalink postingan Threads
+  var mediaUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(threadsPostId) + '?fields=id,permalink&access_token=' + encodeURIComponent(token);
+  try {
+    var mResp = UrlFetchApp.fetch(mediaUrl, { method: 'get', muteHttpExceptions: true });
+    if (mResp.getResponseCode() === 200) {
+      var mJson = JSON.parse(mResp.getContentText() || '{}');
+      if (mJson.permalink) permalink = mJson.permalink;
+    }
+  } catch (e) {}
+
+  // 2. Ambil metrik Views, Likes, dan Balasan via Threads Insights API
+  var insightsUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(threadsPostId) + '/insights?metric=views,likes,replies&access_token=' + encodeURIComponent(token);
+  try {
+    var insResp = UrlFetchApp.fetch(insightsUrl, { method: 'get', muteHttpExceptions: true });
+    if (insResp.getResponseCode() === 200) {
+      var insJson = JSON.parse(insResp.getContentText() || '{}');
+      if (insJson.data && Array.isArray(insJson.data)) {
+        for (var d = 0; d < insJson.data.length; d++) {
+          var item = insJson.data[d];
+          var val = (item.values && item.values.length > 0) ? Number(item.values[0].value || 0) : 0;
+          if (item.name === 'views') views = val;
+          if (item.name === 'likes') likes = val;
+          if (item.name === 'replies') replies = val;
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 3. Sinkronkan balasan/komentar dari Threads ke tab Comments
+  var commentsSynced = 0;
+  var repliesUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(threadsPostId) + '/replies?fields=id,text,username,timestamp&access_token=' + encodeURIComponent(token);
+  try {
+    var repResp = UrlFetchApp.fetch(repliesUrl, { method: 'get', muteHttpExceptions: true });
+    if (repResp.getResponseCode() === 200) {
+      var repJson = JSON.parse(repResp.getContentText() || '{}');
+      if (repJson.data && Array.isArray(repJson.data)) {
+        var cmtSheet = ss.getSheetByName('Comments');
+        var existingCmts = getSheetRecords('Comments');
+        var cmtIdSet = {};
+        for (var c = 0; c < existingCmts.length; c++) {
+          cmtIdSet[String(existingCmts[c].comment_id)] = true;
+        }
+        for (var r = 0; r < repJson.data.length; r++) {
+          var repItem = repJson.data[r];
+          if (!cmtIdSet[repItem.id]) {
+            var intentFlag = /spill|link|beli|toko|harga|order|checkout|beli di mana|buy/i.test(repItem.text || '');
+            cmtSheet.appendRow([
+              repItem.id,
+              postId,
+              rowData[accCol],
+              '',
+              repItem.username || 'user',
+              repItem.text || '',
+              intentFlag,
+              'PUBLISHED',
+              repItem.timestamp || new Date().toISOString()
+            ]);
+            commentsSynced++;
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 4. Perbarui data ke baris Google Sheets
+  postSheet.getRange(targetRow, viewsCol + 1).setValue(views);
+  postSheet.getRange(targetRow, likesCol + 1).setValue(likes);
+  postSheet.getRange(targetRow, repliesCol + 1).setValue(replies);
+  if (permalink) postSheet.getRange(targetRow, linkCol + 1).setValue(permalink);
+
+  // 5. Jika target views tercapai dan auto-reply belum dikirim, kirimkan balasan otomatis
+  var threshold = Number(rowData[thresholdCol] || 0);
+  var autoReplySent = (rowData[replySentCol] === true || String(rowData[replySentCol]).toLowerCase() === 'true');
+  var replyTriggered = false;
+
+  if (views >= threshold && !autoReplySent && rowData[autoReplyContentCol]) {
+    try {
+      var replyText = String(rowData[autoReplyContentCol]);
+      publishThreadsNode(rowData[accCol], token, replyText, null, threadsPostId);
+      postSheet.getRange(targetRow, replySentCol + 1).setValue(true);
+      replyTriggered = true;
+    } catch (e) {}
+  }
+
+  return {
+    post_id: postId,
+    views: views,
+    likes: likes,
+    replies: replies,
+    permalink: permalink,
+    comments_synced: commentsSynced,
+    reply_triggered: replyTriggered
+  };
+}
+
+// Sinkronkan seluruh postingan yang sudah terbit
+function syncAllPublishedPosts() {
+  var posts = getSheetRecords('Posts');
+  var updated = 0;
+  for (var i = 0; i < posts.length; i++) {
+    if (posts[i].status === 'PUBLISHED' && posts[i].threads_post_id) {
+      try {
+        syncPostInsights({ post_id: posts[i].post_id });
+        updated++;
+      } catch (e) {}
+    }
+  }
+  return { updated: updated, message: 'Berhasil sinkronisasi metrik untuk ' + updated + ' postingan.' };
+}
+
+function checkViewTriggersAndReply(payload) {
+  return syncAllPublishedPosts();
 }
 
 function quickReplyComment(payload) {
@@ -397,4 +838,209 @@ function saveSettings(payload) {
     }
   }
   return { status: 'Pengaturan tersimpan' };
+}
+
+// Pasang Google Apps Script time-driven trigger setiap 10 menit
+function setupTimeDrivenTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'checkAndPublishQueue') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  ScriptApp.newTrigger('checkAndPublishQueue')
+    .timeBased()
+    .everyMinutes(10)
+    .create();
+  return { status: 'Trigger checkAndPublishQueue berhasil diaktifkan setiap 10 menit' };
+}
+
+// Helper polling kesiapan kontainer media sebelum dipublikasi
+function waitForContainerReady(containerId, token) {
+  var cleanTok = cleanToken(token);
+  var statusUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(containerId) + '?fields=status,error_message&access_token=' + encodeURIComponent(cleanTok);
+  for (var i = 0; i < 8; i++) {
+    Utilities.sleep(2000);
+    var res = UrlFetchApp.fetch(statusUrl, {
+      method: 'get',
+      muteHttpExceptions: true
+    });
+    var json = JSON.parse(res.getContentText() || '{}');
+    var status = json.status || '';
+    if (status === 'FINISHED') return true;
+    if (status === 'ERROR') throw new Error('Gagal proses media Meta: ' + (json.error_message || 'Format tidak didukung'));
+    if (status === 'EXPIRED') throw new Error('Kontainer media Meta kedaluwarsa');
+  }
+  return true;
+}
+
+// Helper penerbitan satu node thread ke Meta Threads Graph API
+function publishThreadsNode(accountId, token, text, mediaObj, replyToId) {
+  var cleanTok = cleanToken(token);
+  var cleanAcc = cleanAccountId(accountId);
+
+  if (!cleanTok) {
+    throw new Error('Access Token Meta kosong atau tidak valid.');
+  }
+
+  // Kirim access_token di query string dan form payload agar gateway & endpoint Meta Threads mengenali token
+  var createUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(cleanAcc) + '/threads?access_token=' + encodeURIComponent(cleanTok);
+  var payload = { access_token: cleanTok };
+
+  if (text && text.trim().length > 0) {
+    payload.text = text.trim();
+  }
+
+  if (replyToId) {
+    payload.reply_to_id = replyToId;
+  }
+
+  var isMedia = false;
+  if (mediaObj && mediaObj.media_url) {
+    isMedia = true;
+    payload.media_type = mediaObj.media_type === 'VIDEO' ? 'VIDEO' : 'IMAGE';
+    if (payload.media_type === 'VIDEO') {
+      payload.video_url = mediaObj.media_url;
+    } else {
+      payload.image_url = mediaObj.media_url;
+    }
+  } else {
+    payload.media_type = 'TEXT';
+    if (!payload.text) {
+      throw new Error('Teks thread tidak boleh kosong jika tanpa lampiran media.');
+    }
+  }
+
+  var res1 = UrlFetchApp.fetch(createUrl, {
+    method: 'post',
+    payload: payload,
+    muteHttpExceptions: true
+  });
+  var json1 = JSON.parse(res1.getContentText() || '{}');
+  if (res1.getResponseCode() !== 200 || !json1.id) {
+    throw new Error('Meta API Container Error: ' + (json1.error ? json1.error.message : 'Unknown creation error'));
+  }
+
+  if (isMedia) {
+    waitForContainerReady(json1.id, cleanTok);
+  } else {
+    Utilities.sleep(1000);
+  }
+
+  var publishUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(cleanAcc) + '/threads_publish?access_token=' + encodeURIComponent(cleanTok);
+  var res2 = UrlFetchApp.fetch(publishUrl, {
+    method: 'post',
+    payload: { creation_id: json1.id, access_token: cleanTok },
+    muteHttpExceptions: true
+  });
+  var json2 = JSON.parse(res2.getContentText() || '{}');
+  if (res2.getResponseCode() !== 200 || !json2.id) {
+    throw new Error('Meta API Publish Error: ' + (json2.error ? json2.error.message : 'Unknown publish error'));
+  }
+
+  return json2.id;
+}
+
+// Eksekutor rantai multi-thread (root post & sub-threads berurutan)
+function executeThreadChain(accountId, token, nodes, mediaMap) {
+  var lastThreadId = null;
+  for (var n = 0; n < nodes.length; n++) {
+    var node = nodes[n];
+    var textContent = typeof node === 'string' ? node : (node.content || '');
+    var mediaObj = (node.media_id && mediaMap[String(node.media_id).trim()]) ? mediaMap[String(node.media_id).trim()] : null;
+    lastThreadId = publishThreadsNode(accountId, token, textContent, mediaObj, lastThreadId);
+    if (n < nodes.length - 1) {
+      Utilities.sleep(1500); // jeda antar sub-thread
+    }
+  }
+  return lastThreadId;
+}
+
+// Memproses antrean posting terjadwal yang sudah memasuki waktu tayang
+function checkAndPublishQueue() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var qSheet = ss.getSheetByName('Posting_Queue');
+  if (!qSheet) return { processed: 0, message: 'Sheet Posting_Queue belum ada' };
+
+  var qData = qSheet.getDataRange().getValues();
+  if (qData.length <= 1) return { processed: 0, message: 'Antrean kosong' };
+
+  var accounts = getSheetRecords('Accounts');
+  var mediaRecords = getSheetRecords('Media');
+  var tokenMap = {};
+  for (var a = 0; a < accounts.length; a++) {
+    tokenMap[cleanAccountId(accounts[a].account_id)] = cleanToken(accounts[a].access_token);
+  }
+
+  var mediaMap = {};
+  for (var m = 0; m < mediaRecords.length; m++) {
+    mediaMap[String(mediaRecords[m].media_id).trim()] = mediaRecords[m];
+  }
+
+  var now = Date.now();
+  var processed = 0;
+  var batchLimit = 5;
+
+  for (var i = 1; i < qData.length && processed < batchLimit; i++) {
+    var status = String(qData[i][6] || '').toLowerCase();
+    if (status !== 'scheduled' && status !== 'pending') continue;
+
+    var schedTime = new Date(qData[i][3]).getTime();
+    if (isNaN(schedTime) || schedTime > now) continue;
+
+    var postId = qData[i][1];
+    var accountId = cleanAccountId(qData[i][2]);
+    var token = tokenMap[accountId];
+
+    if (!token && accounts.length === 1) {
+      token = cleanToken(accounts[0].access_token);
+      accountId = cleanAccountId(accounts[0].account_id);
+    }
+
+    if (!token) {
+      qSheet.getRange(i + 1, 7).setValue('Failed');
+      qSheet.getRange(i + 1, 8).setValue('Access token tidak ditemukan untuk account_id: ' + accountId);
+      qSheet.getRange(i + 1, 9).setValue(new Date().toISOString());
+      continue;
+    }
+
+    try {
+      var rawThread = qData[i][4];
+      var nodes = [];
+      try {
+        nodes = typeof rawThread === 'string' ? JSON.parse(rawThread) : rawThread;
+      } catch (e) {
+        nodes = [{ content: String(rawThread || ''), media_id: '' }];
+      }
+      if (!Array.isArray(nodes)) nodes = [nodes];
+
+      var lastThreadId = executeThreadChain(accountId, token, nodes, mediaMap);
+      var nowIso = new Date().toISOString();
+
+      qSheet.getRange(i + 1, 7).setValue('Posted');
+      qSheet.getRange(i + 1, 8).setValue('');
+      qSheet.getRange(i + 1, 9).setValue(nowIso);
+
+      if (postId) {
+        var postSheet = ss.getSheetByName('Posts');
+        if (postSheet) {
+          var postData = postSheet.getDataRange().getValues();
+          for (var p = 1; p < postData.length; p++) {
+            if (String(postData[p][0]) === String(postId)) {
+              postSheet.getRange(p + 1, 9).setValue('PUBLISHED');
+              postSheet.getRange(p + 1, 10).setValue(lastThreadId || '');
+              break;
+            }
+          }
+        }
+      }
+      processed++;
+    } catch (err) {
+      qSheet.getRange(i + 1, 7).setValue('Failed');
+      qSheet.getRange(i + 1, 8).setValue(err.message);
+      qSheet.getRange(i + 1, 9).setValue(new Date().toISOString());
+    }
+  }
+
+  return { processed: processed, timestamp: new Date().toISOString() };
 }

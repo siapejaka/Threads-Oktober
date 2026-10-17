@@ -132,19 +132,30 @@
             </div>
           </div>
 
-          <div class="mt-3">
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Template Balasan Link Affiliate</label>
-            <textarea x-model="autoReplyText" rows="2" class="w-full text-xs p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" placeholder="Spill link checkout produk resminya di sini ya: [LINK_AFFILIATE]"></textarea>
+          <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Template Balasan Link Affiliate</label>
+              <textarea x-model="autoReplyText" rows="2" class="w-full text-xs p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" placeholder="Spill link checkout produk resminya di sini ya: [LINK_AFFILIATE]"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Waktu Tayang Terjadwal</label>
+              <input type="datetime-local" x-model="scheduledDateTime" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+              <span class="text-[10px] text-slate-400 mt-1 block">Kosongkan jika ingin segera diproses antrean</span>
+            </div>
           </div>
 
-          <div class="mt-4 flex justify-end space-x-2">
+          <div class="mt-4 flex flex-wrap justify-end gap-2">
             <button @click="submitPost('DRAFT')" :disabled="isLoading" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg flex items-center">
-              <span x-show="isLoading" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
               Simpan Draft
             </button>
-            <button @click="submitPost('SCHEDULED')" :disabled="isLoading" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg flex items-center">
-              <span x-show="isLoading" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+            <button @click="submitPost('SCHEDULED')" :disabled="isLoading" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg flex items-center">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 mr-1.5 text-slate-300"></i>
               Jadwalkan Utas
+            </button>
+            <button @click="submitPost('PUBLISH_NOW')" :disabled="isLoading" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center shadow-sm">
+              <span x-show="isLoading" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+              <i x-show="!isLoading" data-lucide="send" class="w-3.5 h-3.5 mr-1.5"></i>
+              Posting Sekarang ke Threads
             </button>
           </div>
         </div>
@@ -311,40 +322,81 @@
     <!-- TAB 3: ANTREAN & STATUS TRIGGER -->
     <div x-show="activeTab === 'posts'" x-cloak class="space-y-4">
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-sm font-bold text-slate-900 flex items-center">
-            <i data-lucide="list-filter" class="w-4 h-4 text-emerald-600 mr-2"></i> Antrean Utas & Monitor Views
-          </h2>
-          <button @click="checkViewsNow()" :disabled="isCheckingViews" class="text-xs bg-slate-900 text-white px-3.5 py-1.5 rounded-lg font-semibold hover:bg-slate-800 flex items-center">
-            <span x-show="isCheckingViews" class="animate-spin mr-1.5"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></span>
-            Cek Views & Kirim Reply
-          </button>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900 flex items-center">
+              <i data-lucide="list-filter" class="w-4 h-4 text-emerald-600 mr-2"></i> Kelola Postingan & Metrik Threads
+            </h2>
+            <p class="text-xs text-slate-500">Pantau performa real-time tayangan, like, balasan, serta status auto-reply.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button @click="runQueueNow()" :disabled="isProcessingQueue" class="text-xs bg-slate-800 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-700 flex items-center">
+              <span x-show="isProcessingQueue" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+              Proses Antrean
+            </button>
+            <button @click="syncAllMetrics()" :disabled="isCheckingViews" class="text-xs bg-emerald-600 text-white px-3.5 py-1.5 rounded-lg font-semibold hover:bg-emerald-700 flex items-center shadow-sm">
+              <span x-show="isCheckingViews" class="animate-spin mr-1.5"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></span>
+              <i x-show="!isCheckingViews" data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1.5"></i>
+              Sync Semua Metrik
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50 text-slate-800 uppercase font-semibold border-b">
               <tr>
-                <th class="p-3">Post ID</th>
-                <th class="p-3">Akun</th>
-                <th class="p-3">Preview Konten</th>
-                <th class="p-3">Views Saat Ini</th>
-                <th class="p-3">Target Trigger</th>
+                <th class="p-3">Post ID / Akun</th>
+                <th class="p-3">Konten Postingan</th>
+                <th class="p-3">Metrik Live Threads</th>
+                <th class="p-3">Progres Trigger</th>
                 <th class="p-3">Auto-Reply</th>
                 <th class="p-3">Status</th>
+                <th class="p-3 text-right">Kelola & Aksi</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
               <template x-for="p in posts" :key="p.post_id">
                 <tr class="hover:bg-slate-50/70">
-                  <td class="p-3 font-mono font-medium text-slate-900" x-text="p.post_id"></td>
-                  <td class="p-3" x-text="'@' + getAccountName(p.account_id)"></td>
-                  <td class="p-3 max-w-xs truncate" x-text="parseFirstThread(p.thread_content_json)"></td>
-                  <td class="p-3 font-bold text-slate-900" x-text="p.current_views || 0"></td>
-                  <td class="p-3 font-mono text-purple-700" x-text="p.views_threshold + ' views'"></td>
                   <td class="p-3">
-                    <span x-show="p.auto_reply_sent" class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold text-[10px]">Terkirim</span>
-                    <span x-show="!p.auto_reply_sent" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold text-[10px]">Menunggu Views</span>
+                    <div class="font-mono font-bold text-slate-900" x-text="p.post_id"></div>
+                    <div class="text-[11px] text-slate-500 font-medium" x-text="'@' + getAccountName(p.account_id)"></div>
+                  </td>
+                  <td class="p-3 max-w-xs">
+                    <p class="truncate text-slate-700 text-xs" x-text="parseFirstThread(p.thread_content_json)"></p>
+                    <div class="mt-1 flex items-center space-x-2 text-[10px] text-slate-400 font-mono">
+                      <span x-show="p.threads_post_id" x-text="'ID: ' + p.threads_post_id"></span>
+                    </div>
+                  </td>
+                  <td class="p-3">
+                    <div class="flex items-center space-x-3 text-xs">
+                      <span class="inline-flex items-center font-bold text-slate-800" title="Views">
+                        <i data-lucide="eye" class="w-3.5 h-3.5 mr-1 text-slate-400"></i>
+                        <span x-text="Number(p.current_views || 0).toLocaleString('id-ID')"></span>
+                      </span>
+                      <span class="inline-flex items-center font-semibold text-rose-600" title="Likes">
+                        <i data-lucide="heart" class="w-3.5 h-3.5 mr-1"></i>
+                        <span x-text="Number(p.likes_count || 0).toLocaleString('id-ID')"></span>
+                      </span>
+                      <span class="inline-flex items-center font-semibold text-blue-600" title="Balasan">
+                        <i data-lucide="message-circle" class="w-3.5 h-3.5 mr-1"></i>
+                        <span x-text="Number(p.replies_count || 0).toLocaleString('id-ID')"></span>
+                      </span>
+                    </div>
+                  </td>
+                  <td class="p-3">
+                    <div class="w-28 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                      <div class="bg-emerald-500 h-1.5 rounded-full" :style="'width: ' + Math.min(100, Math.round(((p.current_views || 0) / (p.views_threshold || 1)) * 100)) + '%'"></div>
+                    </div>
+                    <div class="text-[10px] text-slate-500 mt-1 font-mono" x-text="(p.current_views || 0) + ' / ' + p.views_threshold + ' views'"></div>
+                  </td>
+                  <td class="p-3">
+                    <span x-show="p.auto_reply_sent" class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold text-[10px] inline-flex items-center">
+                      <i data-lucide="check" class="w-3 h-3 mr-0.5"></i> Terkirim
+                    </span>
+                    <span x-show="!p.auto_reply_sent" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold text-[10px]">
+                      Menunggu Target
+                    </span>
                   </td>
                   <td class="p-3">
                     <span :class="{
@@ -352,6 +404,27 @@
                       'bg-slate-100 text-slate-800': p.status === 'DRAFT',
                       'bg-blue-100 text-blue-800': p.status === 'SCHEDULED'
                     }" class="px-2 py-0.5 rounded-full font-bold uppercase text-[9px]" x-text="p.status"></span>
+                  </td>
+                  <td class="p-3 text-right">
+                    <div class="flex items-center justify-end space-x-1.5">
+                      <!-- Tombol Sync Metrik per postingan -->
+                      <button x-show="p.status === 'PUBLISHED'" @click="syncPostMetrics(p.post_id)" :disabled="syncingPostId === p.post_id" title="Tarik Metrik & Balasan Terbaru" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center disabled:opacity-50">
+                        <span x-show="syncingPostId === p.post_id" class="animate-spin"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+                        <i x-show="syncingPostId !== p.post_id" data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                      </button>
+
+                      <!-- Tombol Buka di Threads.net -->
+                      <a x-show="p.permalink || p.threads_post_id" :href="p.permalink || ('https://www.threads.net')" target="_blank" title="Lihat di Threads" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg inline-flex items-center">
+                        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                      </a>
+
+                      <!-- Tombol Terbitkan untuk Draft/Jadwal -->
+                      <button x-show="p.status !== 'PUBLISHED'" @click="publishExistingPost(p.post_id)" :disabled="actionPostId === p.post_id" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold inline-flex items-center">
+                        <span x-show="actionPostId === p.post_id" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
+                        <i x-show="actionPostId !== p.post_id" data-lucide="send" class="w-3 h-3 mr-1"></i>
+                        Post
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </template>
@@ -439,13 +512,22 @@
           <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Akun Terhubung</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <template x-for="acc in accounts" :key="acc.account_id">
-              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center space-x-3">
-                <img :src="acc.profile_pic_url || 'https://via.placeholder.com/40'" class="w-9 h-9 rounded-full bg-slate-200 object-cover" alt="Avatar">
-                <div class="flex-1 truncate">
-                  <div class="text-xs font-bold text-slate-900 truncate" x-text="'@' + acc.username"></div>
-                  <div class="text-[10px] text-slate-500 font-mono" x-text="'ID: ' + acc.account_id"></div>
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between space-x-3">
+                <div class="flex items-center space-x-3 min-w-0 flex-1">
+                  <img :src="acc.profile_pic_url || 'https://via.placeholder.com/40'" class="w-9 h-9 rounded-full bg-slate-200 object-cover flex-shrink-0" alt="Avatar">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center space-x-1.5">
+                      <span class="text-xs font-bold text-slate-900 truncate" x-text="'@' + acc.username"></span>
+                      <span :class="acc.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'" class="text-[9px] font-bold px-1.5 py-0.2 rounded-full" x-text="acc.status || 'ACTIVE'"></span>
+                    </div>
+                    <div class="text-[10px] text-slate-500 font-mono truncate" x-text="'ID: ' + acc.account_id"></div>
+                  </div>
                 </div>
-                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <button @click="pingAccount(acc.account_id)" :disabled="testingAccountId === acc.account_id" class="px-2.5 py-1 text-[11px] font-semibold bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg flex items-center flex-shrink-0 shadow-sm disabled:opacity-50">
+                  <span x-show="testingAccountId === acc.account_id" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
+                  <i x-show="testingAccountId !== acc.account_id" data-lucide="activity" class="w-3 h-3 mr-1 text-emerald-600"></i>
+                  <span x-text="testingAccountId === acc.account_id ? 'Menguji...' : 'Uji Ping'"></span>
+                </button>
               </div>
             </template>
           </div>
@@ -536,6 +618,14 @@
           <label class="block font-semibold text-slate-700 mb-1">Cloudinary Upload Preset (Unsigned)</label>
           <input type="text" x-model="settings.cloudinary_preset" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
+        <div class="pt-2 border-t">
+          <label class="block font-semibold text-slate-700 mb-1">Background Automation</label>
+          <button @click="activateAutoTrigger()" :disabled="isSettingTrigger" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-semibold flex items-center justify-center">
+            <span x-show="isSettingTrigger" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+            <i x-show="!isSettingTrigger" data-lucide="clock" class="w-3.5 h-3.5 mr-1.5 text-emerald-600"></i>
+            Pasang Time-Trigger (10 Menit)
+          </button>
+        </div>
       </div>
       <div class="mt-4 flex justify-end space-x-2">
         <button @click="closeModal('settingsModal')" class="px-3.5 py-1.5 text-xs text-slate-600 rounded-lg">Tutup</button>
@@ -568,6 +658,7 @@
         threadList: [{ content: '', media_id: '' }],
         postViewsThreshold: 500,
         selectedProductId: '',
+        scheduledDateTime: '',
         autoReplyText: 'Spill link checkout produk resminya di sini ya: [LINK_AFFILIATE]',
         previewPostId: 'POST_' + Math.floor(1000 + Math.random() * 9000),
 
@@ -587,8 +678,13 @@
         // Async Statuses
         isLoading: false,
         isCheckingViews: false,
+        isProcessingQueue: false,
+        isSettingTrigger: false,
         isSyncingToken: false,
         isSendingReply: false,
+        actionPostId: null,
+        testingAccountId: null,
+        syncingPostId: null,
         inputAccessToken: '',
 
         // Modals & Toasts
@@ -785,7 +881,14 @@
             this.showToast('Pilih akun pengirim terlebih dahulu', 'error');
             return;
           }
+          if (this.threadList.length === 0 || !this.threadList[0].content.trim()) {
+            this.showToast('Postingan utama (Root Hook) wajib memiliki konten teks', 'error');
+            return;
+          }
           this.isLoading = true;
+          if (status === 'PUBLISH_NOW') {
+            this.showToast('Mengirim postingan ke Threads API...');
+          }
           fetch(SCRIPT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -797,6 +900,7 @@
                 thread_content_json: JSON.stringify(this.threadList),
                 views_threshold: this.postViewsThreshold,
                 auto_reply_content: this.autoReplyText,
+                scheduled_time: this.scheduledDateTime,
                 status: status
               }
             })
@@ -805,43 +909,185 @@
           .then(text => {
             const res = JSON.parse(text);
             if (res.ok) {
-              this.showToast('Post berhasil disimpan (' + status + ')');
+              var msg = status === 'PUBLISH_NOW' ? 'Utas berhasil dipublikasikan ke Threads!' : 'Post berhasil disimpan (' + status + ')';
+              this.showToast(msg);
               this.fetchInitialData();
+              if (status === 'PUBLISH_NOW') {
+                this.threadList = [{ content: '', media_id: '' }];
+              }
             } else {
               this.showToast(res.message, 'error');
             }
             this.isLoading = false;
+          })
+          .catch(err => {
+            this.isLoading = false;
+            this.showToast('Gagal memproses posting: ' + err.message, 'error');
           });
         },
 
-        checkViewsNow() {
-          this.isCheckingViews = true;
+        syncPostMetrics(postId) {
+          this.syncingPostId = postId;
           fetch(SCRIPT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'checkViewTriggersAndReply', payload: {} })
+            body: JSON.stringify({
+              action: 'syncPostInsights',
+              payload: { post_id: postId }
+            })
           })
           .then(r => r.text())
           .then(text => {
             const res = JSON.parse(text);
             if (res.ok) {
-              this.showToast(res.data.message);
+              const d = res.data;
+              var msg = 'Metrik updated! Views: ' + d.views + ' | Likes: ' + d.likes + ' | Balasan: ' + d.replies;
+              if (d.comments_synced > 0) msg += ' (' + d.comments_synced + ' komentar baru di Inbox)';
+              if (d.reply_triggered) msg += ' [Link auto-reply terkirim!]';
+              this.showToast(msg);
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.syncingPostId = null;
+          })
+          .catch(err => {
+            this.syncingPostId = null;
+            this.showToast('Gagal menarik metrik: ' + err.message, 'error');
+          });
+        },
+
+        syncAllMetrics() {
+          this.isCheckingViews = true;
+          fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'syncAllPublishedPosts', payload: {} })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast(res.data.message || 'Semua metrik berhasil diperbarui');
               this.fetchInitialData();
             } else {
               this.showToast(res.message, 'error');
             }
             this.isCheckingViews = false;
+          })
+          .catch(() => {
+            this.isCheckingViews = false;
+            this.showToast('Gagal sinkronisasi semua metrik', 'error');
+          });
+        },
+
+        publishExistingPost(postId) {
+          this.actionPostId = postId;
+          this.showToast('Menerbitkan postingan ke Threads API...');
+          fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'publishPostNow',
+              payload: { post_id: postId }
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast('Postingan berhasil tayang di Threads!');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.actionPostId = null;
+          })
+          .catch(err => {
+            this.actionPostId = null;
+            this.showToast('Gagal menerbitkan posting: ' + err.message, 'error');
+          });
+        },
+
+        runQueueNow() {
+          this.isProcessingQueue = true;
+          fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'checkAndPublishQueue', payload: {} })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast('Diproses: ' + res.data.processed + ' antrean.');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.isProcessingQueue = false;
+          })
+          .catch(() => {
+            this.isProcessingQueue = false;
+            this.showToast('Gagal memproses antrean', 'error');
+          });
+        },
+
+        activateAutoTrigger() {
+          this.isSettingTrigger = true;
+          fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'setupTimeDrivenTrigger', payload: {} })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast(res.data.status);
+            } else {
+              this.showToast(res.message, 'error');
+            }
+            this.isSettingTrigger = false;
+          })
+          .catch(() => {
+            this.isSettingTrigger = false;
+            this.showToast('Gagal memasang trigger', 'error');
           });
         },
 
         syncThreadsAccount() {
+          let raw = (this.inputAccessToken || '').trim();
+          if (raw.indexOf('{') !== -1 && raw.indexOf('access_token') !== -1) {
+            try {
+              const obj = JSON.parse(raw);
+              if (obj.access_token) raw = obj.access_token;
+            } catch (e) {
+              const m = raw.match(/"access_token"\s*:\s*"([^"]+)"/);
+              if (m && m[1]) raw = m[1];
+            }
+          }
+          if (raw.indexOf('access_token=') !== -1) {
+            raw = raw.split('access_token=')[1].split('&')[0];
+          }
+          try { if (raw.indexOf('%') !== -1) raw = decodeURIComponent(raw); } catch(e) {}
+          const sanitizedToken = raw
+            .replace(/^["'“”‘’`]+|["'“”‘’`]+$/g, '')
+            .replace(/^Bearer\s+/i, '')
+            .replace(/[\r\n\t\s\u200B-\u200D\uFEFF]/g, '')
+            .trim();
+
+          if (!sanitizedToken) {
+            this.showToast('Masukkan Access Token terlebih dahulu', 'error');
+            return;
+          }
           this.isSyncingToken = true;
           fetch(SCRIPT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
               action: 'syncThreadsAccount',
-              payload: { access_token: this.inputAccessToken }
+              payload: { access_token: sanitizedToken }
             })
           })
           .then(r => r.text())
@@ -855,6 +1101,34 @@
               this.showToast(res.message, 'error');
             }
             this.isSyncingToken = false;
+          });
+        },
+
+        pingAccount(accountId) {
+          this.testingAccountId = accountId;
+          fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'pingThreadsAccount',
+              payload: { account_id: accountId }
+            })
+          })
+          .then(r => r.text())
+          .then(text => {
+            const res = JSON.parse(text);
+            if (res.ok) {
+              this.showToast(res.data.message || 'Koneksi Meta API aktif & valid!');
+              this.fetchInitialData();
+            } else {
+              this.showToast(res.message, 'error');
+              this.fetchInitialData();
+            }
+            this.testingAccountId = null;
+          })
+          .catch(err => {
+            this.testingAccountId = null;
+            this.showToast('Gagal ping token: ' + err.message, 'error');
           });
         },
 
