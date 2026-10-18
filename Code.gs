@@ -649,6 +649,47 @@ function generateAiHook(payload) {
   return { hooks: lines };
 }
 
+// Helper pembentukan URL endpoint Sumopod
+function buildSumopodEndpoint(customEndpoint) {
+  var url = (customEndpoint || '').trim();
+  if (!url || url.indexOf('api.sumopod.com') !== -1) {
+    url = 'https://ai.sumopod.com/v1/chat/completions';
+  }
+  url = url.replace(/\/+$/, '');
+  if (url.indexOf('/chat/completions') === -1) {
+    if (url.indexOf('/v1') === -1) {
+      url += '/v1';
+    }
+    url += '/chat/completions';
+  }
+  return url;
+}
+
+// Helper pemetaan detail error respons SumoPod AI transparan
+function extractSumopodError(code, resJson, endpoint) {
+  var detail = '';
+  if (resJson && resJson.error) {
+    detail = typeof resJson.error === 'object'
+      ? (resJson.error.message || JSON.stringify(resJson.error))
+      : String(resJson.error);
+  } else if (resJson && resJson.message) {
+    detail = resJson.message;
+  } else {
+    detail = 'Respons kosong dari provider';
+  }
+
+  if (code === 401) {
+    return 'Autentikasi SumoPod Gagal (HTTP 401): API Key tidak valid atau belum diisi. Periksa menu Settings. Detail: ' + detail;
+  }
+  if (code === 404) {
+    return 'Endpoint SumoPod Tidak Ditemukan (HTTP 404): URL "' + endpoint + '" tidak dikenali. Detail: ' + detail;
+  }
+  if (code === 429) {
+    return 'Batas Kuota / Rate Limit SumoPod Terlampaui (HTTP 429): ' + detail;
+  }
+  return 'SumoPod API Error (HTTP ' + code + '): ' + detail;
+}
+
 // Generator 3 Opsi Caption Dinamis per Utas Menggunakan Sumopod AI (Fallback Gemini)
 function generateThreadOptions(payload) {
   var settings = getDashboardData().settings || {};
@@ -666,10 +707,9 @@ function generateThreadOptions(payload) {
     throw new Error('Sumopod API Key belum dikonfigurasi di Pengaturan Sistem (Settings).');
   }
 
-  var endpoint = (settings.sumopod_endpoint && settings.sumopod_endpoint.indexOf('api.sumopod.com') === -1)
-    ? settings.sumopod_endpoint.trim()
-    : 'https://ai.sumopod.com/v1/chat/completions';
-  var model = settings.sumopod_model ? settings.sumopod_model.trim() : 'gpt-4o-mini';
+  var rawEndpoint = (settings.sumopod_endpoint || '').trim();
+  var endpoint = buildSumopodEndpoint(rawEndpoint);
+  var model = (settings.sumopod_model && settings.sumopod_model.trim()) ? settings.sumopod_model.trim() : 'claude-haiku-4-5';
 
   var systemPrompt = 'Anda adalah copywriter Meta Threads profesional untuk Shopee Affiliate Indonesia. ' +
     'Tugas Anda membuat 3 opsi caption alternatif yang natural, santai (slang Indo, curhat, tidak kaku), memancing rasa penasaran audiens. ' +
@@ -692,29 +732,39 @@ function generateThreadOptions(payload) {
     temperature: 0.75
   };
 
-  var response = UrlFetchApp.fetch(endpoint, {
-    method: 'post',
-    contentType: 'application/json',
-    headers: {
-      'Authorization': 'Bearer ' + cleanToken(apiKey),
-      'Content-Type': 'application/json'
-    },
-    payload: JSON.stringify(body),
-    muteHttpExceptions: true
-  });
-
-  var code = response.getResponseCode();
-  var rawText = response.getContentText() || '{}';
-  var resJson = {};
+  var response;
   try {
-    resJson = JSON.parse(rawText);
-  } catch(e) {
-    throw new Error('Respons Sumopod tidak valid: ' + rawText.substring(0, 100));
+    response = UrlFetchApp.fetch(endpoint, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        'Authorization': 'Bearer ' + cleanToken(apiKey),
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify(body),
+      muteHttpExceptions: true
+    });
+  } catch (netErr) {
+    Logger.log('[Sumopod Network Error generateThreadOptions] ' + netErr.message);
+    throw new Error('Gagal terhubung ke SumoPod: ' + netErr.message);
   }
 
-  if (code !== 200 || !resJson.choices || resJson.choices.length === 0) {
-    var errMsg = (resJson.error && resJson.error.message) ? resJson.error.message : ('HTTP ' + code);
-    throw new Error('Sumopod API Error: ' + errMsg);
+  var code = response.getResponseCode();
+  var rawText = response.getContentText() || '';
+  Logger.log('[Sumopod generateThreadOptions response HTTP ' + code + ']: ' + rawText);
+
+  var resJson = null;
+  try {
+    resJson = JSON.parse(rawText);
+  } catch(parseErr) {
+    Logger.log('[Sumopod JSON Parse Error]: ' + rawText);
+    throw new Error('SumoPod API Error (HTTP ' + code + '): Format respons bukan JSON: ' + rawText.substring(0, 150));
+  }
+
+  if (code !== 200 || !resJson || !resJson.choices || resJson.choices.length === 0) {
+    var errMsg = extractSumopodError(code, resJson, endpoint);
+    Logger.log('[Sumopod API Failure generateThreadOptions]: ' + errMsg);
+    throw new Error(errMsg);
   }
 
   var replyContent = resJson.choices[0].message.content || '';
@@ -1643,13 +1693,12 @@ function deleteViralReference(payload) {
 // Generate Variasi Remake dengan Sumopod API
 function generateSumopodRemake(payload) {
   var settings = getDashboardData().settings || {};
-  var apiKey = settings.sumopod_api_key || payload.api_key;
-  if (!apiKey) throw new Error('Sumopod API Key belum dikonfigurasi di Pengaturan Sistem');
+  var apiKey = settings.sumopod_api_key || (payload ? payload.api_key : '');
+  if (!apiKey) throw new Error('Sumopod API Key belum dikonfigurasi di Pengaturan Sistem (Settings).');
 
-  var endpoint = (settings.sumopod_endpoint && settings.sumopod_endpoint.indexOf('api.sumopod.com') === -1)
-    ? settings.sumopod_endpoint.trim()
-    : 'https://ai.sumopod.com/v1/chat/completions';
-  var model = settings.sumopod_model ? settings.sumopod_model.trim() : 'gpt-4o-mini';
+  var rawEndpoint = (settings.sumopod_endpoint || '').trim();
+  var endpoint = buildSumopodEndpoint(rawEndpoint);
+  var model = (settings.sumopod_model && settings.sumopod_model.trim()) ? settings.sumopod_model.trim() : 'claude-haiku-4-5';
 
   var systemPrompt = 'Anda adalah copywriter Meta Threads profesional untuk Shopee Affiliate. ' +
     'Tugas Anda membuat remake rangkaian utas viral yang natural, santai (slang Indo/curhat), bebas link eksternal di Utas 1, ' +
@@ -1657,24 +1706,24 @@ function generateSumopodRemake(payload) {
     'Keluarkan output HANYA JSON valid berformat: {"hook_1": "...", "spill_2": "...", "threads": ["Utas 1...", "Utas 2...", ...]}';
 
   var winnerContext = '';
-  if (payload.winner_hook) {
+  if (payload && payload.winner_hook) {
     winnerContext = '\n[SELF-LEARNING WINNER CONTEXT - Postingan Juara Sebelumnya Terbukti Sukses Menembus ' +
       (payload.winner_views || 0) + ' Views]:\n"' + payload.winner_hook + '"\n' +
       'Gunakan struktur emosi, rasa penasaran, dan gaya hook dari postingan juara di atas sebagai inspirasi utama!\n';
   }
 
   var threadsSourceText = '';
-  if (Array.isArray(payload.threads) && payload.threads.length > 0) {
+  if (payload && Array.isArray(payload.threads) && payload.threads.length > 0) {
     threadsSourceText = payload.threads.map(function(t, idx) {
       return 'Utas Asli #' + (idx + 1) + ': ' + (typeof t === 'string' ? t : (t.content || ''));
     }).join('\n');
   } else {
-    threadsSourceText = 'Referensi Hook Viral Asli: ' + (payload.hook_thread_1 || '') + '\n' +
-      'Referensi Spill Asli: ' + (payload.spill_thread_2 || '');
+    threadsSourceText = 'Referensi Hook Viral Asli: ' + (payload ? (payload.hook_thread_1 || '') : '') + '\n' +
+      'Referensi Spill Asli: ' + (payload ? (payload.spill_thread_2 || '') : '');
   }
 
-  var userPrompt = 'Produk: ' + (payload.product_name || '') + '\n' +
-    'Selling Points: ' + (payload.selling_points || '-') + '\n' +
+  var userPrompt = 'Produk: ' + (payload ? (payload.product_name || '') : '') + '\n' +
+    'Selling Points: ' + (payload ? (payload.selling_points || '-') : '-') + '\n' +
     threadsSourceText + '\n' +
     winnerContext + '\n' +
     'Buatkan 1 versi remake yang segar, memancing rasa penasaran, dan tidak terkesan jualan kaku.';
@@ -1688,29 +1737,39 @@ function generateSumopodRemake(payload) {
     temperature: 0.7
   };
 
-  var response = UrlFetchApp.fetch(endpoint, {
-    method: 'post',
-    contentType: 'application/json',
-    headers: {
-      'Authorization': 'Bearer ' + cleanToken(apiKey),
-      'Content-Type': 'application/json'
-    },
-    payload: JSON.stringify(body),
-    muteHttpExceptions: true
-  });
+  var response;
+  try {
+    response = UrlFetchApp.fetch(endpoint, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        'Authorization': 'Bearer ' + cleanToken(apiKey),
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify(body),
+      muteHttpExceptions: true
+    });
+  } catch (netErr) {
+    Logger.log('[Sumopod Network Error generateSumopodRemake] ' + netErr.message);
+    throw new Error('Gagal terhubung ke server SumoPod: ' + netErr.message);
+  }
 
   var code = response.getResponseCode();
-  var rawText = response.getContentText() || '{}';
+  var rawText = response.getContentText() || '';
+  Logger.log('[Sumopod generateSumopodRemake response HTTP ' + code + ']: ' + rawText);
+
   var resJson = {};
   try {
     resJson = JSON.parse(rawText);
   } catch(e) {
-    throw new Error('Respons Sumopod tidak valid: ' + rawText.substring(0, 100));
+    Logger.log('[Sumopod JSON Parse Error generateSumopodRemake]: ' + rawText);
+    throw new Error('SumoPod API Error (HTTP ' + code + '): Format respons bukan JSON: ' + rawText.substring(0, 150));
   }
 
-  if (code !== 200 || !resJson.choices || resJson.choices.length === 0) {
-    var errMsg = (resJson.error && resJson.error.message) ? resJson.error.message : ('HTTP ' + code);
-    throw new Error('Sumopod API Error: ' + errMsg);
+  if (code !== 200 || !resJson || !resJson.choices || resJson.choices.length === 0) {
+    var errMsg = extractSumopodError(code, resJson, endpoint);
+    Logger.log('[Sumopod API Failure generateSumopodRemake]: ' + errMsg);
+    throw new Error(errMsg);
   }
 
   var replyContent = resJson.choices[0].message.content || '';
