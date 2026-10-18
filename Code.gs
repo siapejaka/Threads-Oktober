@@ -1990,7 +1990,7 @@ function deleteAutopilotRule(payload) {
   throw new Error('Aturan tidak ditemukan');
 }
 
-// Background Cron Worker: Mesin Otonom Penuh (AI Remake + Winner Learning + Smart Session Rotation + Strict Rate Limiting)
+// Background Cron Worker: Mesin Otonom Penuh (True Autopilot: Akun -> Auto Produk -> Rotasi Sesi Utuh -> Caption AI 3 Sumber)
 function runAutonomousAutopilotWorker(ruleIdFilter) {
   var rules = getSheetRecords('Autopilot_Rules');
   if (!rules || rules.length === 0) {
@@ -2051,9 +2051,6 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
       continue;
     }
 
-    var prod = prodMap[rule.product_id];
-    if (!prod) continue;
-
     // 1. RATE LIMITING & SAFETY GUARDRAIL PER AKUN
     var maxDailyPerAcc = Number(rule.max_posts_per_day || 3);
     var minIntervalHours = Number(rule.min_interval_hours || 4);
@@ -2094,7 +2091,6 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         }
       }
 
-      // Jika belum tembus batas harian dan jeda waktu mencukupi (atau manual trigger)
       if (postsToday < maxDailyPerAcc) {
         if (isManualTrigger || (now - lastAccountPostTime) >= (minIntervalMs * 0.8)) {
           eligibleAccounts.push(aId);
@@ -2104,146 +2100,226 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
 
     if (eligibleAccounts.length === 0) continue;
 
-    // 2. ROTASI MEDIA SESI ULASAN PINTAR (Round-Robin Bergilir, Anti-Acak & Non-Consecutive)
-    var prodSessions = {};
-    var sessionOrder = [];
-    for (var m = 0; m < allMedia.length; m++) {
-      var med = allMedia[m];
-      if (med.product_id === rule.product_id) {
-        var sId = med.session_id || 'SESI_DEFAULT';
-        if (!prodSessions[sId]) {
-          prodSessions[sId] = [];
-          sessionOrder.push(sId);
-        }
-        prodSessions[sId].push(med.media_id);
-      }
-    }
-
-    var chosenSessionId = rule.preferred_session_id;
-    var chosenMediaIds = [];
-
-    if (chosenSessionId && prodSessions[chosenSessionId] && prodSessions[chosenSessionId].length > 0) {
-      chosenMediaIds = prodSessions[chosenSessionId];
-    } else if (sessionOrder.length > 0) {
-      var lastSessId = rule.last_session_id || '';
-      var nextIdx = 0;
-      var foundLastIdx = sessionOrder.indexOf(lastSessId);
-      if (foundLastIdx !== -1) {
-        nextIdx = (foundLastIdx + 1) % sessionOrder.length;
-      }
-      chosenSessionId = sessionOrder[nextIdx];
-      chosenMediaIds = prodSessions[chosenSessionId];
-    }
-
-    if (chosenMediaIds.length === 0) continue;
-
-    // 3. AI SELF-LEARNING & WINNER CONTEXT (Pindai Postingan View Tertinggi sebagai Acuan Utama)
-    var winnerPost = null;
-    var highestViews = 0;
-
-    for (var w = 0; w < allPosts.length; w++) {
-      var itemP = allPosts[w];
-      if (itemP.status === 'PUBLISHED' && Number(itemP.current_views || 0) > highestViews) {
-        if (!rule.product_id || itemP.product_id === rule.product_id) {
-          highestViews = Number(itemP.current_views);
-          winnerPost = itemP;
-        }
-      }
-    }
-
-    // Jika belum ada post juara spesifik produk, gunakan post juara global
-    if (!winnerPost) {
-      for (var gw = 0; gw < allPosts.length; gw++) {
-        var gItem = allPosts[gw];
-        if (gItem.status === 'PUBLISHED' && Number(gItem.current_views || 0) > highestViews) {
-          highestViews = Number(gItem.current_views);
-          winnerPost = gItem;
-        }
-      }
-    }
-
-    var winnerHookText = '';
-    var winnerViewsCount = 0;
-    if (winnerPost && highestViews >= 50) {
-      winnerViewsCount = highestViews;
-      try {
-        var parsedWNodes = typeof winnerPost.thread_content_json === 'string'
-          ? JSON.parse(winnerPost.thread_content_json)
-          : winnerPost.thread_content_json;
-        if (Array.isArray(parsedWNodes) && parsedWNodes.length > 0) {
-          winnerHookText = typeof parsedWNodes[0] === 'string' ? parsedWNodes[0] : (parsedWNodes[0].content || '');
-          winnerHookText = winnerHookText.replace(/^\(?\d+\/\d+\)?\s*/i, '');
-        }
-      } catch(eWin) {}
-    }
-
-    // Pola referensi viral dari Swipe-File
-    var matchingRefs = [];
-    var fallbackRefs = [];
-    for (var v = 0; v < allViralRefs.length; v++) {
-      if (allViralRefs[v].product_id === rule.product_id) {
-        matchingRefs.push(allViralRefs[v]);
-      } else if (!allViralRefs[v].product_id) {
-        fallbackRefs.push(allViralRefs[v]);
-      }
-    }
-
-    var chosenRef = null;
-    if (matchingRefs.length > 0) {
-      chosenRef = matchingRefs[Math.floor(Math.random() * matchingRefs.length)];
-    } else if (fallbackRefs.length > 0) {
-      chosenRef = fallbackRefs[Math.floor(Math.random() * fallbackRefs.length)];
-    }
-
-    var origHook = chosenRef ? (chosenRef.hook_thread_1 || '') : ('Rekomendasi ' + prod.product_name + ' paling worth it!');
-    var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK_AFFILIATE]';
-
-    // Panggil Sumopod AI dengan Winner Context
-    var remakeResult = { hook_1: origHook, spill_2: origSpill };
-    try {
-      remakeResult = generateSumopodRemake({
-        product_name: prod.product_name,
-        selling_points: prod.selling_points || '',
-        hook_thread_1: origHook,
-        spill_thread_2: origSpill,
-        winner_hook: winnerHookText,
-        winner_views: winnerViewsCount
-      });
-    } catch(aiErr) {
-      // Fallback aman ke teks asli jika limit
-    }
-
-    var hook1 = remakeResult.hook_1 || origHook;
-    var spill2 = remakeResult.spill_2 || origSpill;
-
     var jitterMin = Number(rule.jitter_minutes || 15);
     var thresh = Number(rule.views_threshold || 500);
+    var ruleLastSession = rule.last_session_id || '';
 
-    // Jadwalkan batch untuk akun-akun yang lolos rate limit
-    var baseSchedTime = now + (10 * 60 * 1000);
-    var batchRes = scheduleAutopilotBatch({
-      product_id: rule.product_id,
-      session_id: chosenSessionId,
-      hook_thread_1: hook1,
-      spill_thread_2: spill2,
-      account_ids: eligibleAccounts,
-      start_time: new Date(baseSchedTime).toISOString(),
-      jitter_minutes: jitterMin,
-      views_threshold: thresh
-    });
+    // 2. PEMILIHAN PRODUK & MEDIA SESI UTUH OTOMATIS PER AKUN TERPILIH
+    for (var accIdx = 0; accIdx < eligibleAccounts.length; accIdx++) {
+      var targetAccId = eligibleAccounts[accIdx];
 
-    var count = (batchRes && batchRes.scheduled_count) ? batchRes.scheduled_count : 0;
-    totalGenerated += count;
+      // Filter produk yang diizinkan untuk akun ini dan memiliki media
+      var eligibleProductsForAcc = [];
+      for (var pr = 0; pr < allProducts.length; pr++) {
+        var pCandidate = allProducts[pr];
+        var allowedStr = String(pCandidate.allowed_accounts || '').trim();
+        var isAllowed = false;
+        if (!allowedStr) {
+          isAllowed = true;
+        } else {
+          var allowedList = allowedStr.split(',').map(function(s) { return cleanAccountId(s); });
+          if (allowedList.indexOf(targetAccId) !== -1) {
+            isAllowed = true;
+          }
+        }
+        if (isAllowed) {
+          var hasMedia = false;
+          for (var md = 0; md < allMedia.length; md++) {
+            if (allMedia[md].product_id === pCandidate.product_id) {
+              hasMedia = true;
+              break;
+            }
+          }
+          if (hasMedia) eligibleProductsForAcc.push(pCandidate);
+        }
+      }
 
-    // Simpan waktu eksekusi & riwayat rotasi sesi ulasan terakhir ke sheet
+      // Pilih produk: jika ada rule.product_id tetap dukung, jika tidak gunakan rotasi cerdas produk
+      var chosenProd = null;
+      if (rule.product_id && prodMap[rule.product_id]) {
+        chosenProd = prodMap[rule.product_id];
+      } else if (eligibleProductsForAcc.length > 0) {
+        var prodLastPostedMap = {};
+        for (var ep = 0; ep < eligibleProductsForAcc.length; ep++) {
+          prodLastPostedMap[eligibleProductsForAcc[ep].product_id] = 0;
+        }
+        for (var ap = 0; ap < allPosts.length; ap++) {
+          if (cleanAccountId(allPosts[ap].account_id) === targetAccId && prodLastPostedMap[allPosts[ap].product_id] !== undefined) {
+            var postT = allPosts[ap].created_at ? new Date(allPosts[ap].created_at).getTime() : 0;
+            if (postT > prodLastPostedMap[allPosts[ap].product_id]) {
+              prodLastPostedMap[allPosts[ap].product_id] = postT;
+            }
+          }
+        }
+        eligibleProductsForAcc.sort(function(a, b) {
+          return (prodLastPostedMap[a.product_id] || 0) - (prodLastPostedMap[b.product_id] || 0);
+        });
+        chosenProd = eligibleProductsForAcc[0];
+      }
+
+      if (!chosenProd) continue;
+
+      // Ambil paket media utuh HANYA dari sesi ulasan bergilir (Cohesive Review Session)
+      var prodSessions = {};
+      var sessionOrder = [];
+      for (var m = 0; m < allMedia.length; m++) {
+        var med = allMedia[m];
+        if (med.product_id === chosenProd.product_id) {
+          var sId = med.session_id || 'SESI_DEFAULT';
+          if (!prodSessions[sId]) {
+            prodSessions[sId] = [];
+            sessionOrder.push(sId);
+          }
+          prodSessions[sId].push(med.media_id);
+        }
+      }
+
+      if (sessionOrder.length === 0) continue;
+
+      var chosenSessionId = '';
+      var chosenMediaIds = [];
+      if (rule.preferred_session_id && prodSessions[rule.preferred_session_id]) {
+        chosenSessionId = rule.preferred_session_id;
+        chosenMediaIds = prodSessions[chosenSessionId];
+      } else {
+        var nextIdx = 0;
+        var foundLastIdx = sessionOrder.indexOf(ruleLastSession);
+        if (foundLastIdx !== -1) {
+          nextIdx = (foundLastIdx + 1) % sessionOrder.length;
+        }
+        chosenSessionId = sessionOrder[nextIdx];
+        chosenMediaIds = prodSessions[chosenSessionId];
+      }
+      ruleLastSession = chosenSessionId;
+
+      if (!chosenMediaIds || chosenMediaIds.length === 0) continue;
+
+      // 3. TIGA SUMBER PINTAR CAPTION SUMOPOD AI (Referensi Viral, Winner Context, Selling Points)
+      // Sumber (b): Winner Context (postingan berviews tertinggi)
+      var winnerPost = null;
+      var highestViews = 0;
+      for (var w = 0; w < allPosts.length; w++) {
+        var itemP = allPosts[w];
+        if (itemP.status === 'PUBLISHED' && Number(itemP.current_views || 0) > highestViews) {
+          if (!chosenProd.product_id || itemP.product_id === chosenProd.product_id) {
+            highestViews = Number(itemP.current_views);
+            winnerPost = itemP;
+          }
+        }
+      }
+      if (!winnerPost) {
+        for (var gw = 0; gw < allPosts.length; gw++) {
+          var gItem = allPosts[gw];
+          if (gItem.status === 'PUBLISHED' && Number(gItem.current_views || 0) > highestViews) {
+            highestViews = Number(gItem.current_views);
+            winnerPost = gItem;
+          }
+        }
+      }
+
+      var winnerHookText = '';
+      var winnerViewsCount = 0;
+      if (winnerPost && highestViews >= 50) {
+        winnerViewsCount = highestViews;
+        try {
+          var parsedWNodes = typeof winnerPost.thread_content_json === 'string'
+            ? JSON.parse(winnerPost.thread_content_json)
+            : winnerPost.thread_content_json;
+          if (Array.isArray(parsedWNodes) && parsedWNodes.length > 0) {
+            winnerHookText = typeof parsedWNodes[0] === 'string' ? parsedWNodes[0] : (parsedWNodes[0].content || '');
+            winnerHookText = winnerHookText.replace(/^\(?\d+\/\d+\)?\s*/i, '');
+          }
+        } catch(eWin) {}
+      }
+
+      // Sumber (a): Bank Referensi Viral (Swipe-File)
+      var matchingRefs = [];
+      var fallbackRefs = [];
+      for (var v = 0; v < allViralRefs.length; v++) {
+        if (allViralRefs[v].product_id === chosenProd.product_id) {
+          matchingRefs.push(allViralRefs[v]);
+        } else if (!allViralRefs[v].product_id) {
+          fallbackRefs.push(allViralRefs[v]);
+        }
+      }
+      var chosenRef = null;
+      if (matchingRefs.length > 0) {
+        chosenRef = matchingRefs[Math.floor(Math.random() * matchingRefs.length)];
+      } else if (fallbackRefs.length > 0) {
+        chosenRef = fallbackRefs[Math.floor(Math.random() * fallbackRefs.length)];
+      }
+
+      var origHook = chosenRef ? (chosenRef.hook_thread_1 || '') : ('Rekomendasi ' + chosenProd.product_name + ' paling worth it!');
+      var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK_AFFILIATE]';
+
+      // Sumber (c): Selling Points Produk + Panggil Sumopod AI
+      var remakeResult = { hook_1: origHook, spill_2: origSpill };
+      try {
+        remakeResult = generateSumopodRemake({
+          product_name: chosenProd.product_name,
+          selling_points: chosenProd.selling_points || '',
+          hook_thread_1: origHook,
+          spill_thread_2: origSpill,
+          winner_hook: winnerHookText,
+          winner_views: winnerViewsCount
+        });
+      } catch(aiErr) {
+        Logger.log('[Autopilot AI Remake Fallback]: ' + aiErr.message);
+      }
+
+      var hook1 = remakeResult.hook_1 || origHook;
+      var spill2 = remakeResult.spill_2 || origSpill;
+
+      var jitterOffsetMs = (accIdx * jitterMin * 60000) + Math.floor(Math.random() * (jitterMin * 0.4 * 60000));
+      var scheduledDate = new Date(now + (10 * 60 * 1000) + jitterOffsetMs);
+
+      var cleanSpill = spill2;
+      if (cleanSpill.indexOf('[LINK_AFFILIATE') === -1) {
+        var shortAff = chosenProd.shopee_affiliate_url || chosenProd.shopee_raw_url || 'shope.ee/affiliate';
+        cleanSpill = cleanSpill + '\n\n' + stripProtocol(shortAff);
+      }
+
+      var threadNodes = [
+        {
+          content: hook1,
+          product_ids: [chosenProd.product_id],
+          product_id: chosenProd.product_id,
+          media_ids: chosenMediaIds,
+          media_id: chosenMediaIds[0]
+        },
+        {
+          content: cleanSpill,
+          product_ids: [chosenProd.product_id],
+          product_id: chosenProd.product_id,
+          media_ids: [],
+          media_id: ''
+        }
+      ];
+
+      // Utas 2 terkunci dalam mode DRIP_ON_VIEWS menunggu target views tercapai
+      createPost({
+        account_id: targetAccId,
+        product_id: chosenProd.product_id,
+        publish_mode: 'DRIP_ON_VIEWS',
+        thread_content_json: JSON.stringify(threadNodes),
+        media_ids_json: JSON.stringify(chosenMediaIds),
+        views_threshold: thresh,
+        scheduled_time: scheduledDate.toISOString(),
+        status: 'SCHEDULED'
+      });
+
+      totalGenerated++;
+    }
+
+    // Perbarui riwayat last_run_at & last_session_id di sheet
     if (ruleSheet && ruleIdCol !== -1) {
       for (var rRow = 1; rRow < ruleData.length; rRow++) {
         if (String(ruleData[rRow][ruleIdCol]) === String(rule.rule_id)) {
           if (lastRunCol !== -1) {
             ruleSheet.getRange(rRow + 1, lastRunCol + 1).setValue(new Date().toISOString());
           }
-          if (lastSessionCol !== -1 && chosenSessionId) {
-            ruleSheet.getRange(rRow + 1, lastSessionCol + 1).setValue(chosenSessionId);
+          if (lastSessionCol !== -1 && ruleLastSession) {
+            ruleSheet.getRange(rRow + 1, lastSessionCol + 1).setValue(ruleLastSession);
           }
           break;
         }
@@ -2254,7 +2330,7 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
   return {
     generated_count: totalGenerated,
     message: totalGenerated > 0
-      ? ('Autopilot cerdas berhasil: ' + totalGenerated + ' postingan dibuat dengan Winner Learning & Rotasi Sesi.')
+      ? ('Autopilot otonom berhasil: ' + totalGenerated + ' postingan dijadwalkan dengan rotasi produk, sesi utuh, dan 3 sumber pintar Sumopod AI.')
       : 'Semua akun autopilot berada dalam batas aman spam harian (rate limit aktif).'
   };
 }
@@ -2799,7 +2875,22 @@ function checkAndPublishQueue() {
 
       var prods = getSheetRecords('Products');
       var subId = accountId + '_' + postId;
-      var lastThreadId = executeThreadChain(accountId, token, nodes, mediaMap, prods, subId);
+
+      // Cek apakah postingan berantai ini dalam mode drip waiting views
+      var postRecords = getSheetRecords('Posts');
+      var isDripWaiting = false;
+      for (var prIdx = 0; prIdx < postRecords.length; prIdx++) {
+        if (String(postRecords[prIdx].post_id) === String(postId)) {
+          if (postRecords[prIdx].drip_status === 'WAITING_VIEWS') {
+            isDripWaiting = true;
+          }
+          break;
+        }
+      }
+
+      // Jika drip waiting views, terbitkan HANYA Utas 1 (Root Hook bebas link). Utas 2 menunggu views tercapai.
+      var nodesToPublish = (isDripWaiting && nodes.length > 1) ? [nodes[0]] : nodes;
+      var lastThreadId = executeThreadChain(accountId, token, nodesToPublish, mediaMap, prods, subId);
       var nowIso = new Date().toISOString();
 
       qSheet.getRange(i + 1, 7).setValue('Posted');
