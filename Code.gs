@@ -2530,7 +2530,7 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
       rawAccIds = String(rule.account_ids_json || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
     }
     if (!Array.isArray(rawAccIds) || rawAccIds.length === 0) {
-      if (allAccounts.length > 0) rawAccIds = [allAccounts[0].account_id];
+      continue;
     }
 
     // Filter akun yang aman dan belum melampaui limit harian / interval spam
@@ -2990,10 +2990,10 @@ function saveSettings(payload) {
   return { status: 'Pengaturan tersimpan' };
 }
 
-// Pasang Google Apps Script time-driven trigger (Default: 15 menit)
+// Pasang Google Apps Script time-driven trigger (Default: 5 menit)
 function setupTimeDrivenTrigger(payload) {
-  var interval = (payload && payload.interval) ? Number(payload.interval) : 15;
-  if ([1, 5, 10, 15].indexOf(interval) === -1) interval = 15;
+  var interval = (payload && payload.interval) ? Number(payload.interval) : 5;
+  if ([1, 5, 10, 15].indexOf(interval) === -1) interval = 5;
 
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
@@ -3008,7 +3008,12 @@ function setupTimeDrivenTrigger(payload) {
     .everyMinutes(interval)
     .create();
 
+  try {
+    saveSettings({ trigger_interval: String(interval) });
+  } catch(e) {}
+
   return {
+    interval: interval,
     status: 'Trigger background checkAndExecuteQueueAndViews berhasil didaftarkan aktif setiap ' + interval + ' menit!'
   };
 }

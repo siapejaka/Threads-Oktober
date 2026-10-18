@@ -3484,7 +3484,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">Kategori</label>
-                <input type="text" x-model="newProd.category" placeholder="Elektronik / Rumah Tangga" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
+                <input type="text" x-model="newProd.category" placeholder="-- Pilih atau Ketik Kategori --" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
               </div>
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">Harga Produk (Rp)</label>
@@ -3854,13 +3854,14 @@
             <select x-model.number="triggerInterval" class="border border-slate-300 rounded px-2 py-1 text-xs bg-white font-semibold">
               <option :value="1">1 Menit (Ultra Cepat)</option>
               <option :value="5">5 Menit (Disarankan)</option>
-              <option :value="10">10 Menit (Santai)</option>
+              <option :value="10">10 Menit (Hemat Kuota)</option>
+              <option :value="15">15 Menit</option>
             </select>
           </div>
           <button @click="activateAutoTrigger()" :disabled="isSettingTrigger" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center justify-center shadow-sm">
             <span x-show="isSettingTrigger" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
             <i x-show="!isSettingTrigger" data-lucide="zap" class="w-3.5 h-3.5 mr-1.5"></i>
-            <span x-text="'Aktifkan Trigger Tiap ' + triggerInterval + ' Menit'"></span>
+            <span x-text="'Pasang Trigger Tiap ' + triggerInterval + ' Menit'"></span>
           </button>
           <p class="text-[10px] text-slate-400">Hemat kuota aktif: hanya memeriksa antrean aktif & postingan berpotensi auto-reply.</p>
         </div>
@@ -4018,7 +4019,7 @@
         isSavingProduct: false,
         isEditingProduct: false,
         isRemakingWholeChain: false,
-        newProd: { product_id: '', product_name: '', category: 'Elektronik', price: 0, product_image_url: '', shopee_raw_url: '', shopee_affiliate_url: '', selling_points: '', allowed_accounts: [] },
+        newProd: { product_id: '', product_name: '', category: '', price: 0, product_image_url: '', shopee_raw_url: '', shopee_affiliate_url: '', selling_points: '', allowed_accounts: [] },
 
         // Async Statuses
         isLoading: false,
@@ -5331,7 +5332,7 @@
           this.newProd = {
             product_id: '',
             product_name: '',
-            category: 'Elektronik',
+            category: '',
             price: 0,
             product_image_url: '',
             shopee_raw_url: '',
@@ -5502,10 +5503,10 @@
               this.viral_references = Array.isArray(res.data.viral_references) ? res.data.viral_references : [];
               this.autopilot_rules = Array.isArray(res.data.autopilot_rules) ? res.data.autopilot_rules : [];
               this.settings = (res.data.settings && typeof res.data.settings === 'object') ? res.data.settings : this.settings;
-              this.applyBranding();
-              if (this.accounts.length > 0 && this.composerAccounts.length === 0) {
-                this.composerAccounts = [this.accounts[0].account_id];
+              if (this.settings && this.settings.trigger_interval) {
+                this.triggerInterval = Number(this.settings.trigger_interval);
               }
+              this.applyBranding();
             } else {
               this.showToast(res.message || 'Gagal memuat data', 'error');
             }
@@ -5836,28 +5837,30 @@
         },
 
         activateAutoTrigger() {
+          var targetInterval = Number(this.triggerInterval) || 5;
           this.isSettingTrigger = true;
+          var self = this;
           fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
               action: 'setupTimeDrivenTrigger',
-              payload: { interval: this.triggerInterval }
+              payload: { interval: targetInterval }
             })
           })
           .then(r => r.text())
           .then(text => {
             const res = JSON.parse(text);
             if (res.ok) {
-              this.showToast(res.data.status);
+              self.showToast(res.data.status || ('Trigger background berhasil dipasang tiap ' + targetInterval + ' menit!'));
             } else {
-              this.showToast(res.message, 'error');
+              self.showToast(res.message, 'error');
             }
-            this.isSettingTrigger = false;
+            self.isSettingTrigger = false;
           })
           .catch(() => {
-            this.isSettingTrigger = false;
-            this.showToast('Gagal memasang trigger', 'error');
+            self.isSettingTrigger = false;
+            self.showToast('Gagal memasang trigger', 'error');
           });
         },
 
@@ -6177,7 +6180,7 @@
             if (res.ok) {
               this.showToast(this.isEditingProduct ? 'Produk berhasil diperbarui!' : 'Produk baru berhasil ditambahkan!');
               this.closeModal('addProductModal');
-              this.newProd = { product_id: '', product_name: '', category: 'Elektronik', price: 0, product_image_url: '', shopee_raw_url: '', shopee_affiliate_url: '', selling_points: '' };
+              this.newProd = { product_id: '', product_name: '', category: '', price: 0, product_image_url: '', shopee_raw_url: '', shopee_affiliate_url: '', selling_points: '', allowed_accounts: [] };
               this.fetchInitialData();
             } else {
               this.showToast(res.message, 'error');
@@ -6330,11 +6333,10 @@
 
         openCreateRuleModal() {
           this.isEditingRule = false;
-          var defaultAccs = this.accounts.length > 0 ? [this.accounts[0].account_id] : [];
           this.currentRule = {
             rule_id: '',
             name: '',
-            account_ids: defaultAccs,
+            account_ids: [],
             frequency_per_day: 2,
             views_threshold: 500,
             jitter_minutes: 15,
