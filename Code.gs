@@ -700,16 +700,17 @@ function saveProduct(payload) {
   var cleanUsernames = [];
   var seenUsers = {};
   for (var k = 0; k < rawList.length; k++) {
-    var rawItem = String(rawList[k] || '').replace(/^['@\s]+|[\s']+$/g, '').trim().toLowerCase();
+    var rawItem = String(rawList[k] || '')
+      .replace(/^['"@\s]+|['"@\s]+$/g, '')
+      .replace(/[\r\n\t\s]/g, '')
+      .trim()
+      .toLowerCase();
     if (!rawItem) continue;
+    if (/e[+-]?\d+/i.test(rawItem) || /^\d+$/.test(rawItem)) continue;
+
     var resolvedUser = idToUserMap[cleanAccountId(rawItem)] || idToUserMap[rawItem] || rawItem;
+    if (/e[+-]?\d+/i.test(resolvedUser) || /^\d+$/.test(resolvedUser)) continue;
 
-    // Buang notasi ilmiah (e+) atau deretan angka
-    if (/e\+/i.test(resolvedUser) || /^\d+$/.test(resolvedUser)) {
-      continue;
-    }
-
-    // Hanya izinkan format username valid: huruf, angka, titik, underscore
     if (/^[a-z0-9._]+$/.test(resolvedUser) && !seenUsers[resolvedUser]) {
       seenUsers[resolvedUser] = true;
       cleanUsernames.push(resolvedUser);
@@ -1038,7 +1039,7 @@ function createPost(payload) {
   var isMultiNode = nodes.length > 1;
   var isDripMode = (isMultiNode && publishMode === 'DRIP_ON_VIEWS');
   var dripStatus = isDripMode ? 'WAITING_VIEWS' : 'COMPLETED';
-  var isReplySent = !isMultiNode;
+  var isReplySent = !isDripMode;
 
   // Jika user memilih posting langsung sekarang
   if (status === 'PUBLISH_NOW') {
@@ -3471,11 +3472,13 @@ function checkAndPublishQueue() {
       // Cek apakah postingan berantai ini dalam mode drip waiting views
       var postRecords = getSheetRecords('Posts');
       var isDripWaiting = false;
+      var postThreshold = 500;
       for (var prIdx = 0; prIdx < postRecords.length; prIdx++) {
         if (String(postRecords[prIdx].post_id) === String(postId)) {
           if (postRecords[prIdx].drip_status === 'WAITING_VIEWS') {
             isDripWaiting = true;
           }
+          postThreshold = Number(postRecords[prIdx].views_threshold || 500);
           break;
         }
       }

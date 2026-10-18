@@ -1060,7 +1060,7 @@
                     </div>
                   </div>
 
-                  <textarea :id="'composer_textarea_' + index" x-model="thread.content" @click="recordCursor(thread, $event)" @keyup="recordCursor(thread, $event)" @select="recordCursor(thread, $event)" rows="3" :placeholder="index === 0 ? 'Tulis kalimat pembuka hook viral (disarankan bebas dari link eksternal agar jangkauan organik maksimal)...' : 'Tulis ulasan lanjutan atau seruan checkout produk... Gunakan tombol + Sisip Link di atas.'" class="w-full text-xs p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white leading-relaxed"></textarea>
+                  <textarea :id="'composer_textarea_' + index" x-model="thread.content" @click="recordCursor(thread, $event)" @keyup="recordCursor(thread, $event)" @select="recordCursor(thread, $event)" @focus="recordCursor(thread, $event)" @blur="recordCursor(thread, $event)" @input="recordCursor(thread, $event)" rows="3" :placeholder="index === 0 ? 'Tulis kalimat pembuka hook viral (disarankan bebas dari link eksternal agar jangkauan organik maksimal)...' : 'Tulis ulasan lanjutan atau seruan checkout produk... Gunakan tombol + Sisip Link di atas.'" class="w-full text-xs p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white leading-relaxed"></textarea>
 
                   <!-- Lampiran Media Khusus Melekat di Kartu Utas Ini -->
                   <div class="mt-2.5 pt-2.5 border-t border-slate-200/80">
@@ -2382,7 +2382,7 @@
 
   <!-- MODAL TAMBAH / EDIT REFERENSI VIRAL (RANGKAIAN UTAS DINAMIS DENGAN MEDIA CAROUSEL) -->
   <div x-show="modals.addViralRefModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4">
-    <div @click.away="!isSavingViralRef && closeModal('addViralRefModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col">
+    <div @click.away="!isSavingViralRef && closeModal('addViralRefModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col overflow-hidden">
       <div class="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-100 flex-shrink-0">
         <div class="flex items-center space-x-2.5">
           <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold flex-shrink-0">
@@ -2934,7 +2934,7 @@
           <button type="button" @click="replyContent = 'Link toko resminya yang lagi promo di sini kak: [LINK]'" class="px-2.5 py-1 text-[11px] border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 font-semibold text-slate-700">Template Promo</button>
           <button type="button" @click="replyContent = 'Beli yang ori lewat link ini ya kak: [LINK]'" class="px-2.5 py-1 text-[11px] border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 font-semibold text-slate-700">Template Ori</button>
         </div>
-        <textarea id="quick_reply_textarea" x-model="replyContent" @click="recordReplyCursor($event)" @keyup="recordReplyCursor($event)" @select="recordReplyCursor($event)" rows="3" placeholder="Tulis balasan atau gunakan tombol sisip link di atas..." class="w-full text-xs p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"></textarea>
+        <textarea id="quick_reply_textarea" x-model="replyContent" @click="recordReplyCursor($event)" @keyup="recordReplyCursor($event)" @select="recordReplyCursor($event)" @focus="recordReplyCursor($event)" @blur="recordReplyCursor($event)" @input="recordReplyCursor($event)" rows="3" placeholder="Tulis balasan atau gunakan tombol sisip link di atas..." class="w-full text-xs p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"></textarea>
       </div>
 
       <div class="mt-4 flex justify-end space-x-2">
@@ -3194,7 +3194,7 @@
 
   <!-- MODAL PENGATURAN ATURAN AUTOPILOT (TRUE AUTOPILOT OTONOM PENUH) -->
   <div x-show="modals.ruleModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4">
-    <div @click.away="!isSavingRule && closeModal('ruleModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col">
+    <div @click.away="!isSavingRule && closeModal('ruleModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col overflow-hidden">
       <div class="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-100 flex-shrink-0">
         <div class="flex items-center space-x-2.5">
           <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold flex-shrink-0">
@@ -3456,7 +3456,7 @@
 
   <!-- ADD / EDIT PRODUCT MODAL (SPLIT 2-KOLOM DESKTOP & FULLSCREEN MOBILE) -->
   <div x-show="modals.addProductModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4">
-    <div @click.away="closeModal('addProductModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col">
+    <div @click.away="closeModal('addProductModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col overflow-hidden">
       <div class="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-100 flex-shrink-0">
         <div class="flex items-center space-x-2.5">
           <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold flex-shrink-0">
@@ -4661,36 +4661,41 @@
 
         recordCursor(thread, e) {
           if (e && e.target) {
-            thread._cursorStart = e.target.selectionStart;
-            thread._cursorEnd = e.target.selectionEnd;
+            thread._cursorStart = typeof e.target.selectionStart === 'number' ? e.target.selectionStart : 0;
+            thread._cursorEnd = typeof e.target.selectionEnd === 'number' ? e.target.selectionEnd : thread._cursorStart;
           }
         },
 
         recordReplyCursor(e) {
           if (e && e.target) {
-            this.replyCursorStart = e.target.selectionStart;
-            this.replyCursorEnd = e.target.selectionEnd;
+            this.replyCursorStart = typeof e.target.selectionStart === 'number' ? e.target.selectionStart : 0;
+            this.replyCursorEnd = typeof e.target.selectionEnd === 'number' ? e.target.selectionEnd : this.replyCursorStart;
           }
         },
 
         insertTextAtCursor(elementId, textToInsert, savedStart, savedEnd, callback) {
           var el = typeof elementId === 'string' ? document.getElementById(elementId) : elementId;
-          if (!el) {
-            if (callback) callback(textToInsert);
-            return;
-          }
-          var start = (typeof savedStart === 'number') ? savedStart : (typeof el.selectionStart === 'number' ? el.selectionStart : (el.value || '').length);
-          var end = (typeof savedEnd === 'number') ? savedEnd : (typeof el.selectionEnd === 'number' ? el.selectionEnd : (el.value || '').length);
-          var val = el.value || '';
+          var val = (el ? el.value : '') || '';
+          var start = (typeof savedStart === 'number' && !isNaN(savedStart)) ? savedStart : val.length;
+          var end = (typeof savedEnd === 'number' && !isNaN(savedEnd)) ? savedEnd : start;
+
+          start = Math.max(0, Math.min(start, val.length));
+          end = Math.max(start, Math.min(end, val.length));
+
           var updated = val.slice(0, start) + textToInsert + val.slice(end);
           if (callback) callback(updated);
-          this.$nextTick(function() {
-            el.focus();
-            var newPos = start + textToInsert.length;
-            if (typeof el.setSelectionRange === 'function') {
-              el.setSelectionRange(newPos, newPos);
-            }
-          });
+
+          if (el) {
+            this.$nextTick(function() {
+              try {
+                el.focus();
+                var newPos = start + textToInsert.length;
+                if (typeof el.setSelectionRange === 'function') {
+                  el.setSelectionRange(newPos, newPos);
+                }
+              } catch(e) {}
+            });
+          }
         },
 
         insertSpecificProductLink(thread, prod, index) {
@@ -4704,15 +4709,24 @@
           var cleanUrl = this.getCleanAffiliateUrl(shortUrl);
           var tag = cleanUrl || 'shope.ee/affiliate';
           var elId = 'composer_textarea_' + (idx >= 0 ? idx : 0);
-          var sStart = thread._cursorStart;
-          var sEnd = thread._cursorEnd;
+          var el = document.getElementById(elId);
+          var sStart = (el && typeof el.selectionStart === 'number' && el.selectionStart !== el.selectionEnd)
+            ? el.selectionStart
+            : ((typeof thread._cursorStart === 'number') ? thread._cursorStart : (el ? el.selectionStart : (thread.content || '').length));
+          var sEnd = (el && typeof el.selectionEnd === 'number' && el.selectionStart !== el.selectionEnd)
+            ? el.selectionEnd
+            : ((typeof thread._cursorEnd === 'number') ? thread._cursorEnd : (el ? el.selectionEnd : (thread.content || '').length));
+
+          if (typeof sStart !== 'number' || isNaN(sStart)) sStart = (thread.content || '').length;
+          if (typeof sEnd !== 'number' || isNaN(sEnd)) sEnd = sStart;
+
           this.insertTextAtCursor(elId, tag, sStart, sEnd, function(newVal) {
             thread.content = newVal;
-            thread._cursorStart = (typeof sStart === 'number' ? sStart : newVal.length) + tag.length;
+            thread._cursorStart = sStart + tag.length;
             thread._cursorEnd = thread._cursorStart;
           });
           thread._showLinkMenu = false;
-          this.showToast('Link affiliate disisipkan pada kursor');
+          this.showToast('Link affiliate disisipkan pada posisi kursor');
         },
 
         insertAllProductLinks(thread, index) {
