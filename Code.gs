@@ -70,6 +70,8 @@ function doPost(e) {
       result = saveSettings(payload);
     } else if (action === 'checkAndPublishQueue') {
       result = checkAndPublishQueue();
+    } else if (action === 'checkWaitingViewsQueue') {
+      result = checkWaitingViewsQueue();
     } else if (action === 'checkAndExecuteQueueAndViews') {
       result = checkAndExecuteQueueAndViews();
     } else if (action === 'setupTimeDrivenTrigger') {
@@ -106,6 +108,8 @@ function doPost(e) {
       result = deleteQueuePost(payload);
     } else if (action === 'deleteThreadsAccount') {
       result = deleteThreadsAccount(payload);
+    } else if (action === 'getCloudinaryUsage') {
+      result = getCloudinaryUsage(payload);
     } else if (action === 'setupDb') {
       result = setupDatabase();
     } else {
@@ -811,6 +815,24 @@ function generateGeminiThreadOptions(payload, apiKey) {
   return { options: lines.slice(0, 3) };
 }
 
+// Helper ekstraksi array media_id dari rangkaian nodes
+function extractMediaIds(nodes) {
+  var ids = [];
+  if (!Array.isArray(nodes)) return ids;
+  for (var i = 0; i < nodes.length; i++) {
+    var n = nodes[i];
+    if (!n) continue;
+    if (Array.isArray(n.media_ids)) {
+      for (var j = 0; j < n.media_ids.length; j++) {
+        if (n.media_ids[j] && ids.indexOf(n.media_ids[j]) === -1) ids.push(n.media_ids[j]);
+      }
+    } else if (n.media_id && ids.indexOf(n.media_id) === -1) {
+      ids.push(n.media_id);
+    }
+  }
+  return ids;
+}
+
 function createPost(payload) {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName('Posts');
@@ -829,7 +851,8 @@ function createPost(payload) {
   if (!Array.isArray(nodes)) nodes = [nodes];
 
   var isMultiNode = nodes.length > 1;
-  var dripStatus = (isMultiNode && publishMode === 'DRIP_ON_VIEWS') ? 'WAITING_VIEWS' : 'COMPLETED';
+  var isDripMode = (isMultiNode && publishMode === 'DRIP_ON_VIEWS');
+  var dripStatus = isDripMode ? 'WAITING_VIEWS' : 'COMPLETED';
   var isReplySent = !isMultiNode;
 
   // Jika user memilih posting langsung sekarang
@@ -857,7 +880,7 @@ function createPost(payload) {
 
     var prods = getSheetRecords('Products');
 
-    if (publishMode === 'DRIP_ON_VIEWS' && nodes.length > 1) {
+    if (isDripMode) {
       // Auto-Drip Mode: Terbitkan HANYA Utas 1 (Root Hook) sekarang tanpa link eksternal
       publishedThreadId = executeThreadChain(payload.account_id, token, [nodes[0]], mediaMap, prods, subId);
       dripStatus = 'WAITING_VIEWS';
@@ -892,13 +915,30 @@ function createPost(payload) {
   ];
   sheet.appendRow(row);
 
-  if (status === 'SCHEDULED') {
-    var qSheet = ss.getSheetByName('Posting_Queue');
-    if (qSheet) {
+  var qSheet = ss.getSheetByName('Posting_Queue');
+  if (qSheet) {
+    if (status === 'PUBLISHED' && isDripMode && publishedThreadId) {
+      // Simpan Utas #2 ke dalam antrean dengan status khusus Waiting_Views_Threshold dan root_post_id sebagai reply_to_id
+      var remainingNodes = nodes.slice(1);
       var qId = 'Q_' + Utilities.getUuid().substring(0, 8);
-      var schedIso = payload.scheduled_time ? new Date(payload.scheduled_time).toISOString() : new Date().toISOString();
       qSheet.appendRow([
         qId,
+        postId,
+        payload.account_id,
+        new Date().toISOString(),
+        JSON.stringify(remainingNodes),
+        JSON.stringify(extractMediaIds(remainingNodes)),
+        'Waiting_Views_Threshold',
+        '',
+        '',
+        publishedThreadId,
+        2
+      ]);
+    } else if (status === 'SCHEDULED') {
+      var qIdSched = 'Q_' + Utilities.getUuid().substring(0, 8);
+      var schedIso = payload.scheduled_time ? new Date(payload.scheduled_time).toISOString() : new Date().toISOString();
+      qSheet.appendRow([
+        qIdSched,
         postId,
         payload.account_id,
         schedIso,
@@ -906,7 +946,9 @@ function createPost(payload) {
         payload.media_ids_json || '[]',
         'Scheduled',
         '',
-        ''
+        '',
+        '',
+        isDripMode ? 1 : 0
       ]);
     }
   }
@@ -931,7 +973,8 @@ function publishPostNow(payload) {
         post_id: postData[i][0],
         account_id: postData[i][1],
         thread_content_json: postData[i][2],
-        media_ids_json: postData[i][3]
+        media_ids_json: postData[i][3],
+        drip_status: postData[i][16]
       };
       break;
     }
@@ -966,10 +1009,15 @@ function publishPostNow(payload) {
   } catch(e) {
     nodes = [{ content: String(targetPost.thread_content_json || ''), media_id: '' }];
   }
+  if (!Array.isArray(nodes)) nodes = [nodes];
 
   var prods = getSheetRecords('Products');
   var subId = targetPost.account_id + '_' + targetPost.post_id;
-  var publishedThreadId = executeThreadChain(targetPost.account_id, token, nodes, mediaMap, prods, subId);
+  var isDripMode = (targetPost.drip_status === 'WAITING_VIEWS' && nodes.length > 1);
+
+  // Jika mode Auto-Drip on Views, terbitkan HANYA Utas #1 sekarang
+  var nodesToPublish = isDripMode ? [nodes[0]] : nodes;
+  var publishedThreadId = executeThreadChain(targetPost.account_id, token, nodesToPublish, mediaMap, prods, subId);
 
   postSheet.getRange(targetRow, 9).setValue('PUBLISHED');
   postSheet.getRange(targetRow, 10).setValue(publishedThreadId);
@@ -978,11 +1026,30 @@ function publishPostNow(payload) {
   if (qSheet) {
     var qData = qSheet.getDataRange().getValues();
     for (var q = 1; q < qData.length; q++) {
-      if (String(qData[q][1]) === String(postId)) {
+      if (String(qData[q][1]) === String(postId) && String(qData[q][6]).toLowerCase() !== 'waiting_views_threshold') {
         qSheet.getRange(q + 1, 7).setValue('Posted');
         qSheet.getRange(q + 1, 8).setValue('');
         qSheet.getRange(q + 1, 9).setValue(new Date().toISOString());
       }
+    }
+
+    // Daftarkan Utas #2 ke dalam antrean berstatus Waiting_Views_Threshold
+    if (isDripMode && publishedThreadId) {
+      var remainingNodesNow = nodes.slice(1);
+      var qIdDripNow = 'Q_' + Utilities.getUuid().substring(0, 8);
+      qSheet.appendRow([
+        qIdDripNow,
+        postId,
+        targetPost.account_id,
+        new Date().toISOString(),
+        JSON.stringify(remainingNodesNow),
+        JSON.stringify(extractMediaIds(remainingNodesNow)),
+        'Waiting_Views_Threshold',
+        '',
+        '',
+        publishedThreadId,
+        2
+      ]);
     }
   }
 
@@ -1240,6 +1307,19 @@ function syncPostInsights(payload) {
         var dripCol = headers.indexOf('drip_status');
         if (dripCol !== -1) postSheet.getRange(targetRow, dripCol + 1).setValue('COMPLETED');
         replyTriggered = true;
+
+        // Tandai baris antrean Utas #2 di Posting_Queue menjadi 'Posted'
+        var qSheet = ss.getSheetByName('Posting_Queue');
+        if (qSheet) {
+          var qData = qSheet.getDataRange().getValues();
+          for (var q = 1; q < qData.length; q++) {
+            if (String(qData[q][1]) === String(postId) && String(qData[q][6]).toLowerCase() === 'waiting_views_threshold') {
+              qSheet.getRange(q + 1, 7).setValue('Posted');
+              qSheet.getRange(q + 1, 8).setValue('');
+              qSheet.getRange(q + 1, 9).setValue(new Date().toISOString());
+            }
+          }
+        }
       } else if (rowData[autoReplyContentCol]) {
         // Fallback untuk postingan dengan template teks biasa
         var replyText = String(rowData[autoReplyContentCol]).replace(/\[LINK_AFFILIATE\]/g, stripProtocol(affiliateLink));
@@ -1247,6 +1327,18 @@ function syncPostInsights(payload) {
         publishThreadsNode(rowData[accCol], token, replyText, null, threadsPostId);
         postSheet.getRange(targetRow, replySentCol + 1).setValue(true);
         replyTriggered = true;
+
+        var qSheet2 = ss.getSheetByName('Posting_Queue');
+        if (qSheet2) {
+          var qData2 = qSheet2.getDataRange().getValues();
+          for (var q2 = 1; q2 < qData2.length; q2++) {
+            if (String(qData2[q2][1]) === String(postId) && String(qData2[q2][6]).toLowerCase() === 'waiting_views_threshold') {
+              qSheet2.getRange(q2 + 1, 7).setValue('Posted');
+              qSheet2.getRange(q2 + 1, 8).setValue('');
+              qSheet2.getRange(q2 + 1, 9).setValue(new Date().toISOString());
+            }
+          }
+        }
       }
     } catch (e) {}
   }
@@ -2368,6 +2460,7 @@ function checkAndExecuteQueueAndViews() {
   var queueProcessed = 0;
   var postsSynced = 0;
   var autopilotGenerated = 0;
+  var dripProcessed = 0;
 
   try {
     var autoResult = runAutonomousAutopilotWorker();
@@ -2390,12 +2483,53 @@ function checkAndExecuteQueueAndViews() {
     // Isolasi error views
   }
 
+  try {
+    var dripResult = checkWaitingViewsQueue();
+    dripProcessed = dripResult && dripResult.processed ? dripResult.processed : 0;
+  } catch (dErr) {
+    // Isolasi error antrean views
+  }
+
   return {
     autopilot_generated: autopilotGenerated,
     queue_processed: queueProcessed,
     posts_synced: postsSynced,
+    drip_processed: dripProcessed,
     timestamp: new Date().toISOString()
   };
+}
+
+// Memeriksa dan mengeksekusi Utas #2 dalam antrean jika target views root_post_id sudah tercapai
+function checkWaitingViewsQueue() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var qSheet = ss.getSheetByName('Posting_Queue');
+  if (!qSheet) return { processed: 0, checked: 0 };
+
+  var qData = qSheet.getDataRange().getValues();
+  if (qData.length <= 1) return { processed: 0, checked: 0 };
+
+  var processed = 0;
+  var checked = 0;
+
+  for (var i = 1; i < qData.length; i++) {
+    var status = String(qData[i][6] || '').toLowerCase();
+    if (status !== 'waiting_views_threshold') continue;
+
+    var postId = String(qData[i][1] || '').trim();
+    if (!postId) continue;
+    checked++;
+
+    try {
+      var syncRes = syncPostInsights({ post_id: postId });
+      if (syncRes && syncRes.reply_triggered) {
+        processed++;
+      }
+    } catch (e) {
+      Logger.log('[checkWaitingViewsQueue Error] Post ' + postId + ': ' + e.message);
+    }
+  }
+
+  return { processed: processed, checked: checked };
 }
 
 function saveSettings(payload) {
@@ -2771,7 +2905,7 @@ function resolveAffiliateLinks(text, node, prodMap, subId, fallbackProdId) {
 }
 
 // Eksekutor rantai multi-thread (root post & sub-threads berurutan) dengan deteksi karusel & multi-produk
-function executeThreadChain(accountId, token, nodes, mediaMap, prods, subId) {
+function executeThreadChain(accountId, token, nodes, mediaMap, prods, subId, initialReplyToId) {
   var prodMap = {};
   if (prods && Array.isArray(prods)) {
     for (var p = 0; p < prods.length; p++) {
@@ -2779,7 +2913,7 @@ function executeThreadChain(accountId, token, nodes, mediaMap, prods, subId) {
     }
   }
 
-  var lastThreadId = null;
+  var lastThreadId = initialReplyToId || null;
   for (var n = 0; n < nodes.length; n++) {
     var node = nodes[n];
     var textContent = typeof node === 'string' ? node : (node.content || '');
@@ -2909,6 +3043,25 @@ function checkAndPublishQueue() {
             }
           }
         }
+      }
+
+      // Jika Auto-Drip on Views, simpan Utas #2 ke Posting_Queue dengan status 'Waiting_Views_Threshold'
+      if (isDripWaiting && nodes.length > 1 && lastThreadId) {
+        var remainingNodesSched = nodes.slice(1);
+        var qIdDrip = 'Q_' + Utilities.getUuid().substring(0, 8);
+        qSheet.appendRow([
+          qIdDrip,
+          postId,
+          accountId,
+          nowIso,
+          JSON.stringify(remainingNodesSched),
+          JSON.stringify(extractMediaIds(remainingNodesSched)),
+          'Waiting_Views_Threshold',
+          '',
+          '',
+          lastThreadId,
+          2
+        ]);
       }
       processed++;
     } catch (err) {
@@ -3286,4 +3439,77 @@ function deleteThreadsAccount(payload) {
   }
 
   throw new Error('Akun tidak ditemukan di database');
+}
+
+// Mengambil statistik pemakaian storage & kuota dari Cloudinary Usage Admin API
+function getCloudinaryUsage(payload) {
+  var settings = getDashboardData().settings || {};
+  var cloudName = (payload && payload.cloudinary_cloud) ? payload.cloudinary_cloud : settings.cloudinary_cloud;
+  var apiKey = (payload && payload.cloudinary_api_key) ? payload.cloudinary_api_key : settings.cloudinary_api_key;
+  var apiSecret = (payload && payload.cloudinary_api_secret) ? payload.cloudinary_api_secret : settings.cloudinary_api_secret;
+
+  cloudName = String(cloudName || '').trim();
+  apiKey = String(apiKey || '').trim();
+  apiSecret = String(apiSecret || '').trim();
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error('Kredensial Cloudinary (Cloud Name, API Key, API Secret) belum lengkap di Settings.');
+  }
+
+  var url = 'https://api.cloudinary.com/v1_1/' + encodeURIComponent(cloudName) + '/usage';
+  var authHeader = 'Basic ' + Utilities.base64Encode(apiKey + ':' + apiSecret);
+
+  var resp = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { 'Authorization': authHeader },
+    muteHttpExceptions: true
+  });
+
+  var code = resp.getResponseCode();
+  var rawText = resp.getContentText() || '{}';
+  var resJson = {};
+  try {
+    resJson = JSON.parse(rawText);
+  } catch (e) {
+    throw new Error('Format respons Cloudinary tidak valid (HTTP ' + code + ')');
+  }
+
+  if (code !== 200) {
+    var errMsg = (resJson && resJson.error && resJson.error.message) ? resJson.error.message : ('HTTP ' + code);
+    throw new Error('Gagal mengambil data Cloudinary: ' + errMsg);
+  }
+
+  var plan = resJson.plan || 'Free';
+  var storageObj = resJson.storage || {};
+  var creditsObj = resJson.credits || {};
+  var objectsObj = resJson.objects || {};
+  var bandwidthObj = resJson.bandwidth || {};
+
+  var usedBytes = Number(storageObj.usage || 0);
+  var limitBytes = Number(storageObj.limit || 0);
+  var percent = Number(storageObj.used_percent || 0);
+
+  if (limitBytes === 0 && creditsObj.limit) {
+    limitBytes = Number(creditsObj.limit) * 1024 * 1024 * 1024;
+  }
+  if (limitBytes === 0) {
+    limitBytes = 25 * 1024 * 1024 * 1024;
+  }
+
+  if (percent === 0 && limitBytes > 0) {
+    percent = Math.min(100, (usedBytes / limitBytes) * 100);
+  }
+
+  return {
+    plan: plan,
+    used_bytes: usedBytes,
+    limit_bytes: limitBytes,
+    used_percent: Number(percent.toFixed(1)),
+    objects_count: Number(objectsObj.usage || 0),
+    bandwidth_bytes: Number(bandwidthObj.usage || 0),
+    credits_usage: Number(creditsObj.usage || 0),
+    credits_limit: Number(creditsObj.limit || 0),
+    credits_percent: Number(creditsObj.used_percent || 0),
+    last_updated: resJson.last_updated || new Date().toISOString()
+  };
 }

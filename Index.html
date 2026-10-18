@@ -738,8 +738,8 @@
     </div>
 
     <!-- TAB 2: POST COMPOSER (MULTI-THREAD BUILDER) -->
-    <div x-show="activeTab === 'composer'" x-cloak class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2 space-y-4">
+    <div x-show="activeTab === 'composer'" x-cloak class="max-w-5xl mx-auto space-y-5">
+      <div class="space-y-4">
 
         <!-- Panel 1: Akun Pengirim Target (Broadcast Multi-Akun) -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
@@ -978,14 +978,20 @@
                   </div>
                 </div>
 
-                <!-- Toolbar Utas: AI Option Generator & Label -->
-                <div class="flex items-center justify-between mb-1.5">
+                <!-- Toolbar Utas: AI Option Generator & Bank Hook Picker -->
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                   <span class="text-[11px] font-semibold text-slate-600" x-text="index === 0 ? 'Teks Hook Pembuka (Utas 1):' : 'Teks Utas #' + (index + 1) + ':'"></span>
-                  <button type="button" @click="generateOptionsForThread(thread, index)" :disabled="thread._isGeneratingAi" class="px-2.5 py-1 text-[11px] font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg flex items-center transition shadow-2xs group disabled:opacity-60" title="Generate 3 pilihan caption cerdas dari Sumopod AI">
-                    <span x-show="thread._isGeneratingAi" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
-                    <i x-show="!thread._isGeneratingAi" data-lucide="sparkles" class="w-3.5 h-3.5 mr-1 text-amber-300 group-hover:rotate-12 transition-transform"></i>
-                    <span x-text="thread._isGeneratingAi ? 'Membuat 3 Opsi...' : '✨ Buat Opsi AI'"></span>
-                  </button>
+                  <div class="flex items-center space-x-1.5">
+                    <button type="button" @click="openHookPicker(thread)" class="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 rounded-lg flex items-center transition shadow-2xs" title="Pilih hook viral dari Bank Swipe-File">
+                      <i data-lucide="bookmark" class="w-3.5 h-3.5 mr-1 text-emerald-600"></i>
+                      <span>Pilih dari Bank Hook</span>
+                    </button>
+                    <button type="button" @click="generateOptionsForThread(thread, index)" :disabled="thread._isGeneratingAi" class="px-2.5 py-1 text-[11px] font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg flex items-center transition shadow-2xs group disabled:opacity-60" title="Generate 3 pilihan caption cerdas dari Sumopod AI">
+                      <span x-show="thread._isGeneratingAi" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+                      <i x-show="!thread._isGeneratingAi" data-lucide="sparkles" class="w-3.5 h-3.5 mr-1 text-amber-300 group-hover:rotate-12 transition-transform"></i>
+                      <span x-text="thread._isGeneratingAi ? 'Membuat 3 Opsi...' : 'Buat Opsi AI'"></span>
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Kontainer Pilihan Opsi AI (Jika Ada) -->
@@ -1209,83 +1215,6 @@
           </div>
         </div>
       </div>
-
-      <!-- AI Hook Studio & Bank Hook Swipe File -->
-      <div class="space-y-4">
-        <!-- Bank Hook Viral Library -->
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-xs font-bold text-slate-900 flex items-center">
-              <i data-lucide="bookmark" class="w-4 h-4 text-emerald-600 mr-1.5"></i> Bank Hook Viral
-            </h3>
-            <button @click="openModal('addHookModal')" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center">
-              <i data-lucide="plus" class="w-3.5 h-3.5 mr-0.5"></i> Tambah
-            </button>
-          </div>
-
-          <!-- Kategori Filter -->
-          <div class="flex space-x-1 overflow-x-auto pb-1 mb-2">
-            <button @click="hookFilter = 'ALL'" :class="hookFilter === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap">Semua</button>
-            <template x-for="cat in hookCategories" :key="cat">
-              <button @click="hookFilter = cat" :class="hookFilter === cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'" class="px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap" x-text="cat"></button>
-            </template>
-          </div>
-
-          <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
-            <template x-for="hk in filteredHooks" :key="hk.hook_id">
-              <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50/50 transition">
-                <div class="flex justify-between items-center mb-1">
-                  <span class="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800" x-text="hk.category"></span>
-                  <div class="flex space-x-2">
-                    <button @click="useHookForAi(hk)" title="Pakai sebagai referensi Gemini AI" class="text-[10px] text-purple-600 font-bold hover:underline">Pakai AI</button>
-                    <button @click="applyHook(hk.hook_text)" title="Tempel langsung ke Thread #1" class="text-[10px] text-emerald-600 font-bold hover:underline">Sisipkan</button>
-                  </div>
-                </div>
-                <p class="text-xs text-slate-800 italic" x-text="hk.hook_text"></p>
-                <span class="text-[9px] text-slate-400 mt-1 block font-mono" x-text="'Rumus: ' + (hk.formula || '-')"></span>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- AI Hook Studio -->
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-xs font-bold text-slate-900 flex items-center">
-              <i data-lucide="sparkles" class="w-4 h-4 text-purple-600 mr-1.5"></i> AI Hook Studio
-            </h3>
-            <span class="text-[10px] px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full font-medium">Gemini 1.5</span>
-          </div>
-
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Topik / Nama Produk</label>
-              <input type="text" x-model="aiPromptTopic" placeholder="Contoh: Robot Vacuum Cleaner 200rb" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Tone Gaya Bahasa</label>
-              <select x-model="aiTone" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg bg-white">
-                <option value="storytelling">Storytelling Curhat</option>
-                <option value="provocative">Kontroversial / Penasaran</option>
-                <option value="fomo">FOMO / Racun Promo</option>
-              </select>
-            </div>
-            <button @click="generateHooks()" :disabled="isGeneratingAi" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg flex items-center justify-center">
-              <span x-show="isGeneratingAi" class="animate-spin mr-1.5"><i data-lucide="loader" class="w-3.5 h-3.5"></i></span>
-              <span x-text="isGeneratingAi ? 'Menulis Hook...' : 'Buat 3 Hook Viral'"></span>
-            </button>
-          </div>
-
-          <div class="mt-4 space-y-2" x-show="generatedHooks.length > 0">
-            <template x-for="(hook, idx) in generatedHooks" :key="idx">
-              <div class="p-2.5 bg-purple-50/60 border border-purple-100 rounded-lg text-xs text-slate-800 flex justify-between items-start space-x-2">
-                <p x-text="hook" class="flex-1 italic"></p>
-                <button @click="applyHook(hook)" class="text-purple-600 hover:text-purple-800 font-bold text-[10px] uppercase">Pakai</button>
-              </div>
-            </template>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- TAB 2: MEDIA VAULT & PRODUK -->
@@ -1326,10 +1255,9 @@
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50/80 text-slate-800 uppercase font-semibold border-b border-slate-200">
               <tr>
-                <th class="p-3.5">Produk</th>
+                <th class="p-3.5">Produk (Klik untuk Detail)</th>
                 <th class="p-3.5">Kategori & Harga</th>
                 <th class="p-3.5">Tautan Shopee</th>
-                <th class="p-3.5 max-w-xs">Selling Points (Prompt AI)</th>
                 <th class="p-3.5 text-center">Media Sesi</th>
                 <th class="p-3.5 text-right">Aksi</th>
               </tr>
@@ -1337,20 +1265,19 @@
             <tbody class="divide-y divide-slate-100">
               <template x-for="item in filteredProducts" :key="item.product_id">
                 <tr class="hover:bg-slate-50/80 transition">
-                  <!-- Thumbnail & Nama Produk -->
+                  <!-- Thumbnail & Nama Produk (Klikable Detail) -->
                   <td class="p-3.5">
-                    <div class="flex items-center space-x-3">
-                      <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <div @click="openProductDetailModal(item)" class="flex items-center space-x-3 cursor-pointer group" title="Klik untuk lihat detail produk lengkap">
+                      <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0 group-hover:ring-2 group-hover:ring-emerald-500 transition">
                         <template x-if="item.product_image_url">
                           <img :src="item.product_image_url" class="w-full h-full object-cover" alt="Thumb">
                         </template>
                         <template x-if="!item.product_image_url">
-                          <i data-lucide="package" class="w-5 h-5 text-slate-400"></i>
+                          <i data-lucide="package" class="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition"></i>
                         </template>
                       </div>
                       <div class="min-w-0">
-                        <div class="font-bold text-slate-900 truncate max-w-[200px]" x-text="item.product_name"></div>
-                        <div class="font-mono text-[10px] text-slate-400 mt-0.5" x-text="item.product_id"></div>
+                        <div class="font-bold text-slate-900 truncate max-w-[240px] group-hover:text-emerald-700 transition" x-text="item.product_name"></div>
                         <div class="flex items-center space-x-1 mt-1">
                           <template x-if="!item.allowed_accounts || item.allowed_accounts.length === 0">
                             <span class="inline-flex items-center px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold text-[9px]">
@@ -1374,7 +1301,7 @@
                   </td>
 
                   <!-- Tautan Shopee Asli vs Affiliate -->
-                  <td class="p-3.5 max-w-[220px]">
+                  <td class="p-3.5 max-w-[260px]">
                     <div class="space-y-1 text-[11px]">
                       <div class="flex items-center space-x-1 truncate" title="Link Toko/Shopee Asli">
                         <span class="text-[9px] font-bold uppercase text-slate-400 flex-shrink-0">Toko:</span>
@@ -1395,17 +1322,6 @@
                     </div>
                   </td>
 
-                  <!-- Poin Penjualan / Selling Points -->
-                  <td class="p-3.5 max-w-xs">
-                    <div class="bg-purple-50/70 border border-purple-100 rounded-lg p-2 text-[11px] text-purple-900 line-clamp-2">
-                      <div class="flex items-center space-x-1 font-bold text-purple-700 text-[9px] uppercase mb-0.5">
-                        <i data-lucide="sparkles" class="w-3 h-3"></i>
-                        <span>AI Selling Points</span>
-                      </div>
-                      <span x-text="item.selling_points || 'Belum ada selling points. Klik edit untuk menambahkan.'"></span>
-                    </div>
-                  </td>
-
                   <!-- Jumlah Media Sesi (Klik untuk Buka Modal Galeri Produk) -->
                   <td class="p-3.5 text-center whitespace-nowrap">
                     <button type="button" @click="openProductMediaModal(item)" class="badge badge-sm font-mono font-bold py-2.5 px-3 rounded-lg border transition flex items-center space-x-1.5 mx-auto group cursor-pointer" :class="getProductMediaCount(item.product_id) > 0 ? 'bg-slate-900 hover:bg-emerald-600 text-white border-transparent' : 'bg-slate-100 text-slate-400 hover:bg-slate-200 border-slate-200'" title="Lihat Galeri Media Produk Ini">
@@ -1414,20 +1330,14 @@
                     </button>
                   </td>
 
-                  <!-- Aksi Per Baris -->
+                  <!-- Aksi Per Baris (Ringkas & Bersih) -->
                   <td class="p-3.5 text-right whitespace-nowrap">
                     <div class="flex items-center justify-end space-x-1.5">
-                      <button type="button" @click="sendProductToAi(item)" title="Gunakan untuk AI Hook Studio di Composer" class="p-2 text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition">
-                        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-                      </button>
                       <button type="button" @click="openEditProductModal(item)" title="Edit Produk" class="p-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
                         <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                       </button>
                       <button type="button" @click="confirmDeleteProduct(item)" title="Hapus Produk & Media Terkait" class="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition">
                         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                      </button>
-                      <button type="button" @click="openUploadForProduct(item)" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl inline-flex items-center transition shadow-xs">
-                        <i data-lucide="cloud-upload" class="w-3.5 h-3.5 mr-1.5"></i> + Upload Media
                       </button>
                     </div>
                   </td>
@@ -1949,7 +1859,7 @@
             <i data-lucide="bot" class="w-4 h-4 mr-2 text-purple-600"></i>
             <span>Tab 1: Konfigurasi AI (Sumopod & Gemini)</span>
           </button>
-          <button type="button" @click="settingsSubTab = 'cloudinary'; $nextTick(() => lucide.createIcons())" :class="settingsSubTab === 'cloudinary' ? 'bg-white border-b-2 border-blue-600 text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'" class="px-5 py-3.5 text-xs flex items-center whitespace-nowrap transition">
+          <button type="button" @click="settingsSubTab = 'cloudinary'; if (!cloudinaryUsage && settings.cloudinary_cloud && settings.cloudinary_api_key && settings.cloudinary_api_secret) { fetchCloudinaryUsage(); } $nextTick(() => lucide.createIcons())" :class="settingsSubTab === 'cloudinary' ? 'bg-white border-b-2 border-blue-600 text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'" class="px-5 py-3.5 text-xs flex items-center whitespace-nowrap transition">
             <i data-lucide="cloud-cog" class="w-4 h-4 mr-2 text-blue-600"></i>
             <span>Tab 2: Penyimpanan Media (Cloudinary)</span>
           </button>
@@ -2018,6 +1928,76 @@
 
         <!-- Sub-Tab 2: Penyimpanan Media Cloudinary -->
         <div x-show="settingsSubTab === 'cloudinary'" class="p-6 space-y-6">
+
+          <!-- Storage Bar Indikator Kapasitas Cloudinary -->
+          <div class="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                  <i data-lucide="hard-drive" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <h3 class="text-xs font-bold text-slate-900 uppercase">Kapasitas Penyimpanan Cloudinary</h3>
+                    <span class="badge badge-xs font-mono font-bold" :class="cloudinaryUsage ? 'badge-primary' : 'badge-ghost'" x-text="cloudinaryUsage ? ('Plan: ' + cloudinaryUsage.plan) : 'Status: Menunggu Cek'"></span>
+                  </div>
+                  <span class="text-[11px] text-slate-500">Monitoring sisa ruang foto/video ulasan Shopee secara live dari Cloudinary Admin API.</span>
+                </div>
+              </div>
+              <button type="button" @click="fetchCloudinaryUsage()" :disabled="isLoadingCloudUsage" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center transition shadow-2xs disabled:opacity-50 flex-shrink-0">
+                <span x-show="isLoadingCloudUsage" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+                <i x-show="!isLoadingCloudUsage" data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1.5"></i>
+                <span>Cek Kapasitas Sekarang</span>
+              </button>
+            </div>
+
+            <!-- Progress Bar Batang Persentase -->
+            <div class="space-y-1.5">
+              <div class="flex justify-between items-center text-xs font-semibold">
+                <span class="text-slate-700">Ruang Terpakai:</span>
+                <span class="font-mono" :class="{
+                  'text-emerald-700 font-bold': !cloudinaryUsage || cloudinaryUsage.used_percent < 70,
+                  'text-amber-700 font-bold': cloudinaryUsage && cloudinaryUsage.used_percent >= 70 && cloudinaryUsage.used_percent < 90,
+                  'text-rose-700 font-bold': cloudinaryUsage && cloudinaryUsage.used_percent >= 90
+                }" x-text="cloudinaryUsage ? (cloudinaryUsage.used_percent + '% Terpakai') : 'Belum dihitung'"></span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
+                <div class="h-3 rounded-full transition-all duration-500"
+                     :class="{
+                       'bg-emerald-500': !cloudinaryUsage || cloudinaryUsage.used_percent < 70,
+                       'bg-amber-500': cloudinaryUsage && cloudinaryUsage.used_percent >= 70 && cloudinaryUsage.used_percent < 90,
+                       'bg-rose-500': cloudinaryUsage && cloudinaryUsage.used_percent >= 90
+                     }"
+                     :style="'width: ' + (cloudinaryUsage ? Math.max(2, Math.min(100, cloudinaryUsage.used_percent)) : 0) + '%'"></div>
+              </div>
+            </div>
+
+            <!-- Grid Metrik Rinci Penyimpanan -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 text-xs">
+              <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Total Terpakai</span>
+                <span class="font-mono font-bold text-slate-800 text-sm" x-text="cloudinaryUsage ? formatStorage(cloudinaryUsage.used_bytes) : '-'"></span>
+              </div>
+              <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Sisa Kapasitas</span>
+                <span class="font-mono font-bold text-emerald-700 text-sm" x-text="cloudinaryUsage ? formatStorage(Math.max(0, cloudinaryUsage.limit_bytes - cloudinaryUsage.used_bytes)) : '-'"></span>
+              </div>
+              <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Batas Maksimum</span>
+                <span class="font-mono font-bold text-slate-700 text-sm" x-text="cloudinaryUsage ? formatStorage(cloudinaryUsage.limit_bytes) : '-'"></span>
+              </div>
+              <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Total File / Media</span>
+                <span class="font-mono font-bold text-blue-700 text-sm" x-text="cloudinaryUsage ? (cloudinaryUsage.objects_count + ' aset') : '-'"></span>
+              </div>
+            </div>
+
+            <div x-show="cloudinaryUsage && cloudinaryUsage.used_percent >= 85" class="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800 flex items-center space-x-2">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 flex-shrink-0"></i>
+              <span>Peringatan: Kapasitas Cloudinary Anda mendekati batas kuota (>= 85%). Hapus media produk usang untuk mencegah kegagalan upload baru.</span>
+            </div>
+          </div>
+
           <div class="p-5 bg-blue-50/50 rounded-2xl border border-blue-200/80 space-y-4">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-2">
@@ -2226,6 +2206,71 @@
         <button type="button" @click="saveViralRef()" :disabled="isSavingViralRef" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl flex items-center shadow-sm disabled:opacity-50 transition">
           <span x-show="isSavingViralRef" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
           <span x-text="isSavingViralRef ? 'Menyimpan...' : (isEditingViralRef ? 'Simpan Perubahan' : 'Simpan Referensi')"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PEMILIH HOOK DARI BANK SWIPE-FILE -->
+  <div x-show="modals.hookPickerModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div @click.away="closeModal('hookPickerModal')" class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-5 border border-slate-200 max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+            <i data-lucide="bookmark" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Pilih dari Bank Hook Viral</h3>
+            <span class="text-[11px] text-slate-500">Klik untuk langsung menyisipkan hook ke dalam teks utas</span>
+          </div>
+        </div>
+        <button @click="closeModal('hookPickerModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <!-- Filter Kategori & Search -->
+      <div class="space-y-2 mb-3">
+        <div class="relative">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+          <input type="text" x-model="hookPickerSearch" placeholder="Cari teks hook atau rumus..." class="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 bg-slate-50">
+          <button x-show="hookPickerSearch" @click="hookPickerSearch = ''" class="absolute right-2 top-2 text-slate-400 hover:text-slate-600">
+            <i data-lucide="x" class="w-3 h-3"></i>
+          </button>
+        </div>
+
+        <div class="flex space-x-1 overflow-x-auto pb-1 scrollbar-none">
+          <button type="button" @click="hookPickerCategory = 'ALL'" :class="hookPickerCategory === 'ALL' ? 'bg-slate-900 text-white font-bold' : 'bg-slate-100 text-slate-700'" class="px-2.5 py-1 rounded-lg text-[10px] whitespace-nowrap transition">Semua</button>
+          <template x-for="cat in hookCategories" :key="cat">
+            <button type="button" @click="hookPickerCategory = cat" :class="hookPickerCategory === cat ? 'bg-slate-900 text-white font-bold' : 'bg-slate-100 text-slate-700'" class="px-2.5 py-1 rounded-lg text-[10px] whitespace-nowrap transition" x-text="cat"></button>
+          </template>
+        </div>
+      </div>
+
+      <!-- List of Hooks -->
+      <div class="flex-1 overflow-y-auto space-y-2 pr-1">
+        <template x-for="hk in filteredPickerHooks" :key="hk.hook_id">
+          <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-emerald-50/40 hover:border-emerald-300 transition space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800" x-text="hk.category"></span>
+              <button type="button" @click="insertHookToThread(hk.hook_text)" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition shadow-2xs flex items-center">
+                <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Sisipkan Hook
+              </button>
+            </div>
+            <p class="text-xs text-slate-800 italic leading-relaxed" x-text="hk.hook_text"></p>
+            <div x-show="hk.formula" class="text-[9px] text-slate-400 font-mono" x-text="'Rumus: ' + hk.formula"></div>
+          </div>
+        </template>
+
+        <div x-show="filteredPickerHooks.length === 0" class="text-center py-8 text-xs text-slate-400">
+          Tidak ada hook yang cocok dengan pencarian atau filter.
+        </div>
+      </div>
+
+      <div class="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+        <button type="button" @click="closeModal('hookPickerModal'); openModal('addHookModal')" class="text-emerald-700 hover:underline font-bold flex items-center">
+          <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> Tambah Hook Baru
+        </button>
+        <button type="button" @click="closeModal('hookPickerModal')" class="px-4 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-xl transition">
+          Tutup
         </button>
       </div>
     </div>
@@ -2867,7 +2912,7 @@
     </div>
   </div>
 
-  <!-- ADD / EDIT PRODUCT MODAL DENGAN SELLING POINTS & TAUTAN JELAS -->
+  <!-- ADD / EDIT PRODUCT MODAL (RINGKAS & FOKUS NAMA, KATEGORI, DAN TAUTAN SHOPEE) -->
   <div x-show="modals.addProductModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
     <div @click.away="closeModal('addProductModal')" class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-slate-200">
       <div class="flex justify-between items-center mb-4">
@@ -2876,14 +2921,14 @@
             <i data-lucide="shopping-bag" class="w-4 h-4"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-900" x-text="isEditingProduct ? 'Edit Data Produk Shopee' : 'Tambah Produk Master Shopee'"></h3>
-            <span class="text-[11px] text-slate-500">Lengkapi detail & selling points untuk acuan pembuatan AI Caption</span>
+            <h3 class="text-sm font-bold text-slate-900" x-text="isEditingProduct ? 'Edit Data Produk Shopee' : 'Tambah Produk Baru'"></h3>
+            <span class="text-[11px] text-slate-500">Masukkan nama produk, kategori, dan tautan resmi Shopee</span>
           </div>
         </div>
         <button @click="closeModal('addProductModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
 
-      <div class="space-y-3 text-xs max-h-[70vh] overflow-y-auto pr-1">
+      <div class="space-y-3.5 text-xs max-h-[70vh] overflow-y-auto pr-1">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Nama Produk <span class="text-rose-500">*</span></label>
           <input type="text" x-model="newProd.product_name" placeholder="Contoh: Lampu Tidur Akrilik Aesthetic" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
@@ -2900,70 +2945,12 @@
           </div>
         </div>
 
-        <!-- Pemilih Gambar Sampul / Cover Visual dari Media Cloudinary -->
-        <div class="space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="font-semibold text-slate-700 flex items-center">
-              <i data-lucide="image" class="w-3.5 h-3.5 text-emerald-600 mr-1.5"></i> Foto Sampul / Cover Produk
-            </label>
-            <span class="text-[10px] text-slate-400" x-text="newProd.product_image_url ? 'Cover Terpasang' : 'Pilih dari media Cloudinary'"></span>
-          </div>
-
-          <!-- Preview Cover Terpilih -->
-          <div class="flex items-center space-x-3 p-2 bg-slate-50 border border-slate-200 rounded-xl">
-            <div class="w-12 h-12 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0 relative">
-              <template x-if="newProd.product_image_url">
-                <img :src="newProd.product_image_url" class="w-full h-full object-cover" alt="Cover">
-              </template>
-              <template x-if="!newProd.product_image_url">
-                <i data-lucide="image" class="w-5 h-5 text-slate-300"></i>
-              </template>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="text-[11px] font-bold text-slate-800 truncate" x-text="newProd.product_image_url ? 'Gambar sampul aktif' : 'Belum ada gambar sampul'"></div>
-              <div class="text-[9px] text-slate-400 font-mono truncate" x-text="newProd.product_image_url || 'Klik salah satu media Cloudinary di bawah'"></div>
-              <button type="button" x-show="newProd.product_image_url" @click="newProd.product_image_url = ''" class="text-[10px] text-rose-600 font-bold hover:underline mt-0.5 block">Hapus Cover</button>
-            </div>
-          </div>
-
-          <!-- Grid Thumbnail Media Cloudinary Produk -->
-          <div>
-            <div class="text-[10px] font-semibold text-slate-600 mb-1 flex items-center justify-between">
-              <span>Pilih Media Cloudinary untuk Cover:</span>
-              <span class="text-[10px] text-slate-400 font-mono" x-text="getNewProdAvailableImages().length + ' foto'"></span>
-            </div>
-            <div class="grid grid-cols-4 sm:grid-cols-5 gap-1.5 max-h-32 overflow-y-auto p-1.5 bg-slate-50/60 rounded-xl border border-slate-200">
-              <template x-for="m in getNewProdAvailableImages()" :key="m.media_id">
-                <button type="button" @click="newProd.product_image_url = m.media_url" :class="newProd.product_image_url === m.media_url ? 'ring-2 ring-emerald-500 border-emerald-500' : 'border-slate-200 hover:border-slate-400'" class="relative aspect-square rounded-lg overflow-hidden border bg-white group transition">
-                  <img :src="m.media_url" class="w-full h-full object-cover" alt="thumb">
-                  <div x-show="newProd.product_image_url === m.media_url" class="absolute inset-0 bg-emerald-600/30 flex items-center justify-center">
-                    <div class="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold shadow">✓</div>
-                  </div>
-                </button>
-              </template>
-            </div>
-            <div x-show="getNewProdAvailableImages().length === 0" class="text-center py-2.5 text-[10px] text-slate-400 italic">
-              Belum ada foto media Cloudinary. Unggah media di galeri produk atau tempel URL manual.
-            </div>
-          </div>
-
-          <!-- Fallback Input URL Manual -->
-          <div x-data="{ showManualUrl: false }">
-            <button type="button" @click="showManualUrl = !showManualUrl" class="text-[10px] text-slate-500 hover:text-slate-800 font-medium underline">
-              <span x-text="showManualUrl ? 'Sembunyikan Input URL Manual' : 'Atau tempel URL gambar manual...'"></span>
-            </button>
-            <div x-show="showManualUrl" class="mt-1">
-              <input type="text" x-model="newProd.product_image_url" placeholder="https://res.cloudinary.com/... atau URL foto web" class="w-full p-2 border border-slate-300 rounded-lg text-[11px] font-mono bg-white">
-            </div>
-          </div>
-        </div>
-
         <div>
           <label class="block font-semibold text-slate-700 mb-1">
             URL Halaman Produk Shopee Asli <span class="text-rose-500">*</span>
           </label>
           <input type="text" x-model="newProd.shopee_raw_url" placeholder="https://affiliate.shopee.co.id/offer/product_offer/..." class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono text-[11px] bg-white">
-          <span class="text-[10px] text-slate-400 mt-0.5 block">Wajib format resmi Shopee Affiliate Offer: <code class="text-emerald-700 font-mono">https://affiliate.shopee.co.id/offer/product_offer/...</code></span>
+          <span class="text-[10px] text-slate-400 mt-0.5 block">Format resmi: <code class="text-emerald-700 font-mono">https://affiliate.shopee.co.id/offer/product_offer/...</code></span>
         </div>
 
         <div>
@@ -2972,14 +2959,10 @@
           <span class="text-[10px] text-emerald-600 mt-0.5 block">Disisipkan sebagai plain text domain pendek tanpa https:// agar tidak memicu card preview Threads</span>
         </div>
 
+        <!-- URL Gambar Sampul Sederhana (Opsional) -->
         <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="font-semibold text-slate-700 flex items-center">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-600 mr-1"></i> Deskripsi & Poin Penjualan (Selling Points)
-            </label>
-            <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded">Acuan AI Generator</span>
-          </div>
-          <textarea x-model="newProd.selling_points" rows="3" placeholder="Tuliskan keunggulan produk. Contoh: Hemat daya baterai tahan 12 jam, cahaya hangat tidak bikin silau mata, garansi toko 1 tahun, gratis kabel USB Type-C." class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 bg-white"></textarea>
+          <label class="block font-semibold text-slate-700 mb-1">URL Foto Sampul Produk (Opsional)</label>
+          <input type="text" x-model="newProd.product_image_url" placeholder="https://... (URL gambar)" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono text-[11px] bg-white">
         </div>
 
         <!-- Pengaturan Relasi Akun (Allowed Accounts) -->
@@ -2988,7 +2971,7 @@
             <label class="font-semibold text-slate-700 flex items-center">
               <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Akun yang Diizinkan (Allowed Accounts)
             </label>
-            <span class="text-[10px] text-slate-400">Kosongkan jika bebas untuk semua akun</span>
+            <span class="text-[10px] text-slate-400">Bebas jika tidak dipilih</span>
           </div>
           <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
             <div class="flex items-center justify-between text-[11px]">
@@ -3017,6 +3000,90 @@
         <button type="button" @click="saveProduct()" :disabled="isSavingProduct" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-xl flex items-center transition shadow-sm disabled:opacity-50">
           <span x-show="isSavingProduct" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
           <span x-text="isSavingProduct ? 'Menyimpan...' : (isEditingProduct ? 'Simpan Perubahan' : 'Simpan Produk')"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DETAIL PRODUK LENGKAP (INTERAKSI KLIK PRODUK) -->
+  <div x-show="modals.productDetailModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div @click.away="closeModal('productDetailModal')" class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-start mb-4 pb-3 border-b border-slate-100">
+        <div class="flex items-center space-x-3">
+          <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+            <template x-if="selectedProductDetail && selectedProductDetail.product_image_url">
+              <img :src="selectedProductDetail.product_image_url" class="w-full h-full object-cover" alt="Thumb">
+            </template>
+            <template x-if="!selectedProductDetail || !selectedProductDetail.product_image_url">
+              <i data-lucide="package" class="w-6 h-6 text-slate-400"></i>
+            </template>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900 leading-snug" x-text="selectedProductDetail ? selectedProductDetail.product_name : 'Detail Produk'"></h3>
+            <div class="flex items-center space-x-2 text-[11px] text-slate-500 mt-0.5">
+              <span class="font-bold text-emerald-700" x-text="'Rp ' + Number(selectedProductDetail?.price || 0).toLocaleString('id-ID')"></span>
+              <span>•</span>
+              <span class="px-2 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold uppercase text-[10px]" x-text="selectedProductDetail?.category || 'General'"></span>
+            </div>
+          </div>
+        </div>
+        <button @click="closeModal('productDetailModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-3.5 text-xs overflow-y-auto flex-1 pr-1">
+        <!-- ID Produk -->
+        <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+          <span class="text-slate-500 font-medium">ID Produk:</span>
+          <span class="font-mono font-bold text-slate-800" x-text="selectedProductDetail?.product_id || '-'"></span>
+        </div>
+
+        <!-- Tautan Shopee Asli -->
+        <div>
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">URL Halaman Produk Shopee Asli</label>
+          <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+            <span class="truncate font-mono text-[11px] text-blue-700" x-text="selectedProductDetail?.shopee_raw_url || 'Belum diisi'"></span>
+            <a x-show="selectedProductDetail?.shopee_raw_url" :href="selectedProductDetail?.shopee_raw_url" target="_blank" class="p-1 text-blue-600 hover:text-blue-800 flex-shrink-0" title="Buka tautan">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Tautan Shopee Affiliate -->
+        <div>
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">URL Shopee Affiliate (Shortlink Spill)</label>
+          <div class="p-2.5 bg-emerald-50/60 rounded-xl border border-emerald-200 flex items-center justify-between gap-2">
+            <span class="truncate font-mono text-[11px] text-emerald-800 font-semibold" x-text="selectedProductDetail?.shopee_affiliate_url || 'Belum diisi'"></span>
+            <a x-show="selectedProductDetail?.shopee_affiliate_url" :href="selectedProductDetail?.shopee_affiliate_url" target="_blank" class="p-1 text-emerald-700 hover:text-emerald-900 flex-shrink-0" title="Buka tautan affiliate">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Akun yang Diizinkan -->
+        <div>
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Akun yang Diizinkan (Allowed Accounts)</label>
+          <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+            <span class="font-semibold text-slate-700" x-text="getAllowedAccountNames(selectedProductDetail?.allowed_accounts)"></span>
+          </div>
+        </div>
+
+        <!-- Statistik Media Sesi Produk -->
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="layers" class="w-4 h-4 text-emerald-600"></i>
+            <span class="font-medium text-slate-700">Media Sesi Ulasan:</span>
+          </div>
+          <button type="button" @click="closeModal('productDetailModal'); openProductMediaModal(selectedProductDetail)" class="px-3 py-1 bg-slate-900 hover:bg-emerald-600 text-white font-bold rounded-lg text-xs flex items-center transition">
+            <i data-lucide="image" class="w-3.5 h-3.5 mr-1.5"></i>
+            <span x-text="getProductMediaCount(selectedProductDetail?.product_id) + ' Media (Buka Galeri)'"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button type="button" @click="closeModal('productDetailModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Tutup</button>
+        <button type="button" @click="closeModal('productDetailModal'); openEditProductModal(selectedProductDetail)" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl flex items-center transition">
+          <i data-lucide="pencil" class="w-3.5 h-3.5 mr-1.5"></i> Edit Produk Ini
         </button>
       </div>
     </div>
@@ -3446,7 +3513,11 @@
         },
 
         // Modals & Toasts
-        modals: { replyModal: false, addProductModal: false, uploadMediaModal: false, productMediaModal: false, addHookModal: false, addViralRefModal: false, ruleModal: false, composerModal: false, postCommentsModal: false, confirmModal: false, editQueueModal: false, threadDetailModal: false, videoPreviewModal: false },
+        modals: { replyModal: false, addProductModal: false, productDetailModal: false, uploadMediaModal: false, productMediaModal: false, addHookModal: false, addViralRefModal: false, ruleModal: false, composerModal: false, postCommentsModal: false, confirmModal: false, editQueueModal: false, threadDetailModal: false, videoPreviewModal: false, hookPickerModal: false },
+        selectedProductDetail: null,
+        targetThreadForHook: null,
+        hookPickerSearch: '',
+        hookPickerCategory: 'ALL',
         previewVideoUrl: '',
         previewVideoTitle: '',
         selectedThreadPost: { post_id: '', account_id: '', thread_content_json: '', media_ids_json: '', current_views: 0, views_threshold: 500, likes_count: 0, replies_count: 0, permalink: '', auto_reply_sent: false, status: '' },
@@ -3454,6 +3525,8 @@
         replyContent: '',
         isDeleting: false,
         isUpdatingQueue: false,
+        cloudinaryUsage: null,
+        isLoadingCloudUsage: false,
         confirmData: { title: '', message: '', actionType: '', targetId: '', confirmText: 'Ya, Hapus' },
         editingQueuePost: { post_id: '', account_id: '', root_content: '', views_threshold: 500, scheduled_time: '', status: 'SCHEDULED' },
         currentScriptUrl: (function() {
@@ -3973,6 +4046,39 @@
           if (this.threadList.length > 1) this.threadList.splice(idx, 1);
         },
 
+        openHookPicker(thread) {
+          this.targetThreadForHook = thread;
+          this.hookPickerSearch = '';
+          this.hookPickerCategory = 'ALL';
+          this.openModal('hookPickerModal');
+        },
+
+        insertHookToThread(hookText) {
+          if (!this.targetThreadForHook) return;
+          var current = (this.targetThreadForHook.content || '').trim();
+          this.targetThreadForHook.content = hookText + (current ? '\n\n' + current : '');
+          this.closeModal('hookPickerModal');
+          this.showToast('Hook berhasil disisipkan ke utas!');
+          this.$nextTick(() => { lucide.createIcons(); });
+        },
+
+        get filteredPickerHooks() {
+          var list = this.hooks || [];
+          if (this.hookPickerCategory !== 'ALL') {
+            var cat = this.hookPickerCategory;
+            list = list.filter(function(h) { return h.category === cat; });
+          }
+          if (this.hookPickerSearch && this.hookPickerSearch.trim()) {
+            var q = this.hookPickerSearch.toLowerCase().trim();
+            list = list.filter(function(h) {
+              var t = (h.hook_text || '').toLowerCase();
+              var f = (h.formula || '').toLowerCase();
+              return t.indexOf(q) !== -1 || f.indexOf(q) !== -1;
+            });
+          }
+          return list;
+        },
+
         applyHook(text) {
           if (this.threadList.length > 0) {
             var current = (this.threadList[0].content || '').trim();
@@ -4100,6 +4206,11 @@
 
         handleFilesSelect(e) {
           this.selectedFiles = Array.from(e.target.files || []);
+        },
+
+        openProductDetailModal(item) {
+          this.selectedProductDetail = item;
+          this.openModal('productDetailModal');
         },
 
         openAddProductModal() {
@@ -5453,6 +5564,50 @@
             } else {
               this.showToast(res.message, 'error');
             }
+          });
+        },
+
+        formatStorage(bytes) {
+          if (!bytes || isNaN(bytes) || bytes <= 0) return '0 MB';
+          if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+          if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+          return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        },
+
+        fetchCloudinaryUsage() {
+          if (!this.settings.cloudinary_cloud || !this.settings.cloudinary_api_key || !this.settings.cloudinary_api_secret) {
+            this.showToast('Lengkapi Cloud Name, API Key, dan API Secret terlebih dahulu', 'error');
+            return;
+          }
+          this.isLoadingCloudUsage = true;
+          var self = this;
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'getCloudinaryUsage',
+              payload: {
+                cloudinary_cloud: this.settings.cloudinary_cloud,
+                cloudinary_api_key: this.settings.cloudinary_api_key,
+                cloudinary_api_secret: this.settings.cloudinary_api_secret
+              }
+            })
+          })
+          .then(function(r) { return r.text(); })
+          .then(function(text) {
+            var res = JSON.parse(text);
+            if (res.ok && res.data) {
+              self.cloudinaryUsage = res.data;
+              self.showToast('Data kapasitas Cloudinary berhasil diperbarui!');
+            } else {
+              self.showToast(res.message || 'Gagal mengambil data Cloudinary', 'error');
+            }
+            self.isLoadingCloudUsage = false;
+            self.$nextTick(function() { lucide.createIcons(); });
+          })
+          .catch(function(err) {
+            self.isLoadingCloudUsage = false;
+            self.showToast('Gagal terhubung ke Cloudinary: ' + err.message, 'error');
           });
         },
 
