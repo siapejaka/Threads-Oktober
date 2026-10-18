@@ -2409,7 +2409,7 @@
 
   <!-- MODAL TAMBAH / EDIT REFERENSI VIRAL (RANGKAIAN UTAS DINAMIS DENGAN MEDIA CAROUSEL) -->
   <div x-show="modals.addViralRefModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4">
-    <div @click.away="!isSavingViralRef && closeModal('addViralRefModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-3xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col">
+    <div @click.away="!isSavingViralRef && closeModal('addViralRefModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col">
       <div class="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-100 flex-shrink-0">
         <div class="flex items-center space-x-2.5">
           <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold flex-shrink-0">
@@ -2417,32 +2417,29 @@
           </div>
           <div>
             <h3 class="text-sm sm:text-base font-bold text-slate-900" x-text="isEditingViralRef ? 'Edit Referensi Viral' : 'Simpan Formula Referensi Viral'"></h3>
-            <span class="text-[11px] text-slate-500 font-medium">Swipe-File Vault • Rangkaian Utas & Lampiran Media Ulasan</span>
+            <span class="text-[11px] text-slate-500 font-medium">Swipe-File Vault • Rangkaian Utas Split-Screen & Lampiran Media</span>
           </div>
         </div>
         <button @click="closeModal('addViralRefModal')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
 
       <div class="space-y-4 text-xs overflow-y-auto flex-1 pr-1">
-        <!-- Input Judul Otomatis / Opsional -->
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">
-            Judul / Label Referensi <span class="text-slate-400 font-normal text-[11px]">(Opsional - otomatis diambil dari 30 karakter Utas #1)</span>
-          </label>
-          <input type="text" x-model="newViralRef.title" placeholder="Kosongkan jika ingin dibuatkan otomatis dari isi Utas #1..." class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium focus:ring-2 focus:ring-amber-500">
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <!-- Metadata Header: 3 Kolom Responsif -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">
+              Judul / Label Referensi
+            </label>
+            <input type="text" x-model="newViralRef.title" placeholder="Otomatis diambil dari Utas #1 jika kosong..." class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium focus:ring-2 focus:ring-amber-500">
+          </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">URL Sumber Postingan (Opsional)</label>
             <input type="text" x-model="newViralRef.original_url" placeholder="https://www.threads.net/@creator/post/..." class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-mono text-[11px] focus:ring-2 focus:ring-amber-500">
           </div>
-
-          <!-- Pemilih Produk Terkait -->
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="font-semibold text-slate-700 flex items-center">
-                <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Produk Terkait (Shopee Master)
+                <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Produk Terkait
               </label>
               <button type="button" @click="closeModal('addViralRefModal'); openAddProductModal()" class="text-[11px] font-bold text-emerald-700 hover:underline flex items-center">
                 <i data-lucide="plus" class="w-3 h-3 mr-0.5"></i> + Produk
@@ -2457,82 +2454,85 @@
           </div>
         </div>
 
-        <!-- Rangkaian Utas Dinamis & Media Carousel -->
+        <!-- Rangkaian Utas Berdampingan: Split 2-Kolom Desktop (Utas #1 Kiri, Utas #2 Kanan) -->
         <div class="space-y-3 pt-1">
           <div class="flex items-center justify-between border-b border-slate-200/80 pb-2">
             <span class="font-bold text-slate-900 flex items-center text-xs">
-              <i data-lucide="list-ordered" class="w-4 h-4 text-amber-600 mr-1.5"></i> Rangkaian Teks Utas & Media Lampiran:
+              <i data-lucide="layout-grid" class="w-4 h-4 text-amber-600 mr-1.5"></i> Editor Rangkaian Utas Berdampingan (Utas #1 &amp; Utas #2):
             </span>
             <span class="badge badge-sm badge-neutral font-mono font-bold" x-text="newViralRef.threads.length + ' Utas'"></span>
           </div>
 
-          <template x-for="(thread, idx) in newViralRef.threads" :key="idx">
-            <div class="p-3 sm:p-4 rounded-2xl border bg-slate-50 space-y-2.5 transition" :class="idx === 0 ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'">
-              <div class="flex justify-between items-center text-[10px]">
-                <div class="flex items-center space-x-2">
-                  <span class="px-2 py-0.5 rounded font-bold uppercase shadow-2xs" :class="idx === 0 ? 'bg-amber-600 text-white' : 'bg-slate-700 text-white'" x-text="idx === 0 ? 'Utas #1 (Root Hook)' : 'Utas #' + (idx + 1) + ' (Lanjutan)'"></span>
-                  <span class="font-mono text-slate-400" x-text="((thread.content ? thread.content.length : 0) + ' kar')"></span>
-                  <span x-show="thread.media_urls && thread.media_urls.length > 0" class="badge badge-xs badge-warning font-mono font-bold" x-text="thread.media_urls.length + ' Media'"></span>
-                </div>
-                <div class="flex items-center space-x-1.5">
-                  <button type="button" @click="thread._showMediaInput = !thread._showMediaInput; $nextTick(() => lucide.createIcons())" class="text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg flex items-center transition shadow-2xs">
-                    <i data-lucide="image-plus" class="w-3.5 h-3.5 mr-1 text-amber-700"></i>
-                    <span x-text="thread._showMediaInput ? 'Tutup Pilihan Media' : '+ Tambah Media Referensi'"></span>
-                  </button>
-                  <button type="button" x-show="newViralRef.threads.length > 1" @click="removeViralRefThreadNode(idx)" class="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition" title="Hapus Utas Ini">
-                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Input Media Helper (Muncul Saat Tombol + Tambah Media Diklik) -->
-              <div x-show="thread._showMediaInput" class="p-3 bg-white rounded-xl border border-amber-200 space-y-2 text-xs">
-                <div class="flex items-center justify-between">
-                  <span class="font-bold text-slate-800 text-[11px] flex items-center">
-                    <i data-lucide="link" class="w-3 h-3 mr-1 text-amber-600"></i> Masukkan URL Gambar atau Upload Contoh:
-                  </span>
-                  <button type="button" @click="thread._showMediaInput = false" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-3 h-3"></i></button>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <input type="text" x-model="thread._tempMediaUrl" @keyup.enter="addRefMediaUrl(idx)" placeholder="https://... tempelkan URL gambar contoh" class="flex-1 p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white focus:ring-1 focus:ring-amber-500 font-mono">
-                  <button type="button" @click="addRefMediaUrl(idx)" class="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs flex items-center transition shadow-2xs flex-shrink-0">
-                    <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Tambah URL
-                  </button>
-                </div>
-                <div class="flex items-center justify-between pt-1 border-t border-slate-100">
-                  <label class="cursor-pointer text-[11px] font-bold text-blue-700 hover:text-blue-800 flex items-center">
-                    <input type="file" accept="image/*" @change="handleRefFileUpload($event, idx)" class="hidden">
-                    <i data-lucide="upload" class="w-3 h-3 mr-1 text-blue-600"></i>
-                    <span>Atau Upload File Gambar</span>
-                  </label>
-                  <span class="text-[10px] text-slate-400 font-mono">JPG / PNG / WebP</span>
-                </div>
-              </div>
-
-              <!-- Galeri Thumbnail Media Referensi (Horizontal Scroll Row) -->
-              <div x-show="thread.media_urls && thread.media_urls.length > 0" class="flex items-center space-x-2.5 overflow-x-auto py-1 scrollbar-thin">
-                <template x-for="(mUrl, mIdx) in (thread.media_urls || [])" :key="mIdx">
-                  <div class="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-white group shadow-2xs">
-                    <img :src="mUrl" class="w-full h-full object-cover" alt="ref media">
-                    <button type="button" @click="removeRefMedia(idx, mIdx)" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-slate-900/80 hover:bg-rose-600 text-white flex items-center justify-center transition opacity-90 group-hover:opacity-100 shadow-sm" title="Hapus Media Ini">
-                      <i data-lucide="x" class="w-3 h-3"></i>
-                    </button>
-                    <span class="absolute bottom-1 left-1 px-1.5 py-0.2 rounded bg-black/60 text-white font-mono text-[8px] font-bold" x-text="'#' + (mIdx + 1)"></span>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <template x-for="(thread, idx) in newViralRef.threads" :key="idx">
+              <div class="p-3.5 sm:p-4 rounded-2xl border bg-slate-50 space-y-2.5 transition flex flex-col justify-between" :class="idx === 0 ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'">
+                <div class="flex justify-between items-center text-[10px]">
+                  <div class="flex items-center space-x-2">
+                    <span class="px-2 py-0.5 rounded font-bold uppercase shadow-2xs" :class="idx === 0 ? 'bg-amber-600 text-white' : 'bg-slate-700 text-white'" x-text="idx === 0 ? 'Utas #1 (Root Hook)' : 'Utas #' + (idx + 1) + ' (Lanjutan)'"></span>
+                    <span class="font-mono text-slate-400" x-text="((thread.content ? thread.content.length : 0) + ' kar')"></span>
+                    <span x-show="thread.media_urls && thread.media_urls.length > 0" class="badge badge-xs badge-warning font-mono font-bold" x-text="thread.media_urls.length + ' Media'"></span>
                   </div>
-                </template>
-              </div>
+                  <div class="flex items-center space-x-1.5">
+                    <button type="button" @click="thread._showMediaInput = !thread._showMediaInput; $nextTick(() => lucide.createIcons())" class="text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg flex items-center transition shadow-2xs">
+                      <i data-lucide="image-plus" class="w-3.5 h-3.5 mr-1 text-amber-700"></i>
+                      <span x-text="thread._showMediaInput ? 'Tutup Media' : '+ Media'"></span>
+                    </button>
+                    <button type="button" x-show="newViralRef.threads.length > 1" @click="removeViralRefThreadNode(idx)" class="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition" title="Hapus Utas Ini">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </div>
 
-              <textarea x-model="thread.content" rows="3" :placeholder="idx === 0 ? 'Tulis atau tempelkan kalimat hook pembuka referensi viral...' : 'Tulis atau tempelkan ulasan lanjutan referensi...'" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-xs focus:ring-2 focus:ring-amber-500 leading-relaxed"></textarea>
-            </div>
-          </template>
+                <!-- Input Media Helper (Muncul Saat Tombol + Tambah Media Diklik) -->
+                <div x-show="thread._showMediaInput" class="p-3 bg-white rounded-xl border border-amber-200 space-y-2 text-xs">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-slate-800 text-[11px] flex items-center">
+                      <i data-lucide="link" class="w-3 h-3 mr-1 text-amber-600"></i> URL Gambar atau Upload:
+                    </span>
+                    <button type="button" @click="thread._showMediaInput = false" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-3 h-3"></i></button>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <input type="text" x-model="thread._tempMediaUrl" @keyup.enter="addRefMediaUrl(idx)" placeholder="https://... tempelkan URL gambar" class="flex-1 p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white focus:ring-1 focus:ring-amber-500 font-mono">
+                    <button type="button" @click="addRefMediaUrl(idx)" class="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs flex items-center transition shadow-2xs flex-shrink-0">
+                      <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Tambah
+                    </button>
+                  </div>
+                  <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                    <label class="cursor-pointer text-[11px] font-bold text-blue-700 hover:text-blue-800 flex items-center">
+                      <input type="file" accept="image/*" @change="handleRefFileUpload($event, idx)" class="hidden">
+                      <i data-lucide="upload" class="w-3 h-3 mr-1 text-blue-600"></i>
+                      <span>Upload File</span>
+                    </label>
+                    <span class="text-[10px] text-slate-400 font-mono">JPG / PNG / WebP</span>
+                  </div>
+                </div>
+
+                <!-- Galeri Thumbnail Media Referensi (Horizontal Scroll Row) -->
+                <div x-show="thread.media_urls && thread.media_urls.length > 0" class="flex items-center space-x-2.5 overflow-x-auto py-1 scrollbar-thin">
+                  <template x-for="(mUrl, mIdx) in (thread.media_urls || [])" :key="mIdx">
+                    <div class="relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-slate-200 bg-white group shadow-2xs">
+                      <img :src="mUrl" class="w-full h-full object-cover" alt="ref media">
+                      <button type="button" @click="removeRefMedia(idx, mIdx)" class="absolute top-1 right-1 w-4 h-4 rounded-full bg-slate-900/80 hover:bg-rose-600 text-white flex items-center justify-center transition opacity-90 group-hover:opacity-100 shadow-sm" title="Hapus Media">
+                        <i data-lucide="x" class="w-2.5 h-2.5"></i>
+                      </button>
+                      <span class="absolute bottom-1 left-1 px-1 py-0.2 rounded bg-black/60 text-white font-mono text-[7px] font-bold" x-text="'#' + (mIdx + 1)"></span>
+                    </div>
+                  </template>
+                </div>
+
+                <textarea x-model="thread.content" rows="6" :placeholder="idx === 0 ? 'Tulis kalimat hook pembuka viral (Utas #1)...' : 'Tulis ulasan lanjutan atau spill link affiliate (Utas #2)...'" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-xs focus:ring-2 focus:ring-amber-500 leading-relaxed"></textarea>
+              </div>
+            </template>
+          </div>
 
           <button type="button" @click="addViralRefThreadNode()" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 border border-dashed border-slate-300 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center transition">
-            <i data-lucide="plus-circle" class="w-4 h-4 mr-1.5 text-amber-600"></i> + Tambah Utas Lanjutan
+            <i data-lucide="plus-circle" class="w-4 h-4 mr-1.5 text-amber-600"></i> + Tambah Utas Lanjutan (Utas #3, #4, dst.)
           </button>
         </div>
       </div>
 
-      <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end space-x-2 flex-shrink-0">
+      <!-- Action Bar Sticky Footer -->
+      <div class="mt-auto pt-3 border-t border-slate-200 flex justify-end space-x-2 flex-shrink-0 sticky bottom-0 bg-white z-10">
         <button type="button" @click="closeModal('addViralRefModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Batal</button>
         <button type="button" @click="saveViralRef()" :disabled="isSavingViralRef" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl flex items-center shadow-sm disabled:opacity-50 transition">
           <span x-show="isSavingViralRef" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
@@ -3220,164 +3220,173 @@
   </div>
 
   <!-- MODAL PENGATURAN ATURAN AUTOPILOT (TRUE AUTOPILOT OTONOM PENUH) -->
-  <div x-show="modals.ruleModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-    <div @click.away="!isSavingRule && closeModal('ruleModal')" class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[90vh] flex flex-col">
-      <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
-        <div class="flex items-center space-x-2">
-          <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-            <i data-lucide="bot" class="w-4 h-4"></i>
+  <div x-show="modals.ruleModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4">
+    <div @click.away="!isSavingRule && closeModal('ruleModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col">
+      <div class="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-100 flex-shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold flex-shrink-0">
+            <i data-lucide="bot" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-900" x-text="isEditingRule ? 'Edit Aturan True Autopilot' : 'Buat Aturan True Autopilot Baru'"></h3>
-            <span class="text-[11px] text-slate-500 font-medium">Sistem Otonom: Akun &rarr; Auto Produk &rarr; Rotasi Sesi Utuh &rarr; AI Caption</span>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900" x-text="isEditingRule ? 'Edit Aturan True Autopilot' : 'Buat Aturan True Autopilot Baru'"></h3>
+            <span class="text-[11px] text-slate-500 font-medium">Sistem Otonom Split-Screen • Konfigurasi Akun, Kuota &amp; Jendela Jam Tayang</span>
           </div>
         </div>
-        <button @click="closeModal('ruleModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+        <button @click="closeModal('ruleModal')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
 
-      <div class="space-y-3.5 text-xs overflow-y-auto flex-1 pr-1">
-        <!-- Nama Aturan -->
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nama / Label Aturan</label>
-          <input type="text" x-model="currentRule.name" placeholder="Contoh: Autopilot Akun Utama Harian" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium">
-          <span class="text-[10px] text-slate-400 mt-0.5 block">Boleh dikosongkan untuk penamaan otomatis.</span>
-        </div>
+      <!-- Split 2-Kolom Desktop Grid / Stacked 1-Kolom Mobile -->
+      <div class="space-y-4 text-xs overflow-y-auto flex-1 pr-1">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          
+          <!-- KOLOM KIRI: Konfigurasi Akun, Kuota, Target Views, dan Status -->
+          <div class="space-y-3.5">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Nama / Label Aturan</label>
+              <input type="text" x-model="currentRule.name" placeholder="Contoh: Autopilot Akun Utama Harian" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium">
+              <span class="text-[10px] text-slate-400 mt-0.5 block">Boleh dikosongkan untuk penamaan otomatis.</span>
+            </div>
 
-        <!-- 1. Pilih Akun Target Penayangan -->
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="font-semibold text-slate-700 flex items-center">
-              <i data-lucide="users" class="w-3.5 h-3.5 text-purple-700 mr-1"></i> 1. Akun Threads Penayangan <span class="text-rose-500">*</span>
-            </label>
-            <span class="text-[10px] font-mono font-bold text-purple-700" x-text="currentRule.account_ids.length + ' akun dipilih'"></span>
-          </div>
-          <div class="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-slate-50 rounded-xl border border-slate-200">
-            <template x-for="acc in accounts" :key="acc.account_id">
-              <label :class="currentRule.account_ids.indexOf(acc.account_id) > -1 ? 'border-purple-600 bg-purple-50 ring-1 ring-purple-500' : 'border-slate-200 bg-white hover:bg-slate-100'" class="p-2 rounded-lg border flex items-center space-x-1.5 cursor-pointer text-xs transition">
-                <input type="checkbox" :checked="currentRule.account_ids.indexOf(acc.account_id) > -1" @change="toggleRuleAccount(acc.account_id)" class="checkbox checkbox-xs checkbox-secondary">
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center space-x-1.5 truncate">
-                    <span class="truncate font-bold text-slate-800 text-[11px]" x-text="'@' + acc.username"></span>
-                    <span class="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-semibold flex-shrink-0" x-text="acc.category || 'Umum'"></span>
-                  </div>
-                </div>
-              </label>
-            </template>
-          </div>
-          <span class="text-[10px] text-slate-400 mt-1 block">Mesin otomatis mencocokkan produk Shopee yang diizinkan untuk akun-akun ini.</span>
-        </div>
-
-        <!-- 2. Target Kuota Postingan Harian (Bebas Angka) & Jeda Otomatis -->
-        <div class="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-purple-950 flex items-center">
-              <i data-lucide="shield-check" class="w-3.5 h-3.5 mr-1 text-purple-700"></i> 2. Target Kuota Post Harian (Bebas Angka)
-            </span>
-            <span class="badge badge-xs badge-success font-bold text-[9px]">Jeda Otomatis</span>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <!-- 1. Akun Threads Penayangan -->
             <div>
               <div class="flex items-center justify-between mb-1">
-                <label class="block font-semibold text-slate-700">Maks Post / Hari / Akun</label>
-                <div class="flex space-x-1">
-                  <button type="button" @click="currentRule.max_posts_per_day = 3" :class="currentRule.max_posts_per_day === 3 ? 'bg-purple-900 text-white' : 'bg-white border text-slate-600'" class="px-1.5 py-0.2 rounded text-[9px] font-bold">3</button>
-                  <button type="button" @click="currentRule.max_posts_per_day = 8" :class="currentRule.max_posts_per_day === 8 ? 'bg-purple-900 text-white' : 'bg-white border text-slate-600'" class="px-1.5 py-0.2 rounded text-[9px] font-bold">8</button>
-                  <button type="button" @click="currentRule.max_posts_per_day = 12" :class="currentRule.max_posts_per_day === 12 ? 'bg-purple-900 text-white' : 'bg-white border text-slate-600'" class="px-1.5 py-0.2 rounded text-[9px] font-bold">12</button>
+                <label class="font-semibold text-slate-700 flex items-center">
+                  <i data-lucide="users" class="w-3.5 h-3.5 text-purple-700 mr-1"></i> 1. Akun Threads Penayangan <span class="text-rose-500">*</span>
+                </label>
+                <span class="text-[10px] font-mono font-bold text-purple-700" x-text="currentRule.account_ids.length + ' akun dipilih'"></span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
+                <template x-for="acc in accounts" :key="acc.account_id">
+                  <label :class="currentRule.account_ids.indexOf(acc.account_id) > -1 ? 'border-purple-600 bg-purple-50 ring-1 ring-purple-500' : 'border-slate-200 bg-white hover:bg-slate-100'" class="p-2 rounded-lg border flex items-center space-x-1.5 cursor-pointer text-xs transition">
+                    <input type="checkbox" :checked="currentRule.account_ids.indexOf(acc.account_id) > -1" @change="toggleRuleAccount(acc.account_id)" class="checkbox checkbox-xs checkbox-secondary">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center space-x-1.5 truncate">
+                        <span class="truncate font-bold text-slate-800 text-[11px]" x-text="'@' + acc.username"></span>
+                        <span class="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-semibold flex-shrink-0" x-text="acc.category || 'Umum'"></span>
+                      </div>
+                    </div>
+                  </label>
+                </template>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">Mesin otomatis mencocokkan produk Shopee yang diizinkan untuk akun-akun ini.</span>
+            </div>
+
+            <!-- 2. Target Kuota Postingan Harian & Jeda Otomatis -->
+            <div class="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-purple-950 flex items-center">
+                  <i data-lucide="shield-check" class="w-3.5 h-3.5 mr-1 text-purple-700"></i> 2. Target Kuota Post Harian
+                </span>
+                <span class="badge badge-xs badge-success font-bold text-[9px]">Jeda Otomatis</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block font-semibold text-slate-700">Maks Post / Hari</label>
+                    <div class="flex space-x-1">
+                      <button type="button" @click="currentRule.max_posts_per_day = 3" :class="currentRule.max_posts_per_day === 3 ? 'bg-purple-900 text-white' : 'bg-white border text-slate-600'" class="px-1.5 py-0.2 rounded text-[9px] font-bold">3</button>
+                      <button type="button" @click="currentRule.max_posts_per_day = 8" :class="currentRule.max_posts_per_day === 8 ? 'bg-purple-900 text-white' : 'bg-white border text-slate-600'" class="px-1.5 py-0.2 rounded text-[9px] font-bold">8</button>
+                      <button type="button" @click="currentRule.max_posts_per_day = 12" :class="currentRule.max_posts_per_day === 12 ? 'bg-purple-900 text-white' : 'bg-white border text-slate-600'" class="px-1.5 py-0.2 rounded text-[9px] font-bold">12</button>
+                    </div>
+                  </div>
+                  <input type="number" min="1" max="50" x-model.number="currentRule.max_posts_per_day" placeholder="Misal: 3, 8, 15" class="w-full p-2 border border-slate-300 rounded-xl bg-white font-mono font-bold text-xs focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div class="p-2.5 bg-white rounded-xl border border-purple-200/80 flex flex-col justify-center text-xs">
+                  <span class="text-[10px] font-bold text-purple-900 uppercase">Jeda Cerdas:</span>
+                  <p class="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                    Backend membagi jeda proporsional sesuai kuota &amp; durasi jendela tayang.
+                  </p>
                 </div>
               </div>
-              <input type="number" min="1" max="50" x-model.number="currentRule.max_posts_per_day" placeholder="Misal: 3, 8, 15" class="w-full p-2 border border-slate-300 rounded-xl bg-white font-mono font-bold text-xs focus:ring-2 focus:ring-purple-500">
-              <span class="text-[9px] text-slate-500 mt-0.5 block">Bebas masukkan angka berapa pun (misal 3, 8, atau 15 post/hari).</span>
             </div>
-            <div class="p-2.5 bg-white rounded-xl border border-purple-200/80 flex flex-col justify-center text-xs">
-              <span class="text-[10px] font-bold text-purple-900 uppercase">Perhitungan Jeda Cerdas:</span>
-              <p class="text-[10px] text-slate-600 mt-1 leading-snug">
-                Backend otomatis menghitung jeda proporsional sesuai durasi jendela jam tayang + random jitter anti-spam.
-              </p>
+
+            <!-- Target Views & Jitter Delay -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Target Views Utas 2</label>
+                <input type="number" x-model.number="currentRule.views_threshold" placeholder="500" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold bg-white text-xs">
+                <span class="text-[9px] text-slate-400 mt-0.5 block">Syarat picu terbitnya Utas 2 (link spill)</span>
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Jitter Delay Acak Antar Akun</label>
+                <select x-model.number="currentRule.jitter_minutes" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-bold text-xs">
+                  <option :value="10">±10 Menit</option>
+                  <option :value="15">±15 Menit (Ideal)</option>
+                  <option :value="30">±30 Menit</option>
+                </select>
+                <span class="text-[9px] text-slate-400 mt-0.5 block">Offset acak anti-spam</span>
+              </div>
+            </div>
+
+            <!-- Status Aturan -->
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Status Aturan</label>
+              <div class="flex space-x-2">
+                <label :class="currentRule.status === 'ACTIVE' ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-500' : 'border-slate-200 bg-white'" class="flex-1 p-2 rounded-xl border flex items-center justify-center space-x-2 cursor-pointer font-bold text-xs transition">
+                  <input type="radio" value="ACTIVE" x-model="currentRule.status" class="radio radio-xs radio-success">
+                  <span>Aktif Berjalan</span>
+                </label>
+                <label :class="currentRule.status === 'PAUSED' ? 'border-slate-400 bg-slate-100 text-slate-800' : 'border-slate-200 bg-white'" class="flex-1 p-2 rounded-xl border flex items-center justify-center space-x-2 cursor-pointer font-bold text-xs transition">
+                  <input type="radio" value="PAUSED" x-model="currentRule.status" class="radio radio-xs">
+                  <span>Jeda Sementara</span>
+                </label>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- 3. Jendela Jam Tayang Dinamis (Customizable per Rule) -->
-        <div class="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2.5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-1.5">
-              <i data-lucide="calendar-range" class="w-3.5 h-3.5 text-purple-700"></i>
-              <span class="text-xs font-bold text-purple-950">3. Jendela Jam Tayang Dinamis</span>
-            </div>
-            <button type="button" @click="resetRuleWindowsToDefault()" class="text-[10px] text-purple-700 hover:underline font-bold">
-              Reset 4 Default
-            </button>
-          </div>
-
-          <div class="space-y-1.5">
-            <template x-for="(win, wIdx) in currentRule.time_windows" :key="wIdx">
-              <div class="flex items-center space-x-2">
-                <span class="w-6 h-6 rounded-md bg-purple-200 text-purple-900 text-[10px] font-bold flex items-center justify-center flex-shrink-0" x-text="wIdx + 1"></span>
-                <input type="text" x-model="currentRule.time_windows[wIdx]" placeholder="HH:mm-HH:mm (misal: 06:00-08:30)" class="flex-1 p-2 border border-slate-300 rounded-lg bg-white font-mono font-bold text-xs focus:ring-2 focus:ring-purple-500">
-                <button type="button" @click="removeRuleWindow(wIdx)" :disabled="currentRule.time_windows.length <= 1" class="p-1.5 text-slate-400 hover:text-rose-600 disabled:opacity-30 disabled:hover:text-slate-400 rounded transition" title="Hapus Jendela Waktu">
-                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          <!-- KOLOM KANAN: Jendela Jam Tayang Dinamis & Penjelasan 3 Sumber AI -->
+          <div class="space-y-3.5">
+            <div class="p-4 bg-purple-50/70 border border-purple-200 rounded-2xl space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-1.5">
+                  <i data-lucide="calendar-range" class="w-4 h-4 text-purple-700"></i>
+                  <span class="text-xs font-bold text-purple-950">Jendela Jam Tayang Dinamis</span>
+                </div>
+                <button type="button" @click="resetRuleWindowsToDefault()" class="text-[10px] text-purple-700 hover:underline font-bold">
+                  Reset 4 Default
                 </button>
               </div>
-            </template>
+
+              <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                <template x-for="(win, wIdx) in currentRule.time_windows" :key="wIdx">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-6 h-6 rounded-md bg-purple-200 text-purple-900 text-[10px] font-bold flex items-center justify-center flex-shrink-0" x-text="wIdx + 1"></span>
+                    <input type="text" x-model="currentRule.time_windows[wIdx]" placeholder="HH:mm-HH:mm (misal: 06:00-08:30)" class="flex-1 p-2 border border-slate-300 rounded-lg bg-white font-mono font-bold text-xs focus:ring-2 focus:ring-purple-500">
+                    <button type="button" @click="removeRuleWindow(wIdx)" :disabled="currentRule.time_windows.length <= 1" class="p-1.5 text-slate-400 hover:text-rose-600 disabled:opacity-30 disabled:hover:text-slate-400 rounded transition" title="Hapus Jendela Waktu">
+                      <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+              <div class="flex items-center justify-between pt-1 border-t border-purple-100">
+                <button type="button" @click="addRuleWindow()" class="px-3 py-1.5 bg-white hover:bg-purple-100/70 border border-purple-300 text-purple-800 text-[11px] font-bold rounded-xl flex items-center transition shadow-2xs">
+                  <i data-lucide="plus" class="w-3 h-3 mr-1"></i> + Tambah Jendela Waktu
+                </button>
+                <span class="text-[10px] text-slate-500 font-mono font-bold" x-text="currentRule.time_windows.length + ' Jendela Aktif'"></span>
+              </div>
+              <span class="text-[9px] text-slate-500 block leading-relaxed">Target kuota posting dibagi merata ke seluruh jendela aktif ini dengan interval dinamis &amp; random jitter anti-spam.</span>
+            </div>
+
+            <!-- Penjelasan Mekanisme Otonom 3 Sumber Caption -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-slate-600">
+              <div class="flex items-center space-x-1.5 font-bold text-purple-900 text-xs">
+                <i data-lucide="sparkles" class="w-4 h-4 text-purple-600"></i>
+                <span>3 Sumber Cerdas Caption Sumopod AI:</span>
+              </div>
+              <ul class="list-disc pl-4 space-y-1.5 text-[10px] text-slate-500 leading-relaxed">
+                <li><strong>Auto Produk &amp; Rotasi Sesi Utuh:</strong> Memilih produk Shopee yang terikat dengan akun dan mengunci media dari sesi ulasan utuh secara bergantian tanpa campur aduk.</li>
+                <li><strong>3 Sumber Pintar:</strong> Mengombinasikan (a) Bank Referensi Viral, (b) Winner Context (belajar dari post berviews tertinggi), dan (c) Selling Points produk Shopee.</li>
+                <li><strong>Auto-Drip Link:</strong> Utas 1 tayang bebas link eksternal. Utas 2 menyusul HANYA jika ambang target views berhasil ditembus.</li>
+              </ul>
+            </div>
           </div>
 
-          <div class="flex items-center justify-between pt-1">
-            <button type="button" @click="addRuleWindow()" class="px-2.5 py-1 bg-white hover:bg-purple-100/70 border border-purple-300 text-purple-800 text-[11px] font-bold rounded-lg flex items-center transition shadow-2xs">
-              <i data-lucide="plus" class="w-3 h-3 mr-1"></i> + Tambah Jendela Waktu
-            </button>
-            <span class="text-[10px] text-slate-500 font-mono font-bold" x-text="currentRule.time_windows.length + ' Jendela Aktif'"></span>
-          </div>
-          <span class="text-[9px] text-slate-500 block">Kuota posting dibagi rata ke seluruh jendela aktif ini dengan interval dinamis &amp; jitter +/- 2 s/d 5 menit.</span>
-        </div>
-
-        <!-- 3. Target Views untuk Utas 2 (Spill Link Affiliate) & Jitter Delay -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">3. Target Views Utas 2 (Affiliate)</label>
-            <input type="number" x-model.number="currentRule.views_threshold" placeholder="500" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold bg-white text-xs">
-            <span class="text-[9px] text-slate-400 mt-0.5 block">Utas 2 TIDAK AKAN terbit jika target views belum tercapai</span>
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Jitter Delay Acak Antar Akun</label>
-            <select x-model.number="currentRule.jitter_minutes" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-bold text-xs">
-              <option :value="10">±10 Menit</option>
-              <option :value="15">±15 Menit (Ideal)</option>
-              <option :value="30">±30 Menit</option>
-            </select>
-            <span class="text-[9px] text-slate-400 mt-0.5 block">Offset acak antar penayangan akun</span>
-          </div>
-        </div>
-
-        <!-- Penjelasan Mekanisme Otonom 3 Sumber Caption -->
-        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-[11px] text-slate-600">
-          <div class="flex items-center space-x-1.5 font-bold text-purple-900">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-600"></i>
-            <span>3 Sumber Cerdas Caption Sumopod AI yang Bekerja Otomatis:</span>
-          </div>
-          <ul class="list-disc pl-4 space-y-1 text-[10px] text-slate-500">
-            <li><strong>Auto Produk &amp; Rotasi Sesi Utuh:</strong> Memilih produk Shopee yang terikat dengan akun dan mengunci media dari sesi ulasan utuh secara bergantian.</li>
-            <li><strong>3 Sumber Pintar:</strong> Mengombinasikan (a) Bank Referensi Viral, (b) Winner Context (belajar dari post berviews tertinggi), dan (c) Selling Points produk.</li>
-            <li><strong>Auto-Drip Link:</strong> Utas 1 tayang bebas link. Utas 2 menyusul HANYA jika target views berhasil ditembus.</li>
-          </ul>
-        </div>
-
-        <!-- Status Aturan -->
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Status Aturan</label>
-          <div class="flex space-x-2">
-            <label :class="currentRule.status === 'ACTIVE' ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-500' : 'border-slate-200 bg-white'" class="flex-1 p-2 rounded-xl border flex items-center justify-center space-x-2 cursor-pointer font-bold text-xs transition">
-              <input type="radio" value="ACTIVE" x-model="currentRule.status" class="radio radio-xs radio-success">
-              <span>Aktif Berjalan</span>
-            </label>
-            <label :class="currentRule.status === 'PAUSED' ? 'border-slate-400 bg-slate-100 text-slate-800' : 'border-slate-200 bg-white'" class="flex-1 p-2 rounded-xl border flex items-center justify-center space-x-2 cursor-pointer font-bold text-xs transition">
-              <input type="radio" value="PAUSED" x-model="currentRule.status" class="radio radio-xs">
-              <span>Jeda Sementara</span>
-            </label>
-          </div>
         </div>
       </div>
 
-      <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end space-x-2">
+      <!-- Action Bar Sticky Footer -->
+      <div class="mt-auto pt-3 border-t border-slate-200 flex justify-end space-x-2 flex-shrink-0 sticky bottom-0 bg-white z-10">
         <button type="button" @click="closeModal('ruleModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Batal</button>
         <button type="button" @click="saveAutopilotRule()" :disabled="isSavingRule || currentRule.account_ids.length === 0" class="px-5 py-2 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl flex items-center shadow-sm disabled:opacity-50 transition">
           <span x-show="isSavingRule" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
@@ -3451,93 +3460,139 @@
     </div>
   </div>
 
-  <!-- ADD / EDIT PRODUCT MODAL (RINGKAS & FOKUS NAMA, KATEGORI, DAN TAUTAN SHOPEE) -->
-  <div x-show="modals.addProductModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-    <div @click.away="closeModal('addProductModal')" class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-slate-200">
-      <div class="flex justify-between items-center mb-4">
-        <div class="flex items-center space-x-2">
-          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-            <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+  <!-- ADD / EDIT PRODUCT MODAL (SPLIT 2-KOLOM DESKTOP & FULLSCREEN MOBILE) -->
+  <div x-show="modals.addProductModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4">
+    <div @click.away="closeModal('addProductModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col">
+      <div class="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-100 flex-shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold flex-shrink-0">
+            <i data-lucide="shopping-bag" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-900" x-text="isEditingProduct ? 'Edit Data Produk Shopee' : 'Tambah Produk Baru'"></h3>
-            <span class="text-[11px] text-slate-500">Masukkan nama produk, kategori, dan tautan resmi Shopee</span>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900" x-text="isEditingProduct ? 'Edit Data Produk Shopee' : 'Tambah Produk Baru'"></h3>
+            <span class="text-[11px] text-slate-500 font-medium">Katalog Shopee Master • Informasi Produk &amp; Relasi Akun</span>
           </div>
         </div>
-        <button @click="closeModal('addProductModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+        <button @click="closeModal('addProductModal')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
 
-      <div class="space-y-3.5 text-xs max-h-[70vh] overflow-y-auto pr-1">
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nama Produk <span class="text-rose-500">*</span></label>
-          <input type="text" x-model="newProd.product_name" placeholder="Contoh: Lampu Tidur Akrilik Aesthetic" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
-        </div>
+      <!-- Split 2-Kolom Desktop Grid / Stacked 1-Kolom Mobile -->
+      <div class="space-y-4 text-xs overflow-y-auto flex-1 pr-1">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Kategori</label>
-            <input type="text" x-model="newProd.category" placeholder="Elektronik / Rumah Tangga" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Harga Produk (Rp)</label>
-            <input type="number" x-model.number="newProd.price" placeholder="89000" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono bg-white">
-          </div>
-        </div>
-
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">
-            URL Halaman Produk Shopee Asli <span class="text-rose-500">*</span>
-          </label>
-          <input type="text" x-model="newProd.shopee_raw_url" placeholder="https://affiliate.shopee.co.id/offer/product_offer/..." class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono text-[11px] bg-white">
-          <span class="text-[10px] text-slate-400 mt-0.5 block">Format resmi: <code class="text-emerald-700 font-mono">https://affiliate.shopee.co.id/offer/product_offer/...</code></span>
-        </div>
-
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">URL Shopee Affiliate (Shortlink Spill)</label>
-          <input type="text" x-model="newProd.shopee_affiliate_url" placeholder="s.shopee.co.id/... atau shope.ee/..." class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono text-[11px] bg-white">
-          <span class="text-[10px] text-emerald-600 mt-0.5 block">Disisipkan sebagai plain text domain pendek tanpa https:// agar tidak memicu card preview Threads</span>
-        </div>
-
-        <!-- URL Gambar Sampul Sederhana (Opsional) -->
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">URL Foto Sampul Produk (Opsional)</label>
-          <input type="text" x-model="newProd.product_image_url" placeholder="https://... (URL gambar)" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono text-[11px] bg-white">
-        </div>
-
-        <!-- Pengaturan Relasi Akun (Allowed Accounts) -->
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="font-semibold text-slate-700 flex items-center">
-              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Akun yang Diizinkan (Allowed Accounts)
-            </label>
-            <span class="text-[10px] text-rose-500 font-medium" x-show="!newProd.allowed_accounts || newProd.allowed_accounts.length === 0">Wajib pilih akun</span>
-          </div>
-          <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-            <div class="flex items-center justify-between text-[11px]">
-              <span class="font-medium" :class="(!newProd.allowed_accounts || newProd.allowed_accounts.length === 0) ? 'text-rose-600' : 'text-emerald-700'" x-text="(!newProd.allowed_accounts || newProd.allowed_accounts.length === 0) ? 'Status: Belum Terhubung (Tidak akan muncul di Composer)' : (newProd.allowed_accounts.length + ' akun terhubung')"></span>
-              <button type="button" @click="newProd.allowed_accounts = []" x-show="newProd.allowed_accounts && newProd.allowed_accounts.length > 0" class="text-slate-500 hover:text-rose-600 font-bold hover:underline text-[10px]">
-                Kosongkan
-              </button>
+          <!-- KOLOM KIRI: Data Utama Produk & Link Shopee -->
+          <div class="space-y-3.5">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Nama Produk <span class="text-rose-500">*</span></label>
+              <input type="text" x-model="newProd.product_name" placeholder="Contoh: Lampu Tidur Akrilik Aesthetic" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white font-medium">
             </div>
-            <div class="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1">
-              <template x-for="acc in accounts" :key="acc.account_id">
-                <label :class="isAllowedAccountSelected(acc.account_id) ? 'border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-500' : 'border-slate-200 bg-white hover:bg-slate-100'" class="p-1.5 rounded-lg border flex items-center space-x-1.5 cursor-pointer transition text-xs">
-                  <input type="checkbox" :checked="isAllowedAccountSelected(acc.account_id)" @change="toggleAllowedAccount(acc.account_id)" class="checkbox checkbox-xs checkbox-primary">
-                  <div class="flex items-center space-x-1.5 truncate min-w-0">
-                    <span class="truncate font-bold text-slate-800 text-[11px]" x-text="'@' + acc.username"></span>
-                    <span class="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-semibold flex-shrink-0" x-text="acc.category || 'Umum'"></span>
-                  </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Kategori</label>
+                <input type="text" x-model="newProd.category" placeholder="Elektronik / Rumah Tangga" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Harga Produk (Rp)</label>
+                <input type="number" x-model.number="newProd.price" placeholder="89000" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono font-bold bg-white">
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">
+                URL Halaman Produk Shopee Asli <span class="text-rose-500">*</span>
+              </label>
+              <input type="text" x-model="newProd.shopee_raw_url" placeholder="https://affiliate.shopee.co.id/offer/product_offer/..." class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono text-[11px] bg-white">
+              <span class="text-[10px] text-slate-400 mt-0.5 block">Format resmi: <code class="text-emerald-700 font-mono">https://affiliate.shopee.co.id/offer/product_offer/...</code></span>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">URL Shopee Affiliate (Shortlink Spill)</label>
+              <input type="text" x-model="newProd.shopee_affiliate_url" placeholder="s.shopee.co.id/... atau shope.ee/..." class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono text-[11px] bg-white">
+              <span class="text-[10px] text-emerald-600 mt-0.5 block">Disisipkan sebagai plain text domain pendek tanpa https:// agar tidak memicu card preview Threads</span>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">URL Foto Sampul Produk (Opsional)</label>
+              <input type="text" x-model="newProd.product_image_url" placeholder="https://... tempelkan URL gambar sampul" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono text-[11px] bg-white">
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Keunggulan / Selling Points (Untuk Copywriting AI)</label>
+              <textarea x-model="newProd.selling_points" rows="3" placeholder="Contoh: Bahan akrilik tebal, cahaya warm white nyaman di mata, hemat daya USB 5V..." class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white leading-relaxed"></textarea>
+            </div>
+          </div>
+
+          <!-- KOLOM KANAN: Akun yang Diizinkan & Visual Preview Card -->
+          <div class="space-y-3.5">
+            <!-- Checklist Akun yang Diizinkan (Strict Account Binding) -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="font-semibold text-slate-700 flex items-center">
+                  <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Akun yang Diizinkan (Allowed Accounts)
                 </label>
-              </template>
+                <span class="text-[10px] text-rose-500 font-medium" x-show="!newProd.allowed_accounts || newProd.allowed_accounts.length === 0">Wajib pilih minimal 1 akun</span>
+              </div>
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="font-medium" :class="(!newProd.allowed_accounts || newProd.allowed_accounts.length === 0) ? 'text-rose-600' : 'text-emerald-700'" x-text="(!newProd.allowed_accounts || newProd.allowed_accounts.length === 0) ? 'Status: Belum Terhubung (Diisolasi dari Post Composer)' : (newProd.allowed_accounts.length + ' akun terhubung aktif')"></span>
+                  <button type="button" @click="newProd.allowed_accounts = []" x-show="newProd.allowed_accounts && newProd.allowed_accounts.length > 0" class="text-slate-500 hover:text-rose-600 font-bold hover:underline text-[10px]">
+                    Kosongkan Semua
+                  </button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                  <template x-for="acc in accounts" :key="acc.account_id">
+                    <label :class="isAllowedAccountSelected(acc.account_id) ? 'border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-500' : 'border-slate-200 bg-white hover:bg-slate-100'" class="p-2 rounded-xl border flex items-center space-x-2 cursor-pointer transition text-xs">
+                      <input type="checkbox" :checked="isAllowedAccountSelected(acc.account_id)" @change="toggleAllowedAccount(acc.account_id)" class="checkbox checkbox-xs checkbox-primary">
+                      <div class="flex items-center space-x-1.5 truncate min-w-0">
+                        <span class="truncate font-bold text-slate-800 text-[11px]" x-text="'@' + acc.username"></span>
+                        <span class="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-semibold flex-shrink-0" x-text="acc.category || 'Umum'"></span>
+                      </div>
+                    </label>
+                  </template>
+                </div>
+                <div x-show="accounts.length === 0" class="text-[11px] text-slate-400 italic">
+                  Belum ada akun Meta terhubung.
+                </div>
+              </div>
             </div>
-            <div x-show="accounts.length === 0" class="text-[11px] text-slate-400 italic">
-              Belum ada akun Meta terhubung.
+
+            <!-- Pratinjau Tampilan Produk di Post Composer -->
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Pratinjau Kartu Produk</label>
+              <div class="p-3 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-2">
+                <div class="flex items-center space-x-3">
+                  <div class="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <template x-if="newProd.product_image_url">
+                      <img :src="newProd.product_image_url" class="w-full h-full object-cover" alt="Preview">
+                    </template>
+                    <template x-if="!newProd.product_image_url">
+                      <i data-lucide="package" class="w-6 h-6 text-slate-400"></i>
+                    </template>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="font-bold text-slate-900 text-xs truncate" x-text="newProd.product_name || 'Nama Produk Shopee'"></div>
+                    <div class="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
+                      <span class="font-mono text-emerald-700 font-bold" x-text="Number(newProd.price || 0) > 0 ? ('Rp ' + Number(newProd.price || 0).toLocaleString('id-ID')) : 'Gratis / Rp 0'"></span>
+                      <span>•</span>
+                      <span class="uppercase font-semibold" x-text="newProd.category || 'General'"></span>
+                    </div>
+                    <div class="text-[10px] text-slate-400 truncate mt-0.5" x-text="newProd.shopee_affiliate_url ? ('Link: ' + newProd.shopee_affiliate_url) : 'Belum ada shortlink affiliate'"></div>
+                  </div>
+                </div>
+                <div class="p-2 bg-slate-50 rounded-xl text-[10px] text-slate-500 border border-slate-100 leading-snug">
+                  <i data-lucide="info" class="w-3 h-3 text-slate-400 inline mr-0.5"></i>
+                  Setelah disimpan, Anda dapat mengunggah paket foto/video unboxing di modal galeri produk.
+                </div>
+              </div>
             </div>
           </div>
+
         </div>
       </div>
 
-      <div class="mt-5 flex justify-end space-x-2 pt-3 border-t border-slate-100">
+      <!-- Action Bar Sticky Footer -->
+      <div class="mt-auto pt-3 border-t border-slate-200 flex justify-end space-x-2 flex-shrink-0 sticky bottom-0 bg-white z-10">
         <button type="button" @click="closeModal('addProductModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Batal</button>
         <button type="button" @click="saveProduct()" :disabled="isSavingProduct" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-xl flex items-center transition shadow-sm disabled:opacity-50">
           <span x-show="isSavingProduct" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
@@ -6518,7 +6573,10 @@
             product_id: '',
             title: '',
             original_url: '',
-            threads: [{ content: '', media_urls: [], _showMediaInput: false, _tempMediaUrl: '' }]
+            threads: [
+              { content: '', media_urls: [], _showMediaInput: false, _tempMediaUrl: '' },
+              { content: '', media_urls: [], _showMediaInput: false, _tempMediaUrl: '' }
+            ]
           };
           this.openModal('addViralRefModal');
         },
