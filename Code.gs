@@ -108,6 +108,8 @@ function doPost(e) {
       result = deleteQueuePost(payload);
     } else if (action === 'deleteThreadsAccount') {
       result = deleteThreadsAccount(payload);
+    } else if (action === 'updateAccountCategory') {
+      result = updateAccountCategory(payload);
     } else if (action === 'getCloudinaryUsage') {
       result = getCloudinaryUsage(payload);
     } else if (action === 'setupDb') {
@@ -128,7 +130,7 @@ function doPost(e) {
 function setupDatabase() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var schema = {
-    'Accounts': ['account_id', 'username', 'profile_pic_url', 'access_token', 'token_expires_at', 'status', 'updated_at'],
+    'Accounts': ['account_id', 'username', 'profile_pic_url', 'access_token', 'token_expires_at', 'status', 'updated_at', 'category'],
     'Products': ['product_id', 'product_name', 'category', 'price', 'product_image_url', 'shopee_raw_url', 'shopee_affiliate_url', 'selling_points', 'allowed_accounts', 'created_at'],
     'Media': ['media_id', 'product_id', 'session_id', 'media_url', 'media_type', 'file_hash', 'uploaded_at', 'cooldown_until'],
     'Posts': ['post_id', 'account_id', 'thread_content_json', 'media_ids_json', 'product_id', 'affiliate_sub_id', 'views_threshold', 'current_views', 'status', 'threads_post_id', 'auto_reply_content', 'auto_reply_sent', 'created_at', 'likes_count', 'replies_count', 'permalink', 'drip_status'],
@@ -357,7 +359,7 @@ function syncThreadsAccount(payload) {
   if (!token) throw new Error('Access Token Meta wajib diisi');
 
   // Request otentikasi tunggal sesuai spek Meta Threads Graph API
-  var url = 'https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url&access_token=' + encodeURIComponent(token);
+  var url = 'https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url,profile_picture_url&access_token=' + encodeURIComponent(token);
   var resp = UrlFetchApp.fetch(url, {
     method: 'get',
     muteHttpExceptions: true
@@ -366,7 +368,7 @@ function syncThreadsAccount(payload) {
   var resJson = JSON.parse(resp.getContentText() || '{}');
 
   if (status !== 200 || !resJson.id) {
-    var fallbackResp = UrlFetchApp.fetch('https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url', {
+    var fallbackResp = UrlFetchApp.fetch('https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url,profile_picture_url', {
       method: 'get',
       headers: { 'Authorization': 'Bearer ' + token },
       muteHttpExceptions: true
@@ -384,14 +386,31 @@ function syncThreadsAccount(payload) {
   }
 
   var rawId = String(resJson.id).trim();
+  var newUsername = String(resJson.username || '').toLowerCase().trim();
+  var profilePic = resJson.threads_profile_picture_url || resJson.profile_picture_url || '';
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName('Accounts');
   var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var userCol = headers.indexOf('username');
+  if (userCol === -1) userCol = 1;
+  var catCol = headers.indexOf('category');
+  if (catCol === -1) {
+    catCol = headers.length;
+    sheet.getRange(1, catCol + 1).setValue('category');
+  }
+
   var foundRow = -1;
+  var existingCategory = 'General';
 
   for (var i = 1; i < data.length; i++) {
-    if (cleanAccountId(data[i][0]) === cleanAccountId(rawId)) {
+    var rowId = cleanAccountId(data[i][0]);
+    var rowUser = String(data[i][userCol] || '').toLowerCase().trim();
+    if (rowId === cleanAccountId(rawId) || (newUsername && rowUser === newUsername)) {
       foundRow = i + 1;
+      if (catCol < data[i].length && data[i][catCol]) {
+        existingCategory = String(data[i][catCol]).trim();
+      }
       break;
     }
   }
@@ -401,11 +420,12 @@ function syncThreadsAccount(payload) {
   var rowValues = [
     "'" + rawId,
     resJson.username || '',
-    resJson.threads_profile_picture_url || '',
+    profilePic,
     token,
     expiryIso,
     'ACTIVE',
-    nowIso
+    nowIso,
+    existingCategory
   ];
 
   if (foundRow > 0) {
@@ -417,7 +437,8 @@ function syncThreadsAccount(payload) {
   return {
     account_id: String(resJson.id),
     username: resJson.username || '',
-    profile_pic_url: resJson.threads_profile_picture_url || ''
+    profile_pic_url: profilePic,
+    category: existingCategory
   };
 }
 
@@ -489,15 +510,22 @@ function pingThreadsAccount(payload) {
     throw new Error('Meta API Ping Gagal: ' + (resJson.error ? resJson.error.message : 'Invalid Token'));
   }
 
+  var picCol = headers.indexOf('profile_pic_url');
+  var picUrl = resJson.threads_profile_picture_url || resJson.profile_picture_url || '';
+
   if (targetRow > 0) {
     sheet.getRange(targetRow, tokenCol + 1).setValue(token);
     sheet.getRange(targetRow, statusCol + 1).setValue('ACTIVE');
     sheet.getRange(targetRow, updatedCol + 1).setValue(new Date().toISOString());
+    if (picCol !== -1 && picUrl) {
+      sheet.getRange(targetRow, picCol + 1).setValue(picUrl);
+    }
   }
 
   return {
     account_id: String(resJson.id),
     username: resJson.username || '',
+    profile_pic_url: picUrl,
     status: 'ACTIVE',
     message: 'Koneksi aktif! Token Meta @' + (resJson.username || '') + ' valid.'
   };
@@ -528,6 +556,12 @@ function saveProduct(payload) {
 
   var idCol = headers.indexOf('product_id');
   if (idCol === -1) idCol = 0;
+  var rawCol = headers.indexOf('shopee_raw_url');
+  if (rawCol === -1) rawCol = 5;
+  var affCol = headers.indexOf('shopee_affiliate_url');
+  if (affCol === -1) affCol = 6;
+  var nameCol = headers.indexOf('product_name');
+  if (nameCol === -1) nameCol = 1;
 
   var existingRow = -1;
   var productId = payload.product_id ? String(payload.product_id).trim() : '';
@@ -538,6 +572,30 @@ function saveProduct(payload) {
         existingRow = i + 1;
         break;
       }
+    }
+  }
+
+  // Validasi anti-duplikasi URL Shopee (Raw & Affiliate)
+  var normRaw = rawUrl.toLowerCase().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+  var normAff = String(payload.shopee_affiliate_url || '').trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+
+  for (var r = 1; r < data.length; r++) {
+    if (existingRow > 0 && (r + 1) === existingRow) continue;
+    var rowRaw = String(data[r][rawCol] || '').trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    var rowAff = String(data[r][affCol] || '').trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    var existingName = String(data[r][nameCol] || data[r][idCol] || 'Lain');
+
+    if (normRaw && rowRaw && normRaw === rowRaw) {
+      throw new Error('URL Halaman Produk Asli sudah pernah terdaftar pada produk "' + existingName + '".');
+    }
+    if (normAff && rowAff && normAff === rowAff) {
+      throw new Error('URL Shopee Affiliate (Shortlink) sudah pernah terdaftar pada produk "' + existingName + '".');
+    }
+    if (normAff && rowRaw && normAff === rowRaw) {
+      throw new Error('Tautan Shopee Affiliate bentrok dengan URL Produk Asli milik "' + existingName + '".');
+    }
+    if (normRaw && rowAff && normRaw === rowAff) {
+      throw new Error('URL Halaman Produk Asli bentrok dengan Tautan Affiliate milik "' + existingName + '".');
     }
   }
 
@@ -883,6 +941,11 @@ function createPost(payload) {
     if (isDripMode) {
       // Auto-Drip Mode: Terbitkan HANYA Utas 1 (Root Hook) sekarang tanpa link eksternal
       publishedThreadId = executeThreadChain(payload.account_id, token, [nodes[0]], mediaMap, prods, subId);
+      for (var d = 1; d < nodes.length; d++) {
+        if (typeof nodes[d] === 'object' && nodes[d] !== null) {
+          nodes[d].status = 'WAITING_VIEWS';
+        }
+      }
       dripStatus = 'WAITING_VIEWS';
       isReplySent = false;
     } else {
@@ -892,7 +955,22 @@ function createPost(payload) {
       isReplySent = true;
     }
     status = 'PUBLISHED';
+    payload.thread_content_json = JSON.stringify(nodes);
+  } else if (status === 'SCHEDULED' || status === 'DRAFT') {
+    if (isDripMode) {
+      if (typeof nodes[0] === 'object' && nodes[0] !== null) nodes[0].status = status;
+      for (var s = 1; s < nodes.length; s++) {
+        if (typeof nodes[s] === 'object' && nodes[s] !== null) nodes[s].status = 'WAITING_VIEWS';
+      }
+    } else {
+      for (var s2 = 0; s2 < nodes.length; s2++) {
+        if (typeof nodes[s2] === 'object' && nodes[s2] !== null) nodes[s2].status = status;
+      }
+    }
+    payload.thread_content_json = JSON.stringify(nodes);
   }
+
+  var rootPermalink = (nodes[0] && nodes[0].permalink) ? nodes[0].permalink : '';
 
   var row = [
     postId,
@@ -910,7 +988,7 @@ function createPost(payload) {
     new Date().toISOString(),
     0,
     0,
-    '',
+    rootPermalink,
     dripStatus
   ];
   sheet.appendRow(row);
@@ -1019,8 +1097,19 @@ function publishPostNow(payload) {
   var nodesToPublish = isDripMode ? [nodes[0]] : nodes;
   var publishedThreadId = executeThreadChain(targetPost.account_id, token, nodesToPublish, mediaMap, prods, subId);
 
+  if (isDripMode) {
+    for (var dn = 1; dn < nodes.length; dn++) {
+      if (typeof nodes[dn] === 'object' && nodes[dn] !== null) {
+        nodes[dn].status = 'WAITING_VIEWS';
+      }
+    }
+  }
+
+  var rootPermalink = (nodes[0] && nodes[0].permalink) ? nodes[0].permalink : '';
+  postSheet.getRange(targetRow, 3).setValue(JSON.stringify(nodes));
   postSheet.getRange(targetRow, 9).setValue('PUBLISHED');
   postSheet.getRange(targetRow, 10).setValue(publishedThreadId);
+  if (rootPermalink) postSheet.getRange(targetRow, 16).setValue(rootPermalink);
 
   var qSheet = ss.getSheetByName('Posting_Queue');
   if (qSheet) {
@@ -1300,9 +1389,23 @@ function syncPostInsights(payload) {
             var sMedia = mediaItems.length === 1 ? mediaItems[0] : null;
             chainParentId = publishThreadsNode(rowData[accCol], token, subText, sMedia, chainParentId);
           }
+
+          if (typeof subNode === 'object' && subNode !== null) {
+            subNode.threads_post_id = chainParentId;
+            subNode.permalink = getThreadPermalink(chainParentId, token);
+            subNode.status = 'PUBLISHED';
+          }
+
           Utilities.sleep(1500);
         }
 
+        if (nodes[0] && !nodes[0].permalink) {
+          nodes[0].threads_post_id = threadsPostId;
+          nodes[0].permalink = permalink || getThreadPermalink(threadsPostId, token);
+          nodes[0].status = 'PUBLISHED';
+        }
+
+        postSheet.getRange(targetRow, headers.indexOf('thread_content_json') + 1).setValue(JSON.stringify(nodes));
         postSheet.getRange(targetRow, replySentCol + 1).setValue(true);
         var dripCol = headers.indexOf('drip_status');
         if (dripCol !== -1) postSheet.getRange(targetRow, dripCol + 1).setValue('COMPLETED');
@@ -2574,6 +2677,20 @@ function setupTimeDrivenTrigger(payload) {
   };
 }
 
+// Mengambil permalink resmi dari Meta Threads Graph API
+function getThreadPermalink(threadsMediaId, token) {
+  if (!threadsMediaId || !token) return '';
+  try {
+    var url = 'https://graph.threads.net/v1.0/' + encodeURIComponent(threadsMediaId) + '?fields=id,permalink&access_token=' + encodeURIComponent(cleanToken(token));
+    var resp = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true });
+    if (resp.getResponseCode() === 200) {
+      var json = JSON.parse(resp.getContentText() || '{}');
+      return json.permalink || '';
+    }
+  } catch (e) {}
+  return '';
+}
+
 // Validasi URL video Cloudinary wajib berakhiran .mp4
 function validateAndFormatVideoUrl(rawUrl) {
   if (!rawUrl) throw new Error('URL video wajib diisi.');
@@ -2942,6 +3059,12 @@ function executeThreadChain(accountId, token, nodes, mediaMap, prods, subId, ini
       lastThreadId = publishThreadsNode(accountId, token, textContent, singleMedia, lastThreadId);
     }
 
+    if (typeof node === 'object' && node !== null) {
+      node.threads_post_id = lastThreadId;
+      node.permalink = getThreadPermalink(lastThreadId, token);
+      node.status = 'PUBLISHED';
+    }
+
     if (n < nodes.length - 1) {
       Utilities.sleep(1500); // jeda antar sub-thread
     }
@@ -3027,6 +3150,16 @@ function checkAndPublishQueue() {
       var lastThreadId = executeThreadChain(accountId, token, nodesToPublish, mediaMap, prods, subId);
       var nowIso = new Date().toISOString();
 
+      if (isDripWaiting && nodes.length > 1) {
+        for (var qd = 1; qd < nodes.length; qd++) {
+          if (typeof nodes[qd] === 'object' && nodes[qd] !== null) {
+            nodes[qd].status = 'WAITING_VIEWS';
+          }
+        }
+      }
+
+      var qRootPermalink = (nodes[0] && nodes[0].permalink) ? nodes[0].permalink : '';
+
       qSheet.getRange(i + 1, 7).setValue('Posted');
       qSheet.getRange(i + 1, 8).setValue('');
       qSheet.getRange(i + 1, 9).setValue(nowIso);
@@ -3037,8 +3170,10 @@ function checkAndPublishQueue() {
           var postData = postSheet.getDataRange().getValues();
           for (var p = 1; p < postData.length; p++) {
             if (String(postData[p][0]) === String(postId)) {
+              postSheet.getRange(p + 1, 3).setValue(JSON.stringify(nodes));
               postSheet.getRange(p + 1, 9).setValue('PUBLISHED');
               postSheet.getRange(p + 1, 10).setValue(lastThreadId || '');
+              if (qRootPermalink) postSheet.getRange(p + 1, 16).setValue(qRootPermalink);
               break;
             }
           }
@@ -3435,6 +3570,34 @@ function deleteThreadsAccount(payload) {
     if (cleanAccountId(data[i][0]) === accId) {
       accSheet.deleteRow(i + 1);
       return { success: true, account_id: accId };
+    }
+  }
+
+  throw new Error('Akun tidak ditemukan di database');
+}
+
+// Perbarui kategori portofolio akun Threads
+function updateAccountCategory(payload) {
+  var accId = cleanAccountId(payload.account_id);
+  if (!accId) throw new Error('Account ID wajib diisi');
+  var category = String(payload.category || 'General').trim();
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Accounts');
+  if (!sheet) throw new Error('Sheet Accounts tidak ditemukan');
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var catCol = headers.indexOf('category');
+  if (catCol === -1) {
+    catCol = headers.length;
+    sheet.getRange(1, catCol + 1).setValue('category');
+  }
+
+  for (var i = 1; i < data.length; i++) {
+    if (cleanAccountId(data[i][0]) === accId) {
+      sheet.getRange(i + 1, catCol + 1).setValue(category);
+      return { success: true, account_id: accId, category: category };
     }
   }
 
