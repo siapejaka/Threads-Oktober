@@ -1583,28 +1583,6 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-              <!-- Shimmer Loading Rows saat Memuat Data Awal -->
-              <template x-if="isLoading && publishedPosts.length === 0">
-                <template x-for="sk in [1, 2, 3, 4]" :key="'skel_pub_' + sk">
-                  <tr class="animate-pulse">
-                    <td class="p-3 whitespace-nowrap">
-                      <div class="flex items-center space-x-2.5">
-                        <div class="w-8 h-8 rounded-full bg-slate-200"></div>
-                        <div class="space-y-1">
-                          <div class="h-3 w-20 bg-slate-200 rounded"></div>
-                          <div class="h-2.5 w-16 bg-slate-100 rounded"></div>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="p-3"><div class="h-3.5 bg-slate-200 rounded w-3/4 mb-1"></div><div class="h-2.5 bg-slate-100 rounded w-1/4"></div></td>
-                    <td class="p-3"><div class="h-4 bg-slate-200 rounded w-20"></div></td>
-                    <td class="p-3"><div class="w-28 bg-slate-200 rounded-full h-1.5 mb-1"></div><div class="h-2.5 bg-slate-100 rounded w-16"></div></td>
-                    <td class="p-3"><div class="h-5 w-20 bg-slate-200 rounded-full"></div></td>
-                    <td class="p-3 text-right"><div class="inline-flex space-x-1.5"><div class="w-7 h-7 bg-slate-200 rounded-lg"></div><div class="w-7 h-7 bg-slate-200 rounded-lg"></div></div></td>
-                  </tr>
-                </template>
-              </template>
-
               <template x-for="p in paginatedPublishedPosts" :key="p?.post_id || Math.random()">
                 <tr class="hover:bg-slate-50/70 transition">
                   <td class="p-3 whitespace-nowrap">
@@ -3963,12 +3941,6 @@
         isLoadingRadar: false,
         previewPostId: 'POST_' + Math.floor(1000 + Math.random() * 9000),
 
-        // AI Hook Studio
-        aiPromptTopic: '',
-        aiTone: 'storytelling',
-        isGeneratingAi: false,
-        generatedHooks: [],
-
         get publishedPosts() {
           if (!Array.isArray(this.posts)) return [];
           return this.posts
@@ -4707,9 +4679,14 @@
 
         insertSpecificProductLink(thread, prod, index) {
           if (!prod) return;
+          var shortUrl = (prod.shopee_affiliate_url || '').trim();
+          if (!shortUrl) {
+            this.showToast('Produk ini belum memiliki link affiliate (shope.ee / s.shopee.co.id)', 'error');
+            return;
+          }
           var idx = (typeof index === 'number') ? index : this.threadList.indexOf(thread);
-          var cleanUrl = this.getCleanAffiliateUrl(prod.shopee_affiliate_url);
-          var tag = cleanUrl || ('[LINK:' + prod.product_id + ']');
+          var cleanUrl = this.getCleanAffiliateUrl(shortUrl);
+          var tag = cleanUrl || 'shope.ee/affiliate';
           var elId = 'composer_textarea_' + (idx >= 0 ? idx : 0);
           var sStart = thread._cursorStart;
           var sEnd = thread._cursorEnd;
@@ -4724,12 +4701,15 @@
 
         insertAllProductLinks(thread, index) {
           var prods = this.getNodeProducts(thread);
-          if (prods.length === 0) return;
+          var validProds = prods.filter(function(p) { return p && p.shopee_affiliate_url && p.shopee_affiliate_url.trim(); });
+          if (validProds.length === 0) {
+            this.showToast('Produk terkait belum memiliki link affiliate (shope.ee / s.shopee.co.id)', 'error');
+            return;
+          }
           var idx = (typeof index === 'number') ? index : this.threadList.indexOf(thread);
           var self = this;
-          var tags = prods.map(function(p) {
-            var cleanUrl = self.getCleanAffiliateUrl(p.shopee_affiliate_url);
-            return cleanUrl || ('[LINK:' + p.product_id + ']');
+          var tags = validProds.map(function(p) {
+            return self.getCleanAffiliateUrl(p.shopee_affiliate_url);
           }).join(' ');
           var elId = 'composer_textarea_' + (idx >= 0 ? idx : 0);
           var sStart = thread._cursorStart;
@@ -5096,11 +5076,6 @@
           }
         },
 
-        useHookForAi(hk) {
-          this.aiPromptTopic = (this.aiPromptTopic || 'Produk Rekomendasi') + ' (Gaya: ' + hk.hook_text + ')';
-          this.showToast('Hook dijadikan referensi prompt AI');
-        },
-
         get hookCategories() {
           const cats = new Set();
           this.hooks.forEach(h => { if (h.category) cats.add(h.category); });
@@ -5360,7 +5335,6 @@
 
         sendProductToAi(item) {
           this.selectedProductId = item.product_id;
-          this.aiPromptTopic = item.product_name;
           if (this.threadList.length > 0) {
             if (!this.threadList[0].product_ids) this.threadList[0].product_ids = [];
             if (this.threadList[0].product_ids.indexOf(item.product_id) === -1) {
@@ -5369,7 +5343,7 @@
             this.threadList[0].product_id = item.product_id;
           }
           this.openComposer();
-          this.showToast('Produk & selling points dikirim ke AI Hook Studio & Utas #1');
+          this.showToast('Produk dikaitkan ke Utas #1');
         },
 
         get productCategories() {
@@ -5497,41 +5471,6 @@
           .catch(err => {
             this.isLoading = false;
             this.showToast('Gagal memuat data: ' + (err.message || 'Koneksi bermasalah'), 'error');
-          });
-        },
-
-        generateHooks() {
-          if (!this.aiPromptTopic) {
-            this.showToast('Ketik topik atau nama produk dahulu', 'error');
-            return;
-          }
-          this.isGeneratingAi = true;
-          var selectedProd = this.products.find(p => p.product_id === this.selectedProductId);
-          var sellingPoints = selectedProd ? selectedProd.selling_points : '';
-
-          fetch(this.getScriptUrl(), {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              action: 'generateAiHook',
-              payload: {
-                topic: this.aiPromptTopic,
-                tone: this.aiTone,
-                selling_points: sellingPoints
-              }
-            })
-          })
-          .then(r => r.text())
-          .then(text => {
-            const res = JSON.parse(text);
-            if (res.ok) {
-              this.generatedHooks = res.data.hooks || [];
-              this.showToast('3 Hook viral berhasil dibuat');
-            } else {
-              this.showToast(res.message, 'error');
-            }
-            this.isGeneratingAi = false;
-            this.$nextTick(() => { lucide.createIcons(); });
           });
         },
 
@@ -6745,10 +6684,8 @@
         remakeViralRefToComposer(ref) {
           var threads = this.getViralRefThreads(ref);
           var prodId = ref.product_id || '';
-          var prod = this.products.find(function(p) { return p.product_id === prodId; });
 
           this.selectedProductId = prodId;
-          this.aiPromptTopic = prod ? prod.product_name : ref.title;
 
           // Pindahkan teks referensi viral ke Composer secara bersih tanpa trigger AI otomatis
           var newThreadList = threads.map(function(t) {
@@ -6802,7 +6739,7 @@
             body: JSON.stringify({
               action: 'generateSumopodRemake',
               payload: {
-                product_name: prod ? prod.product_name : (this.aiPromptTopic || 'Produk Shopee'),
+                product_name: prod ? prod.product_name : 'Produk Shopee',
                 selling_points: prod ? (prod.selling_points || '') : '',
                 hook_thread_1: threads[0] || '',
                 spill_thread_2: threads[1] || '',

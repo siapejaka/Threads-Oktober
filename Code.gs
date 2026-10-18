@@ -48,8 +48,6 @@ function doPost(e) {
       result = saveProduct(payload);
     } else if (action === 'saveMediaBatch') {
       result = saveMediaBatch(payload);
-    } else if (action === 'generateAiHook') {
-      result = generateAiHook(payload);
     } else if (action === 'generateThreadOptions') {
       result = generateThreadOptions(payload);
     } else if (action === 'createPost') {
@@ -308,17 +306,40 @@ function getDashboardData(payload) {
     return tB - tA;
   });
 
-  // Gabungkan interactions dan comments agar tidak ada data yang hilang
-  var interactionIdMap = {};
-  for (var t = 0; t < interactions.length; t++) {
-    var key = String(interactions[t].comment_id || interactions[t].interaction_id).trim();
-    if (key) interactionIdMap[key] = true;
+  // Peta akun milik sendiri untuk memfilter self-reply / Utas 2 dari komentar audiens
+  var allOwnedUsers = {};
+  var allOwnedIds = {};
+  for (var au = 0; au < accounts.length; au++) {
+    var uName = String(accounts[au].username || '').toLowerCase().trim();
+    if (uName) allOwnedUsers[uName] = true;
+    var aId = cleanAccountId(accounts[au].account_id);
+    if (aId) allOwnedIds[aId] = true;
   }
+
+  // Gabungkan interactions dan comments (Hanya untuk balasan audiens luar)
+  var audienceInteractions = [];
+  var interactionIdMap = {};
+
+  for (var t = 0; t < interactions.length; t++) {
+    var inter = interactions[t];
+    var senderUser = String(inter.sender_username || '').toLowerCase().trim();
+    var isOwn = (inter.author_type === 'OWNER') || (inter.reply_status === 'OWNER_POST') || (senderUser && allOwnedUsers[senderUser]) || (senderUser === 'adminagent');
+    if (!isOwn) {
+      var key = String(inter.comment_id || inter.interaction_id).trim();
+      if (key) {
+        interactionIdMap[key] = true;
+        audienceInteractions.push(inter);
+      }
+    }
+  }
+
   for (var r = 0; r < rawComments.length; r++) {
     var cKey = String(rawComments[r].comment_id).trim();
-    if (cKey && !interactionIdMap[cKey]) {
-      var isOwn = (rawComments[r].author_type === 'OWNER') || (rawComments[r].sender_username && rawComments[r].sender_username.toLowerCase() === 'adminagent');
-      interactions.push({
+    var rSender = String(rawComments[r].sender_username || '').toLowerCase().trim();
+    var isOwnComment = (rawComments[r].author_type === 'OWNER') || (rawComments[r].reply_status === 'OWNER_POST') || (rSender && allOwnedUsers[rSender]) || (rSender === 'adminagent');
+
+    if (!isOwnComment && cKey && !interactionIdMap[cKey]) {
+      var audObj = {
         interaction_id: 'INT_' + cKey,
         post_id: rawComments[r].post_id,
         threads_post_id: '',
@@ -326,35 +347,33 @@ function getDashboardData(payload) {
         comment_id: cKey,
         parent_comment_id: rawComments[r].parent_comment_id || '',
         sender_username: rawComments[r].sender_username || 'user',
-        author_type: rawComments[r].author_type || (isOwn ? 'OWNER' : 'AUDIENCE'),
+        author_type: 'AUDIENCE',
         content: rawComments[r].content || '',
         intent_flag: rawComments[r].intent_flag,
-        reply_status: isOwn ? 'OWNER_POST' : 'UNREPLIED',
+        reply_status: rawComments[r].reply_status || 'UNREPLIED',
         created_at: rawComments[r].created_at
-      });
+      };
+      audienceInteractions.push(audObj);
       interactionIdMap[cKey] = true;
     }
   }
 
   // Bangun struktur pohon komentar berjenjang (nested tree) rekursif
   var commentMap = {};
-  for (var c = 0; c < interactions.length; c++) {
-    var item = interactions[c];
+  for (var c = 0; c < audienceInteractions.length; c++) {
+    var item = audienceInteractions[c];
     item.replies = [];
     commentMap[String(item.comment_id || item.interaction_id)] = item;
   }
 
   var rootComments = [];
-  for (var k = 0; k < interactions.length; k++) {
-    var cmtItem = interactions[k];
+  for (var k = 0; k < audienceInteractions.length; k++) {
+    var cmtItem = audienceInteractions[k];
     var parentId = cmtItem.parent_comment_id ? String(cmtItem.parent_comment_id).trim() : '';
     if (parentId && commentMap[parentId]) {
       commentMap[parentId].replies.push(cmtItem);
     } else {
-      // Hanya masukkan balasan audiens luar ke daftar root komentar audiens (Inbox)
-      if (cmtItem.author_type !== 'OWNER' && cmtItem.reply_status !== 'OWNER_POST') {
-        rootComments.push(cmtItem);
-      }
+      rootComments.push(cmtItem);
     }
   }
 
@@ -711,43 +730,6 @@ function saveMediaBatch(payload) {
   }
 
   return { saved_count: rowsToAppend.length, media_ids: savedIds };
-}
-
-function generateAiHook(payload) {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var settings = getDashboardData().settings;
-  var apiKey = settings.gemini_key;
-  if (!apiKey) throw new Error('Gemini API Key belum dikonfigurasi di Settings');
-
-  var promptText = 'Buatkan 3 hook kalimat pembuka viral singkat (1-2 kalimat) untuk postingan Meta Threads mempromosikan produk: "' +
-    payload.topic + '"' +
-    (payload.selling_points ? ' dengan keunggulan/selling points: "' + payload.selling_points + '"' : '') +
-    ' dengan gaya bahasa ' + (payload.tone || 'storytelling') +
-    '. Format balasan HANYA baris teks biasa per nomor tanpa intro atau outro.';
-
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
-  var requestPayload = {
-    contents: [{ parts: [{ text: promptText }] }]
-  };
-
-  var res = UrlFetchApp.fetch(url, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify(requestPayload),
-    muteHttpExceptions: true
-  });
-
-  var resJson = JSON.parse(res.getContentText() || '{}');
-  if (res.getResponseCode() !== 200 || !resJson.candidates) {
-    throw new Error('AI Error: ' + (resJson.error ? resJson.error.message : 'Gagal menghasilkan hook'));
-  }
-
-  var rawOutput = resJson.candidates[0].content.parts[0].text || '';
-  var lines = rawOutput.split('\n')
-    .map(function(s) { return s.replace(/^[0-9\.\-\* ]+/, '').trim(); })
-    .filter(function(s) { return s.length > 5; });
-
-  return { hooks: lines };
 }
 
 // Helper pembentukan URL endpoint Sumopod
@@ -1361,9 +1343,14 @@ function syncPostInsights(payload) {
             var senderUser = String(repItem.username || '').toLowerCase().trim();
             var senderUserId = cleanAccountId(repItem.user_id || (repItem.from && repItem.from.id) || '');
             var isOwn = (senderUser && allOwnedUsers[senderUser]) || (senderUserId && allOwnedIds[senderUserId]) || (senderUser === 'adminagent');
-            var intentFlag = !isOwn && /spill|link|beli|toko|harga|order|checkout|beli di mana|buy|mau/i.test(repItem.text || '');
-            var authorType = isOwn ? 'OWNER' : 'AUDIENCE';
-            var replyStatus = isOwn ? 'OWNER_POST' : 'UNREPLIED';
+
+            // Jika balasan akun sendiri (self-reply / Utas 2), lewati dan JANGAN masukkan ke database percakapan audiens
+            if (isOwn) {
+              cmtIdSet[repIdStr] = true;
+              continue;
+            }
+
+            var intentFlag = /spill|link|beli|toko|harga|order|checkout|beli di mana|buy|mau/i.test(repItem.text || '');
             var createdAt = repItem.timestamp || new Date().toISOString();
 
             if (interSheet) {
@@ -1375,15 +1362,14 @@ function syncPostInsights(payload) {
                 repIdStr,
                 '',
                 repItem.username || 'user',
-                authorType,
+                'AUDIENCE',
                 repItem.text || '',
                 intentFlag,
-                replyStatus,
+                'UNREPLIED',
                 createdAt
               ]);
             }
-            // Balasan dari akun sendiri tidak dimasukkan ke sheet Komentar Audiens
-            if (!isOwn && cmtSheet) {
+            if (cmtSheet) {
               cmtSheet.appendRow([
                 repIdStr,
                 postId,
@@ -1646,8 +1632,6 @@ function syncInboxComments(payload) {
     if (!token) continue;
 
     var threadsPostId = String(post.threads_post_id).trim();
-    var ownUsername = accountUserMap[accId] || accountUserMap[String(post.account_id).trim()] || '';
-
     var rawList = [];
 
     // 1. Coba endpoint /conversation dengan fields valid Threads API
@@ -1693,10 +1677,15 @@ function syncInboxComments(payload) {
       var senderUser = sender.toLowerCase();
       var senderUserId = cleanAccountId(item.user_id || (item.from && item.from.id) || '');
       var isOwnAccount = (senderUser && allOwnedUsers[senderUser]) || (senderUserId && allOwnedIds[senderUserId]) || (senderUser === 'adminagent');
-      var authorType = isOwnAccount ? 'OWNER' : 'AUDIENCE';
+
+      // Lewati balasan akun sendiri agar Inbox hanya berisi percakapan audiens luar
+      if (isOwnAccount) {
+        existingIds[commentId] = true;
+        continue;
+      }
+
       var text = item.text || '';
-      var intentFlag = !isOwnAccount && /spill|link|beli|toko|harga|order|checkout|beli di mana|buy|mau/i.test(text);
-      var replyStatus = isOwnAccount ? 'OWNER_POST' : 'UNREPLIED';
+      var intentFlag = /spill|link|beli|toko|harga|order|checkout|beli di mana|buy|mau/i.test(text);
       var interId = 'INT_' + commentId.substring(0, 10);
       var createdAt = item.timestamp || new Date().toISOString();
 
@@ -1708,14 +1697,14 @@ function syncInboxComments(payload) {
         commentId,
         '',
         sender,
-        authorType,
+        'AUDIENCE',
         text,
         intentFlag,
-        replyStatus,
+        'UNREPLIED',
         createdAt
       ]);
 
-      if (!isOwnAccount && cmtSheet) {
+      if (cmtSheet) {
         cmtSheet.appendRow([
           commentId,
           post.post_id,
@@ -1732,7 +1721,7 @@ function syncInboxComments(payload) {
 
       existingIds[commentId] = true;
 
-      // Tarik sub-replies berjenjang level 2 jika ada
+      // Tarik sub-replies audiens level 2 jika ada
       try {
         var subRepUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(commentId) + '/replies?fields=id,text,username,timestamp&access_token=' + encodeURIComponent(token);
         var subResp = UrlFetchApp.fetch(subRepUrl, { method: 'get', muteHttpExceptions: true });
@@ -1748,10 +1737,14 @@ function syncInboxComments(payload) {
               var sSenderUser = sSender.toLowerCase();
               var sSenderUserId = cleanAccountId(sItem.user_id || (sItem.from && sItem.from.id) || '');
               var sIsOwn = (sSenderUser && allOwnedUsers[sSenderUser]) || (sSenderUserId && allOwnedIds[sSenderUserId]) || (sSenderUser === 'adminagent');
-              var sAuthor = sIsOwn ? 'OWNER' : 'AUDIENCE';
+
+              if (sIsOwn) {
+                existingIds[sId] = true;
+                continue;
+              }
+
               var sText = sItem.text || '';
-              var sIntent = !sIsOwn && /spill|link|beli|toko|harga|order|checkout|beli di mana|buy|mau/i.test(sText);
-              var sStatus = sIsOwn ? 'OWNER_POST' : 'UNREPLIED';
+              var sIntent = /spill|link|beli|toko|harga|order|checkout|beli di mana|buy|mau/i.test(sText);
 
               interSheet.appendRow([
                 'INT_' + sId.substring(0, 10),
@@ -1761,13 +1754,13 @@ function syncInboxComments(payload) {
                 sId,
                 commentId,
                 sSender,
-                sAuthor,
+                'AUDIENCE',
                 sText,
                 sIntent,
-                sStatus,
+                'UNREPLIED',
                 sItem.timestamp || new Date().toISOString()
               ]);
-              if (!sIsOwn && cmtSheet) {
+              if (cmtSheet) {
                 cmtSheet.appendRow([
                   sId,
                   post.post_id,
@@ -2159,6 +2152,13 @@ function scheduleAutopilotBatch(payload) {
     if (prods[p].product_id === prodId) {
       prodObj = prods[p];
       break;
+    }
+  }
+
+  if (prodObj) {
+    var rawAllowed = String(prodObj.allowed_accounts || '').trim();
+    if (!rawAllowed) {
+      throw new Error('Produk "' + (prodObj.product_name || prodId) + '" berstatus Belum Terhubung dan tidak diizinkan untuk diposting.');
     }
   }
 
