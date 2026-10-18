@@ -794,14 +794,21 @@
 
         <!-- Panel 2: Multi-Thread Builder Berjenjang (Multi-Produk & Multi-Media Modular per Utas) -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <div class="flex justify-between items-center mb-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4">
             <div>
               <h2 class="text-sm font-bold text-slate-900 flex items-center">
                 <i data-lucide="git-commit" class="w-4 h-4 text-emerald-600 mr-2"></i> Rangkaian Utas Berantai (Multi-Produk & Multi-Media)
               </h2>
               <p class="text-[11px] text-slate-500 mt-0.5">Setiap utas dapat mengaitkan beberapa produk Shopee dan multi-media karusel secara bersamaan.</p>
             </div>
-            <span class="badge badge-sm badge-neutral font-mono font-bold" x-text="threadList.length + ' Utas'"></span>
+            <div class="flex items-center space-x-2 self-start sm:self-auto flex-shrink-0">
+              <button type="button" @click="remakeWholeThreadChainWithAi()" :disabled="isRemakingWholeChain" class="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl flex items-center transition shadow-2xs disabled:opacity-60" title="Remake seluruh teks utas saat ini dengan Sumopod AI">
+                <span x-show="isRemakingWholeChain" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+                <i x-show="!isRemakingWholeChain" data-lucide="sparkles" class="w-3.5 h-3.5 mr-1 text-amber-300"></i>
+                <span x-text="isRemakingWholeChain ? 'Me-remake...' : 'Remake via Sumopod AI'"></span>
+              </button>
+              <span class="badge badge-sm badge-neutral font-mono font-bold" x-text="threadList.length + ' Utas'"></span>
+            </div>
           </div>
 
           <div class="space-y-4">
@@ -1977,7 +1984,7 @@
               </div>
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">Sumopod Endpoint URL</label>
-                <input type="text" x-model="settings.sumopod_endpoint" placeholder="https://api.sumopod.com/v1/chat/completions" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-[11px] bg-white">
+                <input type="text" x-model="settings.sumopod_endpoint" placeholder="https://ai.sumopod.com/v1/chat/completions" class="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-[11px] bg-white">
               </div>
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">Sumopod Model Name</label>
@@ -3149,7 +3156,7 @@
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Sumopod Endpoint URL</label>
-            <input type="text" x-model="settings.sumopod_endpoint" placeholder="https://api.sumopod.com/v1/chat/completions" class="w-full p-2 border border-slate-300 rounded-lg font-mono text-[11px] bg-white">
+            <input type="text" x-model="settings.sumopod_endpoint" placeholder="https://ai.sumopod.com/v1/chat/completions" class="w-full p-2 border border-slate-300 rounded-lg font-mono text-[11px] bg-white">
           </div>
         </div>
         <div>
@@ -3327,7 +3334,7 @@
         isUploadingMedia: false,
         isSavingProduct: false,
         isEditingProduct: false,
-        isLoadingProducts: false,
+        isRemakingWholeChain: false,
         newProd: { product_id: '', product_name: '', category: 'Elektronik', price: 0, product_image_url: '', shopee_raw_url: '', shopee_affiliate_url: '', selling_points: '', allowed_accounts: [] },
 
         // Async Statuses
@@ -3915,48 +3922,6 @@
           if (!prodId) return 'Umum';
           var p = this.products.find(function(item) { return item.product_id === prodId; });
           return p ? p.product_name : prodId;
-        },
-
-        fetchProducts() {
-          this.isLoadingProducts = true;
-          fetch(this.getScriptUrl(), {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'getProducts', payload: {} })
-          })
-          .then(r => {
-            if (r.status === 404) throw new Error('404: Endpoint Web App tidak ditemukan');
-            return r.text();
-          })
-          .then(text => {
-            const res = JSON.parse(text);
-            if (res.ok) {
-              this.products = res.data || [];
-            }
-            this.isLoadingProducts = false;
-            this.$nextTick(() => { lucide.createIcons(); });
-          })
-          .catch(() => {
-            this.isLoadingProducts = false;
-          });
-        },
-
-        attachInlineMedia(mediaId) {
-          if (this.threadList.length === 0) return;
-          var root = this.threadList[0];
-          if (!root.media_ids) root.media_ids = [];
-          if (root.media_ids.indexOf(mediaId) === -1) {
-            if (root.media_ids.length >= 10) {
-              this.showToast('Maksimal 10 media karusel per thread', 'error');
-              return;
-            }
-            root.media_ids.push(mediaId);
-            root.media_id = root.media_ids[0];
-            this.showToast('Media ditambahkan ke Utas #1 (Total ' + root.media_ids.length + ')');
-          } else {
-            this.showToast('Media sudah terlampir di Utas #1', 'error');
-          }
-          this.$nextTick(() => { lucide.createIcons(); });
         },
 
         addThreadNode() {
@@ -4672,30 +4637,6 @@
           });
         },
 
-        runQueueNow() {
-          this.isProcessingQueue = true;
-          fetch(this.getScriptUrl(), {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'checkAndPublishQueue', payload: {} })
-          })
-          .then(r => r.text())
-          .then(text => {
-            const res = JSON.parse(text);
-            if (res.ok) {
-              this.showToast('Diproses: ' + res.data.processed + ' antrean.');
-              this.fetchInitialData();
-            } else {
-              this.showToast(res.message, 'error');
-            }
-            this.isProcessingQueue = false;
-          })
-          .catch(() => {
-            this.isProcessingQueue = false;
-            this.showToast('Gagal memproses antrean', 'error');
-          });
-        },
-
         activateAutoTrigger() {
           this.isSettingTrigger = true;
           fetch(this.getScriptUrl(), {
@@ -5039,7 +4980,6 @@
               this.showToast(this.isEditingProduct ? 'Produk berhasil diperbarui!' : 'Produk baru berhasil ditambahkan!');
               this.closeModal('addProductModal');
               this.newProd = { product_id: '', product_name: '', category: 'Elektronik', price: 0, product_image_url: '', shopee_raw_url: '', shopee_affiliate_url: '', selling_points: '' };
-              this.fetchProducts();
               this.fetchInitialData();
             } else {
               this.showToast(res.message, 'error');
@@ -5420,8 +5360,8 @@
           this.selectedProductId = prodId;
           this.aiPromptTopic = prod ? prod.product_name : ref.title;
 
-          // Siapkan composer dengan rangkaian utas dari referensi
-          var newThreadList = threads.map(function(t, idx) {
+          // Pindahkan teks referensi viral ke Composer secara bersih tanpa trigger AI otomatis
+          var newThreadList = threads.map(function(t) {
             return {
               content: t,
               product_ids: prodId ? [prodId] : [],
@@ -5432,11 +5372,12 @@
               _showProductPicker: false,
               _productSearch: '',
               _showLinkMenu: false,
-              _mediaFilterTab: 'ATTACHED'
+              _mediaFilterTab: 'ATTACHED',
+              _isGeneratingAi: false,
+              _aiOptions: []
             };
           });
 
-          // Otomatis lampirkan paket media produk jika tersedia
           if (prodId) {
             var sessions = this.getProductReviewSessions(prodId);
             if (sessions.length > 0 && sessions[0].media_items.length > 0) {
@@ -5447,7 +5388,23 @@
 
           this.threadList = newThreadList;
           this.switchTab('composer');
-          this.showToast('✨ Memanggil Sumopod AI untuk meremake rangkaian utas...');
+          this.showToast('Teks referensi berhasil dimuat ke Composer. Anda dapat mengedit atau menekan "Remake via Sumopod AI".');
+          this.$nextTick(() => { lucide.createIcons(); });
+        },
+
+        remakeWholeThreadChainWithAi() {
+          if (!this.threadList || this.threadList.length === 0) return;
+          var threads = this.threadList.map(function(t) { return t.content || ''; });
+          var primaryProdId = '';
+          for (var i = 0; i < this.threadList.length; i++) {
+            var pids = this.threadList[i].product_ids || [];
+            if (pids.length > 0) { primaryProdId = pids[0]; break; }
+            else if (this.threadList[i].product_id) { primaryProdId = this.threadList[i].product_id; break; }
+          }
+          var prod = primaryProdId ? this.products.find(function(p) { return p.product_id === primaryProdId; }) : null;
+
+          this.isRemakingWholeChain = true;
+          this.showToast('Memanggil Sumopod AI untuk meremake seluruh utas...');
 
           fetch(this.getScriptUrl(), {
             method: 'POST',
@@ -5455,7 +5412,7 @@
             body: JSON.stringify({
               action: 'generateSumopodRemake',
               payload: {
-                product_name: prod ? prod.product_name : (ref.title || ''),
+                product_name: prod ? prod.product_name : (this.aiPromptTopic || 'Produk Shopee'),
                 selling_points: prod ? (prod.selling_points || '') : '',
                 hook_thread_1: threads[0] || '',
                 spill_thread_2: threads[1] || '',
@@ -5469,21 +5426,23 @@
             if (res.ok && res.data) {
               var d = res.data;
               if (Array.isArray(d.threads) && d.threads.length > 0) {
-                for (var i = 0; i < d.threads.length; i++) {
-                  if (this.threadList[i]) {
-                    this.threadList[i].content = d.threads[i];
+                for (var k = 0; k < d.threads.length; k++) {
+                  if (this.threadList[k]) {
+                    this.threadList[k].content = d.threads[k];
                   } else {
                     this.threadList.push({
-                      content: d.threads[i],
-                      product_ids: prodId ? [prodId] : [],
-                      product_id: prodId,
+                      content: d.threads[k],
+                      product_ids: primaryProdId ? [primaryProdId] : [],
+                      product_id: primaryProdId,
                       media_ids: [],
                       media_id: '',
                       _showPicker: false,
                       _showProductPicker: false,
                       _productSearch: '',
                       _showLinkMenu: false,
-                      _mediaFilterTab: 'ATTACHED'
+                      _mediaFilterTab: 'ATTACHED',
+                      _isGeneratingAi: false,
+                      _aiOptions: []
                     });
                   }
                 }
@@ -5491,15 +5450,16 @@
                 if (d.hook_1 && this.threadList[0]) this.threadList[0].content = d.hook_1;
                 if (d.spill_2 && this.threadList[1]) this.threadList[1].content = d.spill_2;
               }
-              this.showToast('✨ Sukses! Sumopod AI telah meremake seluruh utas di Composer.');
+              this.showToast('✨ Seluruh utas berhasil di-remake oleh Sumopod AI!');
             } else {
-              this.showToast('Teks referensi dimasukkan ke Composer (Remake AI: ' + (res.message || 'limit') + ')', 'error');
+              this.showToast(res.message || 'Gagal meremake dengan AI', 'error');
             }
+            this.isRemakingWholeChain = false;
             this.$nextTick(() => { lucide.createIcons(); });
           })
-          .catch(() => {
-            this.showToast('Teks referensi dimasukkan ke Composer (AI timeout)', 'error');
-            this.$nextTick(() => { lucide.createIcons(); });
+          .catch(err => {
+            this.isRemakingWholeChain = false;
+            this.showToast('Gagal memanggil AI: ' + err.message, 'error');
           });
         },
 

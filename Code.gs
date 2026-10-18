@@ -46,8 +46,6 @@ function doPost(e) {
       result = pingThreadsAccount(payload);
     } else if (action === 'saveProduct') {
       result = saveProduct(payload);
-    } else if (action === 'saveMediaRecord') {
-      result = saveMediaRecord(payload);
     } else if (action === 'saveMediaBatch') {
       result = saveMediaBatch(payload);
     } else if (action === 'generateAiHook') {
@@ -59,7 +57,7 @@ function doPost(e) {
     } else if (action === 'publishPostNow') {
       result = publishPostNow(payload);
     } else if (action === 'checkViewTriggersAndReply') {
-      result = checkViewTriggersAndReply(payload);
+      result = syncAllPublishedPosts();
     } else if (action === 'syncPostInsights') {
       result = syncPostInsights(payload);
     } else if (action === 'syncAllPublishedPosts') {
@@ -578,27 +576,6 @@ function saveProduct(payload) {
   return { product_id: productId };
 }
 
-function saveMediaRecord(payload) {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = ss.getSheetByName('Media');
-  var mediaId = 'MED_' + Utilities.getUuid().substring(0, 8);
-  var now = new Date();
-  var cooldown = new Date(now.getTime() + 14 * 24 * 3600 * 1000); // Cooldown 14 hari
-
-  var row = [
-    mediaId,
-    payload.product_id || '',
-    payload.session_id || ('SESI_' + Date.now()),
-    payload.media_url,
-    payload.media_type || 'IMAGE',
-    payload.file_hash || '',
-    now.toISOString(),
-    cooldown.toISOString()
-  ];
-  sheet.appendRow(row);
-  return { media_id: mediaId, cooldown_until: cooldown.toISOString() };
-}
-
 function saveMediaBatch(payload) {
   var items = payload.items || [];
   if (!Array.isArray(items) || items.length === 0) {
@@ -689,8 +666,10 @@ function generateThreadOptions(payload) {
     throw new Error('Sumopod API Key belum dikonfigurasi di Pengaturan Sistem (Settings).');
   }
 
-  var endpoint = settings.sumopod_endpoint || 'https://api.sumopod.com/v1/chat/completions';
-  var model = settings.sumopod_model || 'gpt-4o-mini';
+  var endpoint = (settings.sumopod_endpoint && settings.sumopod_endpoint.indexOf('api.sumopod.com') === -1)
+    ? settings.sumopod_endpoint.trim()
+    : 'https://ai.sumopod.com/v1/chat/completions';
+  var model = settings.sumopod_model ? settings.sumopod_model.trim() : 'gpt-4o-mini';
 
   var systemPrompt = 'Anda adalah copywriter Meta Threads profesional untuk Shopee Affiliate Indonesia. ' +
     'Tugas Anda membuat 3 opsi caption alternatif yang natural, santai (slang Indo, curhat, tidak kaku), memancing rasa penasaran audiens. ' +
@@ -716,7 +695,10 @@ function generateThreadOptions(payload) {
   var response = UrlFetchApp.fetch(endpoint, {
     method: 'post',
     contentType: 'application/json',
-    headers: { 'Authorization': 'Bearer ' + apiKey.trim() },
+    headers: {
+      'Authorization': 'Bearer ' + cleanToken(apiKey),
+      'Content-Type': 'application/json'
+    },
     payload: JSON.stringify(body),
     muteHttpExceptions: true
   });
@@ -1272,10 +1254,6 @@ function syncAllPublishedPosts() {
   };
 }
 
-function checkViewTriggersAndReply(payload) {
-  return syncAllPublishedPosts();
-}
-
 // Sinkronkan interaksi audiens dari endpoint Meta Threads API (/conversation & /replies)
 function syncInboxComments(payload) {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -1668,8 +1646,10 @@ function generateSumopodRemake(payload) {
   var apiKey = settings.sumopod_api_key || payload.api_key;
   if (!apiKey) throw new Error('Sumopod API Key belum dikonfigurasi di Pengaturan Sistem');
 
-  var endpoint = settings.sumopod_endpoint || 'https://api.sumopod.com/v1/chat/completions';
-  var model = settings.sumopod_model || 'gpt-4o-mini';
+  var endpoint = (settings.sumopod_endpoint && settings.sumopod_endpoint.indexOf('api.sumopod.com') === -1)
+    ? settings.sumopod_endpoint.trim()
+    : 'https://ai.sumopod.com/v1/chat/completions';
+  var model = settings.sumopod_model ? settings.sumopod_model.trim() : 'gpt-4o-mini';
 
   var systemPrompt = 'Anda adalah copywriter Meta Threads profesional untuk Shopee Affiliate. ' +
     'Tugas Anda membuat remake rangkaian utas viral yang natural, santai (slang Indo/curhat), bebas link eksternal di Utas 1, ' +
@@ -1711,7 +1691,10 @@ function generateSumopodRemake(payload) {
   var response = UrlFetchApp.fetch(endpoint, {
     method: 'post',
     contentType: 'application/json',
-    headers: { 'Authorization': 'Bearer ' + apiKey.trim() },
+    headers: {
+      'Authorization': 'Bearer ' + cleanToken(apiKey),
+      'Content-Type': 'application/json'
+    },
     payload: JSON.stringify(body),
     muteHttpExceptions: true
   });
