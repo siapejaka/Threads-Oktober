@@ -1252,7 +1252,9 @@ function publishPostNow(payload) {
   if (qSheet) {
     var qData = qSheet.getDataRange().getValues();
     for (var q = 1; q < qData.length; q++) {
-      if (String(qData[q][1]) === String(postId) && String(qData[q][6]).toLowerCase() !== 'waiting_views_threshold') {
+      var qStatusNorm = String(qData[q][6] || '').toLowerCase().trim();
+      var isQWaiting = (qStatusNorm === 'waiting_views_threshold' || qStatusNorm === 'menunggu target' || qStatusNorm === 'waiting_views');
+      if (String(qData[q][1]) === String(postId) && !isQWaiting) {
         qSheet.getRange(q + 1, 7).setValue('Posted');
         qSheet.getRange(q + 1, 8).setValue('');
         qSheet.getRange(q + 1, 9).setValue(new Date().toISOString());
@@ -1468,46 +1470,49 @@ function syncPostInsights(payload) {
   postSheet.getRange(targetRow, repliesCol + 1).setValue(replies);
   if (permalink) postSheet.getRange(targetRow, linkCol + 1).setValue(permalink);
 
-  // 5. Jika target views tercapai dan auto-reply belum dikirim, kirimkan balasan otomatis (Sequential Auto-Drip Chain)
-  var threshold = Number(rowData[thresholdCol] || 0);
-  var autoReplySent = (rowData[replySentCol] === true || String(rowData[replySentCol]).toLowerCase() === 'true');
-  var replyTriggered = false;
+  // 5. STANDARISASI NUMERIK & STATUS: Jika current_views >= target_views dan Utas #2 masih menunggu, eksekusi instan
+  var currentViewsNum = Number(views || 0);
+  var targetViewsNum = Number(rowData[thresholdCol] || 0);
+  if (targetViewsNum <= 0) targetViewsNum = 500;
 
-  if (views >= threshold && !autoReplySent) {
+  var dripColIdx = headers.indexOf('drip_status');
+  var dripStatusRaw = String(dripColIdx !== -1 ? rowData[dripColIdx] : '').toLowerCase().trim();
+  var isReplyAlreadySent = (rowData[replySentCol] === true || String(rowData[replySentCol]).toLowerCase() === 'true' || dripStatusRaw === 'completed' || dripStatusRaw === 'terkirim');
+  var isWaitingDrip = (!isReplyAlreadySent) || (dripStatusRaw === 'waiting_views' || dripStatusRaw === 'waiting_views_threshold' || dripStatusRaw === 'menunggu target');
+
+  var replyTriggered = false;
+  var dripErrorMessage = '';
+
+  if (currentViewsNum >= targetViewsNum && isWaitingDrip) {
     try {
-      // Ambil link Shopee Affiliate terdaftar untuk disisipkan ke [LINK_AFFILIATE]
-      var affiliateLink = 'shope.ee/affiliate';
-      var prodId = rowData[headers.indexOf('product_id')];
-      if (prodId) {
-        var prods = getSheetRecords('Products');
-        for (var pr = 0; pr < prods.length; pr++) {
-          if (prods[pr].product_id === prodId) {
-            affiliateLink = prods[pr].shopee_affiliate_url || affiliateLink;
-            break;
-          }
-        }
-        var sep = affiliateLink.indexOf('?') === -1 ? '?' : '&';
-        affiliateLink += sep + 'sub_id=' + (rowData[headers.indexOf('affiliate_sub_id')] || 'sub');
+      if (!threadsPostId) {
+        throw new Error('ID Utas #1 (root_thread_id) belum ada di Meta Threads.');
       }
+
+      var affiliateLink = 's.shopee.co.id/affiliate';
+      var prodId = rowData[headers.indexOf('product_id')];
+      var prodsList = getSheetRecords('Products');
+      var prodLookup = {};
+      for (var pl = 0; pl < prodsList.length; pl++) {
+        prodLookup[prodsList[pl].product_id] = prodsList[pl];
+        if (prodsList[pl].product_id === prodId && prodsList[pl].shopee_affiliate_url) {
+          affiliateLink = prodsList[pl].shopee_affiliate_url;
+        }
+      }
+      var cleanShortAff = stripProtocol(affiliateLink).replace(/^https?:\/\//i, '').trim();
 
       var nodes = [];
       try {
         var rawNodes = rowData[headers.indexOf('thread_content_json')];
         nodes = typeof rawNodes === 'string' ? JSON.parse(rawNodes) : rawNodes;
       } catch(e) {}
+      if (!Array.isArray(nodes)) nodes = [nodes];
 
-      // Jika postingan memiliki utas berantai (Utas 2, Utas 3, dst.), kirimkan secara berurutan
-      if (Array.isArray(nodes) && nodes.length > 1) {
+      if (nodes.length > 1) {
         var mediaRecords = getSheetRecords('Media');
         var mediaMap = {};
         for (var m = 0; m < mediaRecords.length; m++) {
           mediaMap[String(mediaRecords[m].media_id).trim()] = mediaRecords[m];
-        }
-
-        var prodsList = getSheetRecords('Products');
-        var prodLookup = {};
-        for (var pl = 0; pl < prodsList.length; pl++) {
-          prodLookup[prodsList[pl].product_id] = prodsList[pl];
         }
 
         var chainParentId = threadsPostId;
@@ -1515,6 +1520,13 @@ function syncPostInsights(payload) {
           var subNode = nodes[step];
           var subText = typeof subNode === 'string' ? subNode : (subNode.content || '');
           subText = resolveAffiliateLinks(subText, subNode, prodLookup, rowData[headers.indexOf('affiliate_sub_id')], prodId);
+
+          if (subText.indexOf('[LINK') !== -1) {
+            subText = subText.replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, cleanShortAff);
+          } else if (subText.indexOf(cleanShortAff) === -1 && cleanShortAff) {
+            subText = subText + ' cek di ' + cleanShortAff;
+          }
+          subText = subText.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
 
           var mIds = [];
           if (subNode && Array.isArray(subNode.media_ids)) {
@@ -1552,8 +1564,7 @@ function syncPostInsights(payload) {
 
         postSheet.getRange(targetRow, headers.indexOf('thread_content_json') + 1).setValue(JSON.stringify(nodes));
         postSheet.getRange(targetRow, replySentCol + 1).setValue(true);
-        var dripCol = headers.indexOf('drip_status');
-        if (dripCol !== -1) postSheet.getRange(targetRow, dripCol + 1).setValue('COMPLETED');
+        if (dripColIdx !== -1) postSheet.getRange(targetRow, dripColIdx + 1).setValue('COMPLETED');
         replyTriggered = true;
 
         // Tandai baris antrean Utas #2 di Posting_Queue menjadi 'Posted'
@@ -1561,7 +1572,10 @@ function syncPostInsights(payload) {
         if (qSheet) {
           var qData = qSheet.getDataRange().getValues();
           for (var q = 1; q < qData.length; q++) {
-            if (String(qData[q][1]) === String(postId) && String(qData[q][6]).toLowerCase() === 'waiting_views_threshold') {
+            var qPostId = String(qData[q][1] || '').trim();
+            var qStatusNorm = String(qData[q][6] || '').toLowerCase().trim();
+            var isWaitingTarget = (qStatusNorm === 'waiting_views_threshold' || qStatusNorm === 'menunggu target' || qStatusNorm === 'waiting_views');
+            if (qPostId === String(postId) && isWaitingTarget) {
               qSheet.getRange(q + 1, 7).setValue('Posted');
               qSheet.getRange(q + 1, 8).setValue('');
               qSheet.getRange(q + 1, 9).setValue(new Date().toISOString());
@@ -1569,18 +1583,21 @@ function syncPostInsights(payload) {
           }
         }
       } else if (rowData[autoReplyContentCol]) {
-        // Fallback untuk postingan dengan template teks biasa
-        var replyText = String(rowData[autoReplyContentCol]).replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, stripProtocol(affiliateLink));
+        var replyText = String(rowData[autoReplyContentCol]).replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, cleanShortAff);
         replyText = replyText.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
-        publishThreadsNode(rowData[accCol], token, replyText, null, threadsPostId);
+        var singleChildId = publishThreadsNode(rowData[accCol], token, replyText, null, threadsPostId);
         postSheet.getRange(targetRow, replySentCol + 1).setValue(true);
+        if (dripColIdx !== -1) postSheet.getRange(targetRow, dripColIdx + 1).setValue('COMPLETED');
         replyTriggered = true;
 
         var qSheet2 = ss.getSheetByName('Posting_Queue');
         if (qSheet2) {
           var qData2 = qSheet2.getDataRange().getValues();
           for (var q2 = 1; q2 < qData2.length; q2++) {
-            if (String(qData2[q2][1]) === String(postId) && String(qData2[q2][6]).toLowerCase() === 'waiting_views_threshold') {
+            var qPostId2 = String(qData2[q2][1] || '').trim();
+            var qStatusNorm2 = String(qData2[q2][6] || '').toLowerCase().trim();
+            var isWaitingTarget2 = (qStatusNorm2 === 'waiting_views_threshold' || qStatusNorm2 === 'menunggu target' || qStatusNorm2 === 'waiting_views');
+            if (qPostId2 === String(postId) && isWaitingTarget2) {
               qSheet2.getRange(q2 + 1, 7).setValue('Posted');
               qSheet2.getRange(q2 + 1, 8).setValue('');
               qSheet2.getRange(q2 + 1, 9).setValue(new Date().toISOString());
@@ -1588,7 +1605,21 @@ function syncPostInsights(payload) {
           }
         }
       }
-    } catch (e) {}
+    } catch (dripErr) {
+      dripErrorMessage = (dripErr && dripErr.message) ? dripErr.message : String(dripErr);
+      Logger.log('[Auto-Drip Views Error post_id: ' + postId + '] ' + dripErrorMessage);
+      var qSheetErr = ss.getSheetByName('Posting_Queue');
+      if (qSheetErr) {
+        var qDataErr = qSheetErr.getDataRange().getValues();
+        for (var qe = 1; qe < qDataErr.length; qe++) {
+          var qpId = String(qDataErr[qe][1] || '').trim();
+          var qStat = String(qDataErr[qe][6] || '').toLowerCase().trim();
+          if (qpId === String(postId) && (qStat === 'waiting_views_threshold' || qStat === 'menunggu target' || qStat === 'waiting_views')) {
+            qSheetErr.getRange(qe + 1, 8).setValue('Gagal Drip: ' + dripErrorMessage);
+          }
+        }
+      }
+    }
   }
 
   return {
@@ -2815,8 +2846,9 @@ function checkWaitingViewsQueue() {
   var checked = 0;
 
   for (var i = 1; i < qData.length; i++) {
-    var status = String(qData[i][6] || '').toLowerCase();
-    if (status !== 'waiting_views_threshold') continue;
+    var rawStatus = String(qData[i][6] || '').toLowerCase().trim();
+    var isWaiting = (rawStatus === 'waiting_views_threshold' || rawStatus === 'menunggu target' || rawStatus === 'waiting_views');
+    if (!isWaiting) continue;
 
     var postId = String(qData[i][1] || '').trim();
     if (!postId) continue;
@@ -2828,7 +2860,11 @@ function checkWaitingViewsQueue() {
         processed++;
       }
     } catch (e) {
-      Logger.log('[checkWaitingViewsQueue Error] Post ' + postId + ': ' + e.message);
+      var errDetail = e && e.message ? e.message : String(e);
+      Logger.log('[checkWaitingViewsQueue Error] Post ' + postId + ': ' + errDetail);
+      try {
+        qSheet.getRange(i + 1, 8).setValue('Gagal Cek Views: ' + errDetail);
+      } catch (logErr) {}
     }
   }
 
