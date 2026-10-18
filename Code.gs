@@ -936,6 +936,45 @@ function extractMediaIds(nodes) {
 }
 
 function createPost(payload) {
+  // STRICT ACCOUNT BINDING: Pastikan produk yang dikaitkan diizinkan secara eksplisit untuk akun ini
+  if (payload.product_id && payload.account_id) {
+    var prodsListCheck = getSheetRecords('Products');
+    var targetP = null;
+    for (var pi = 0; pi < prodsListCheck.length; pi++) {
+      if (prodsListCheck[pi].product_id === payload.product_id) {
+        targetP = prodsListCheck[pi];
+        break;
+      }
+    }
+    if (targetP) {
+      var rawAllowed = String(targetP.allowed_accounts || '').trim();
+      if (!rawAllowed) {
+        throw new Error('Produk "' + (targetP.product_name || targetP.product_id) + '" berstatus Belum Terhubung dan tidak dapat diposting.');
+      }
+      var cleanTargetAcc = cleanAccountId(payload.account_id);
+      var allowedItems = rawAllowed.split(',').map(function(s) { return s.trim().toLowerCase(); });
+      var accRecords = getSheetRecords('Accounts');
+      var userMatch = '';
+      for (var ai = 0; ai < accRecords.length; ai++) {
+        if (cleanAccountId(accRecords[ai].account_id) === cleanTargetAcc) {
+          userMatch = String(accRecords[ai].username || '').toLowerCase().trim();
+          break;
+        }
+      }
+      var isPermitted = false;
+      for (var aIdx = 0; aIdx < allowedItems.length; aIdx++) {
+        var it = allowedItems[aIdx];
+        if (cleanAccountId(it) === cleanTargetAcc || (userMatch && it === userMatch)) {
+          isPermitted = true;
+          break;
+        }
+      }
+      if (!isPermitted) {
+        throw new Error('Akun ini tidak memiliki izin untuk memposting produk "' + (targetP.product_name || targetP.product_id) + '".');
+      }
+    }
+  }
+
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName('Posts');
   var postId = 'POST_' + Utilities.getUuid().substring(0, 8);
@@ -2476,19 +2515,28 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
     // 2. PEMILIHAN PRODUK & MEDIA SESI UTUH OTOMATIS PER AKUN TERPILIH
     for (var accIdx = 0; accIdx < eligibleAccounts.length; accIdx++) {
       var targetAccId = eligibleAccounts[accIdx];
+      var targetUsername = '';
+      for (var aci = 0; aci < allAccounts.length; aci++) {
+        if (cleanAccountId(allAccounts[aci].account_id) === targetAccId) {
+          targetUsername = String(allAccounts[aci].username || '').toLowerCase().trim();
+          break;
+        }
+      }
 
-      // Filter produk yang diizinkan untuk akun ini dan memiliki media
+      // STRICT MATCHING: Hanya pilih produk di mana targetAccId atau targetUsername tercantum eksplisit di allowed_accounts
       var eligibleProductsForAcc = [];
       for (var pr = 0; pr < allProducts.length; pr++) {
         var pCandidate = allProducts[pr];
         var allowedStr = String(pCandidate.allowed_accounts || '').trim();
         var isAllowed = false;
-        if (!allowedStr) {
-          isAllowed = true;
-        } else {
-          var allowedList = allowedStr.split(',').map(function(s) { return cleanAccountId(s); });
-          if (allowedList.indexOf(targetAccId) !== -1) {
-            isAllowed = true;
+        if (allowedStr) {
+          var allowedList = allowedStr.split(',').map(function(s) { return s.trim().toLowerCase(); });
+          for (var al = 0; al < allowedList.length; al++) {
+            var aItem = allowedList[al];
+            if (cleanAccountId(aItem) === targetAccId || (targetUsername && aItem === targetUsername)) {
+              isAllowed = true;
+              break;
+            }
           }
         }
         if (isAllowed) {
@@ -2503,11 +2551,23 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         }
       }
 
-      // Pilih produk: jika ada rule.product_id tetap dukung, jika tidak gunakan rotasi cerdas produk
+      // Pilih produk: jika ada rule.product_id, validasi STRICT apakah diizinkan untuk targetAccId
       var chosenProd = null;
       if (rule.product_id && prodMap[rule.product_id]) {
-        chosenProd = prodMap[rule.product_id];
-      } else if (eligibleProductsForAcc.length > 0) {
+        var ruleProd = prodMap[rule.product_id];
+        var ruleProdAllowed = String(ruleProd.allowed_accounts || '').trim();
+        if (ruleProdAllowed) {
+          var rList = ruleProdAllowed.split(',').map(function(s) { return s.trim().toLowerCase(); });
+          for (var rl = 0; rl < rList.length; rl++) {
+            if (cleanAccountId(rList[rl]) === targetAccId || (targetUsername && rList[rl] === targetUsername)) {
+              chosenProd = ruleProd;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!chosenProd && eligibleProductsForAcc.length > 0) {
         var prodLastPostedMap = {};
         for (var ep = 0; ep < eligibleProductsForAcc.length; ep++) {
           prodLastPostedMap[eligibleProductsForAcc[ep].product_id] = 0;

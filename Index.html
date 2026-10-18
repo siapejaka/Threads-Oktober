@@ -1360,6 +1360,7 @@
               <i data-lucide="at-sign" class="w-3.5 h-3.5 text-slate-400"></i>
               <select x-model="productAccountFilter" @change="productPage = 1" class="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer">
                 <option value="ALL">Semua Akun</option>
+                <option value="UNLINKED">Belum Terhubung</option>
                 <template x-for="acc in accounts" :key="acc.account_id">
                   <option :value="acc.account_id" x-text="'@' + acc.username"></option>
                 </template>
@@ -1407,8 +1408,8 @@
                         <div class="font-bold text-slate-900 truncate max-w-[240px] group-hover:text-emerald-700 transition" x-text="item.product_name"></div>
                         <div class="flex items-center space-x-1 mt-1">
                           <template x-if="!item.allowed_accounts || item.allowed_accounts.length === 0">
-                            <span class="inline-flex items-center px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold text-[9px]">
-                              Semua Akun
+                            <span class="inline-flex items-center px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[9px]">
+                              Belum Terhubung
                             </span>
                           </template>
                           <template x-if="item.allowed_accounts && item.allowed_accounts.length > 0">
@@ -3435,8 +3436,9 @@
           </label>
         </template>
 
-        <div x-show="filteredAttachProducts.length === 0" class="text-center py-8 text-xs text-slate-400">
-          Tidak ada produk yang cocok dengan pencarian atau diizinkan untuk akun terpilih.
+        <div x-show="filteredAttachProducts.length === 0" class="text-center py-8 text-xs text-slate-400 space-y-1">
+          <p class="font-semibold text-slate-600">Tidak ada produk terhubung yang tersedia.</p>
+          <p class="text-[11px]">Hanya produk yang terhubung secara eksplisit ke akun terpilih yang muncul di sini. Produk tanpa relasi akun (Belum Terhubung) diisolasi.</p>
         </div>
       </div>
 
@@ -3508,13 +3510,13 @@
             <label class="font-semibold text-slate-700 flex items-center">
               <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Akun yang Diizinkan (Allowed Accounts)
             </label>
-            <span class="text-[10px] text-slate-400">Bebas jika tidak dipilih</span>
+            <span class="text-[10px] text-rose-500 font-medium" x-show="!newProd.allowed_accounts || newProd.allowed_accounts.length === 0">Wajib pilih akun</span>
           </div>
           <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
             <div class="flex items-center justify-between text-[11px]">
-              <span class="text-slate-500 font-medium" x-text="(!newProd.allowed_accounts || newProd.allowed_accounts.length === 0) ? 'Status: Bebas untuk Semua Akun' : (newProd.allowed_accounts.length + ' akun dibatasi')"></span>
-              <button type="button" @click="newProd.allowed_accounts = []" x-show="newProd.allowed_accounts && newProd.allowed_accounts.length > 0" class="text-emerald-700 font-bold hover:underline text-[10px]">
-                Reset ke Bebas
+              <span class="font-medium" :class="(!newProd.allowed_accounts || newProd.allowed_accounts.length === 0) ? 'text-rose-600' : 'text-emerald-700'" x-text="(!newProd.allowed_accounts || newProd.allowed_accounts.length === 0) ? 'Status: Belum Terhubung (Tidak akan muncul di Composer)' : (newProd.allowed_accounts.length + ' akun terhubung')"></span>
+              <button type="button" @click="newProd.allowed_accounts = []" x-show="newProd.allowed_accounts && newProd.allowed_accounts.length > 0" class="text-slate-500 hover:text-rose-600 font-bold hover:underline text-[10px]">
+                Kosongkan
               </button>
             </div>
             <div class="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1">
@@ -4710,13 +4712,22 @@
         },
 
         isProductAllowedForComposer(p) {
-          if (!this.composerAccounts || this.composerAccounts.length === 0) return true;
+          if (!p) return false;
+          if (!this.composerAccounts || this.composerAccounts.length === 0) return false;
           var raw = p.allowed_accounts;
-          if (!raw) return true;
+          if (!raw) return false;
           var allowed = Array.isArray(raw) ? raw : String(raw).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-          if (allowed.length === 0) return true;
+          if (allowed.length === 0) return false;
+
+          var self = this;
           return this.composerAccounts.every(function(accId) {
-            return allowed.indexOf(String(accId).trim()) > -1;
+            var accObj = self.getAccountObj(accId);
+            var uName = accObj && accObj.username ? accObj.username.toLowerCase().trim() : '';
+            var cleanId = String(accId).replace(/^'/, '').trim();
+            return allowed.some(function(item) {
+              var cleanItem = String(item).replace(/^'/, '').trim();
+              return cleanItem === cleanId || (uName && cleanItem.toLowerCase() === uName);
+            });
           });
         },
 
@@ -4757,9 +4768,9 @@
         },
 
         getAllowedAccountNames(raw) {
-          if (!raw) return 'Semua Akun';
+          if (!raw) return 'Belum Terhubung';
           var arr = Array.isArray(raw) ? raw : String(raw).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-          if (arr.length === 0) return 'Semua Akun';
+          if (arr.length === 0) return 'Belum Terhubung';
           var self = this;
           var names = arr.map(function(id) {
             return '@' + self.getAccountName(id);
@@ -5326,13 +5337,28 @@
             });
           }
 
-          if (acc && acc !== 'ALL') {
+          if (acc === 'UNLINKED') {
             list = list.filter(function(p) {
               if (!p) return false;
               var raw = p.allowed_accounts;
               if (!raw) return true;
-              var allowed = Array.isArray(raw) ? raw : String(raw).split(',').map(function(s) { return s.trim(); });
-              return allowed.length === 0 || allowed.indexOf(String(acc).trim()) !== -1;
+              var allowed = Array.isArray(raw) ? raw : String(raw).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+              return allowed.length === 0;
+            });
+          } else if (acc && acc !== 'ALL') {
+            list = list.filter(function(p) {
+              if (!p) return false;
+              var raw = p.allowed_accounts;
+              if (!raw) return false;
+              var allowed = Array.isArray(raw) ? raw : String(raw).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+              if (allowed.length === 0) return false;
+              var accObj = self.getAccountObj(acc);
+              var uName = accObj && accObj.username ? accObj.username.toLowerCase().trim() : '';
+              var cleanId = String(acc).replace(/^'/, '').trim();
+              return allowed.some(function(item) {
+                var cleanItem = String(item).replace(/^'/, '').trim();
+                return cleanItem === cleanId || (uName && cleanItem.toLowerCase() === uName);
+              });
             });
           }
 
