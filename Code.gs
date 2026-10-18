@@ -1084,7 +1084,7 @@ function createPost(payload) {
     }
     status = 'PUBLISHED';
     payload.thread_content_json = JSON.stringify(nodes);
-  } else if (status === 'SCHEDULED' || status === 'DRAFT') {
+  } else if (status === 'SCHEDULED' || status === 'Pending_Scheduled' || status === 'DRAFT') {
     if (isDripMode) {
       if (typeof nodes[0] === 'object' && nodes[0] !== null) nodes[0].status = status;
       for (var s = 1; s < nodes.length; s++) {
@@ -1140,7 +1140,7 @@ function createPost(payload) {
         publishedThreadId,
         2
       ]);
-    } else if (status === 'SCHEDULED') {
+    } else if (status === 'SCHEDULED' || status === 'Pending_Scheduled') {
       var qIdSched = 'Q_' + Utilities.getUuid().substring(0, 8);
       var schedIso = payload.scheduled_time ? new Date(payload.scheduled_time).toISOString() : new Date().toISOString();
       qSheet.appendRow([
@@ -1150,7 +1150,7 @@ function createPost(payload) {
         schedIso,
         payload.thread_content_json,
         payload.media_ids_json || '[]',
-        'Scheduled',
+        status === 'Pending_Scheduled' ? 'Pending_Scheduled' : 'Scheduled',
         '',
         '',
         '',
@@ -2325,19 +2325,22 @@ function saveAutopilotRule(payload) {
     windowsJson = String(payload.time_windows_json);
   }
 
+  var targetPosts = Number(payload.target_posts || payload.max_posts_per_day || payload.frequency_per_day || 3);
+  if (targetPosts <= 0) targetPosts = 3;
+
   var rowVals = [
     ruleId,
     payload.name || ('Aturan Autopilot ' + (payload.product_id || '')),
     accJson,
     payload.product_id || '',
     payload.preferred_session_id || '',
-    Number(payload.frequency_per_day || 2),
+    targetPosts,
     Number(payload.views_threshold || 500),
     Number(payload.jitter_minutes || 15),
     payload.status || 'ACTIVE',
     payload.last_run_at || '',
     payload.created_at || new Date().toISOString(),
-    Number(payload.max_posts_per_day || 3),
+    targetPosts,
     0,
     payload.last_session_id || existingLastSession,
     windowsJson
@@ -2390,72 +2393,81 @@ function deleteAutopilotRule(payload) {
   throw new Error('Aturan tidak ditemukan');
 }
 
-// Helper pembagian slot Jendela Jam Tayang Dinamis per Aturan + Interval Otomatis & Jitter
-function calculateAutopilotSlot(windowsList, postsToday, maxDailyPerAcc, jitterMin, accIdx, now) {
+// Helper pembagian titik jadwal terdistribusi dinamis harian (Batch Daily Scheduling)
+function generateDistributedScheduleSlots(windowsList, targetPosts, jitterMin, accIdx, now) {
   var windows = Array.isArray(windowsList) && windowsList.length > 0
     ? windowsList
     : ['06:00-08:30', '11:30-13:30', '16:30-18:30', '19:30-21:30'];
 
-  var parsedWindows = windows.map(function(winStr) {
-    var parts = String(winStr).split('-');
+  var parsedWindows = [];
+  var totalActiveMinutes = 0;
+
+  for (var w = 0; w < windows.length; w++) {
+    var parts = String(windows[w]).split('-');
     var startParts = (parts[0] || '06:00').trim().split(':');
     var endParts = (parts[1] || '08:30').trim().split(':');
     var startMin = (parseInt(startParts[0], 10) || 0) * 60 + (parseInt(startParts[1], 10) || 0);
     var endMin = (parseInt(endParts[0], 10) || 0) * 60 + (parseInt(endParts[1], 10) || 0);
     if (endMin <= startMin) endMin = startMin + 60;
-    return { startMin: startMin, endMin: endMin, raw: winStr };
-  });
+    var dur = endMin - startMin;
+    parsedWindows.push({
+      startMin: startMin,
+      endMin: endMin,
+      duration: dur,
+      cumStart: totalActiveMinutes,
+      cumEnd: totalActiveMinutes + dur
+    });
+    totalActiveMinutes += dur;
+  }
 
-  var totalPosts = Math.max(1, maxDailyPerAcc);
-  var numWindows = parsedWindows.length;
+  if (totalActiveMinutes <= 0) {
+    totalActiveMinutes = 480;
+    parsedWindows = [{ startMin: 480, endMin: 960, duration: 480, cumStart: 0, cumEnd: 480 }];
+  }
 
-  // a. Hitung kuota post per jendela = Total Target Post / Jumlah Jendela Waktu
-  var basePerWindow = Math.floor(totalPosts / numWindows);
-  var remainder = totalPosts % numWindows;
+  var count = Math.max(1, parseInt(targetPosts, 10) || 3);
+  var interval = totalActiveMinutes / count;
+  var slots = [];
+  var baseNow = (now instanceof Date) ? now : new Date(now || Date.now());
 
-  var targetWin = parsedWindows[0];
-  var posInWindow = 0;
-  var quotaInThisWindow = 1;
-  var runningCount = 0;
+  for (var i = 0; i < count; i++) {
+    var targetOffset = (i + 0.5) * interval;
 
-  for (var w = 0; w < numWindows; w++) {
-    var quota = basePerWindow + (w < remainder ? 1 : 0);
-    if (postsToday < (runningCount + quota) || w === numWindows - 1) {
-      targetWin = parsedWindows[w];
-      posInWindow = Math.max(0, postsToday - runningCount);
-      quotaInThisWindow = Math.max(1, quota);
-      break;
+    var chosenWin = parsedWindows[0];
+    for (var j = 0; j < parsedWindows.length; j++) {
+      if (targetOffset >= parsedWindows[j].cumStart && targetOffset < parsedWindows[j].cumEnd) {
+        chosenWin = parsedWindows[j];
+        break;
+      }
     }
-    runningCount += quota;
+
+    var minIntoWin = targetOffset - chosenWin.cumStart;
+    var minuteOfDay = chosenWin.startMin + minIntoWin;
+
+    // Tambah jitter delay acak (+/- 2 menit)
+    var randJitter = (Math.random() * 4 - 2);
+    var accOffsetMin = (accIdx * 1.5);
+    var finalMinute = minuteOfDay + randJitter + accOffsetMin;
+
+    var slotDate = new Date(baseNow.getTime());
+    slotDate.setHours(Math.floor(finalMinute / 60));
+    slotDate.setMinutes(Math.floor(finalMinute % 60));
+    slotDate.setSeconds(0);
+    slotDate.setMilliseconds(0);
+
+    // Jika waktu pada hari ini sudah lewat dari sekarang, jadwalkan untuk besok di jam yang sama
+    if (slotDate.getTime() <= (baseNow.getTime() + 2 * 60 * 1000)) {
+      slotDate.setDate(slotDate.getDate() + 1);
+    }
+
+    slots.push(slotDate);
   }
 
-  // b. Hitung interval menit = Durasi menit jendela aktif / Kuota post jendela tersebut
-  var winDurationMin = targetWin.endMin - targetWin.startMin;
-  var intervalMin = winDurationMin / quotaInThisWindow;
-  var targetMinuteOfDay = targetWin.startMin + (posInWindow * intervalMin) + (intervalMin * 0.5);
-
-  var targetDate = new Date(now);
-  targetDate.setHours(Math.floor(targetMinuteOfDay / 60));
-  targetDate.setMinutes(Math.floor(targetMinuteOfDay % 60));
-  targetDate.setSeconds(0);
-  targetDate.setMilliseconds(0);
-
-  // c. Tambahkan jitter delay acak (+/- 2 hingga 5 menit) di setiap titik jam posting
-  var randomSign = Math.random() >= 0.5 ? 1 : -1;
-  var randomJitterMin = randomSign * (2 + Math.random() * 3);
-  var accOffsetMs = (accIdx * 2.5 * 60000);
-  var totalJitterMs = (randomJitterMin * 60000) + accOffsetMs;
-
-  var finalTime = targetDate.getTime() + totalJitterMs;
-
-  if (finalTime <= (now + 2 * 60 * 1000)) {
-    finalTime = now + (5 * 60 * 1000) + accOffsetMs + Math.floor(Math.random() * 4 * 60000);
-  }
-
-  return new Date(finalTime);
+  slots.sort(function(a, b) { return a.getTime() - b.getTime(); });
+  return slots;
 }
 
-// Background Cron Worker: Mesin Otonom Penuh (True Autopilot: Akun -> Auto Produk -> Rotasi Sesi Utuh -> Caption AI 3 Sumber)
+// Background Batch Worker: Mesin Autopilot Batch Daily Scheduling
 function runAutonomousAutopilotWorker(ruleIdFilter) {
   var rules = getSheetRecords('Autopilot_Rules');
   if (!rules || rules.length === 0) {
@@ -2479,11 +2491,6 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
   }
 
   var allProducts = getSheetRecords('Products');
-  var prodMap = {};
-  for (var p = 0; p < allProducts.length; p++) {
-    prodMap[allProducts[p].product_id] = allProducts[p];
-  }
-
   var allMedia = getSheetRecords('Media');
   var allViralRefs = getSheetRecords('Viral_References');
   var allAccounts = getSheetRecords('Accounts');
@@ -2499,29 +2506,22 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
   var lastSessionCol = ruleHeaders.indexOf('last_session_id');
 
   var totalGenerated = 0;
-  var now = Date.now();
-  var oneDayMs = 24 * 3600 * 1000;
+  var now = new Date();
+  var nowMs = now.getTime();
 
   for (var i = 0; i < activeRules.length; i++) {
     var rule = activeRules[i];
     var isManualTrigger = !!ruleIdFilter;
 
-    var freq = Number(rule.frequency_per_day || 2);
-    if (freq <= 0) freq = 2;
-    var intervalMs = (24 / freq) * 3600 * 1000;
-    var lastRunTime = rule.last_run_at ? new Date(rule.last_run_at).getTime() : 0;
+    // Baca target_posts harian dinamis dari input user (misal 3, 5, 8, 10, dsb.)
+    var targetPosts = Number(rule.target_posts || rule.max_posts_per_day || rule.frequency_per_day || 3);
+    if (targetPosts <= 0) targetPosts = 3;
 
-    // Throttle frekuensi jika dipanggil oleh cron background (kecuali manual trigger)
-    if (!isManualTrigger && lastRunTime && (now - lastRunTime) < (intervalMs * 0.85)) {
+    var lastRunTime = rule.last_run_at ? new Date(rule.last_run_at).getTime() : 0;
+    // Throttle cron background: jika bukan manual trigger, batasi eksekusi batch per 12 jam
+    if (!isManualTrigger && lastRunTime && (nowMs - lastRunTime) < (12 * 3600 * 1000)) {
       continue;
     }
-
-    // 1. RATE LIMITING & SAFETY GUARDRAIL PER AKUN (Dinamis & Proporsional Sesuai Target Post)
-    var maxDailyPerAcc = Number(rule.max_posts_per_day || 3);
-    if (maxDailyPerAcc <= 0) maxDailyPerAcc = 3;
-    // Skala jeda otomatis: rentang aktif ~16 jam dibagi target post harian dengan safety buffer 20%
-    var proportionalIntervalHours = Math.max(0.25, (16 / maxDailyPerAcc) * 0.8);
-    var minIntervalMs = proportionalIntervalHours * 3600 * 1000;
 
     var rawAccIds = [];
     try {
@@ -2533,48 +2533,10 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
       continue;
     }
 
-    // Filter akun yang aman dan belum melampaui limit harian / interval spam
-    var eligibleAccounts = [];
-    var accountPostsTodayMap = {};
-    for (var aIdx = 0; aIdx < rawAccIds.length; aIdx++) {
-      var aId = cleanAccountId(rawAccIds[aIdx]);
-      var postsToday = 0;
-      var lastAccountPostTime = 0;
-
-      // Hitung postingan dalam 24 jam terakhir dari Posts
-      for (var ps = 0; ps < allPosts.length; ps++) {
-        if (cleanAccountId(allPosts[ps].account_id) === aId) {
-          var pTime = allPosts[ps].created_at ? new Date(allPosts[ps].created_at).getTime() : 0;
-          if ((now - pTime) < oneDayMs) postsToday++;
-          if (pTime > lastAccountPostTime) lastAccountPostTime = pTime;
-        }
-      }
-
-      // Hitung postingan antrean hari ini dari Posting_Queue
-      for (var q = 0; q < allQueue.length; q++) {
-        if (cleanAccountId(allQueue[q].account_id) === aId) {
-          var qTime = allQueue[q].scheduled_time ? new Date(allQueue[q].scheduled_time).getTime() : 0;
-          if ((now - qTime) < oneDayMs && (allQueue[q].status || '').toLowerCase() !== 'failed') postsToday++;
-          if (qTime > lastAccountPostTime) lastAccountPostTime = qTime;
-        }
-      }
-
-      accountPostsTodayMap[aId] = postsToday;
-
-      if (postsToday < maxDailyPerAcc) {
-        if (isManualTrigger || (now - lastAccountPostTime) >= (minIntervalMs * 0.8)) {
-          eligibleAccounts.push(aId);
-        }
-      }
-    }
-
-    if (eligibleAccounts.length === 0) continue;
-
     var jitterMin = Number(rule.jitter_minutes || 15);
     var thresh = Number(rule.views_threshold || 500);
     var ruleLastSession = rule.last_session_id || '';
 
-    // Peta media_id -> session_id untuk pelacakan visual ulasan 7 hari terakhir
     var mediaToSessionMap = {};
     for (var mi = 0; mi < allMedia.length; mi++) {
       var medRow = allMedia[mi];
@@ -2582,11 +2544,17 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         mediaToSessionMap[String(medRow.media_id).trim()] = String(medRow.session_id).trim();
       }
     }
-    var sevenDaysMs = 7 * 24 * 3600 * 1000;
 
-    // 2. PEMILIHAN PRODUK & MEDIA SESI UTUH 100% OTONOM (STRICT MATCH & 7-DAY ROTATION)
-    for (var accIdx = 0; accIdx < eligibleAccounts.length; accIdx++) {
-      var targetAccId = eligibleAccounts[accIdx];
+    var ruleWindows = [];
+    try {
+      ruleWindows = typeof rule.time_windows_json === 'string' ? JSON.parse(rule.time_windows_json) : (rule.time_windows_json || []);
+    } catch(eWin) {}
+    if (!Array.isArray(ruleWindows) || ruleWindows.length === 0) {
+      ruleWindows = ['06:00-08:30', '11:30-13:30', '16:30-18:30', '19:30-21:30'];
+    }
+
+    for (var accIdx = 0; accIdx < rawAccIds.length; accIdx++) {
+      var targetAccId = cleanAccountId(rawAccIds[accIdx]);
       var targetUsername = '';
       for (var aci = 0; aci < allAccounts.length; aci++) {
         if (cleanAccountId(allAccounts[aci].account_id) === targetAccId) {
@@ -2595,58 +2563,12 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         }
       }
 
-      // Kumpulkan riwayat pemakaian produk & sesi ulasan dalam 7 hari terakhir untuk akun ini
-      var prodUsageLast7Days = {};
-      var sessUsageLast7Days = {};
-
-      for (var ps = 0; ps < allPosts.length; ps++) {
-        if (cleanAccountId(allPosts[ps].account_id) === targetAccId) {
-          var pTime = allPosts[ps].created_at ? new Date(allPosts[ps].created_at).getTime() : 0;
-          if ((now - pTime) < sevenDaysMs) {
-            var pid = allPosts[ps].product_id;
-            if (pid) prodUsageLast7Days[pid] = Math.max(prodUsageLast7Days[pid] || 0, pTime);
-            var mIdsJson = allPosts[ps].media_ids_json;
-            if (mIdsJson) {
-              try {
-                var mIds = typeof mIdsJson === 'string' ? JSON.parse(mIdsJson) : mIdsJson;
-                if (Array.isArray(mIds)) {
-                  for (var mIdx = 0; mIdx < mIds.length; mIdx++) {
-                    var sid = mediaToSessionMap[String(mIds[mIdx]).trim()];
-                    if (sid) sessUsageLast7Days[sid] = Math.max(sessUsageLast7Days[sid] || 0, pTime);
-                  }
-                }
-              } catch(e) {}
-            }
-          }
-        }
-      }
-
-      for (var q = 0; q < allQueue.length; q++) {
-        if (cleanAccountId(allQueue[q].account_id) === targetAccId) {
-          var qTime = allQueue[q].scheduled_time ? new Date(allQueue[q].scheduled_time).getTime() : 0;
-          if ((now - qTime) < sevenDaysMs && (allQueue[q].status || '').toLowerCase() !== 'failed') {
-            var qMedia = allQueue[q].media_ids_json;
-            if (qMedia) {
-              try {
-                var qmArr = typeof qMedia === 'string' ? JSON.parse(qMedia) : qMedia;
-                if (Array.isArray(qmArr)) {
-                  for (var qm = 0; qm < qmArr.length; qm++) {
-                    var qSid = mediaToSessionMap[String(qmArr[qm]).trim()];
-                    if (qSid) sessUsageLast7Days[qSid] = Math.max(sessUsageLast7Days[qSid] || 0, qTime);
-                  }
-                }
-              } catch(e) {}
-            }
-          }
-        }
-      }
-
-      // STRICT MATCHING: Hanya pilih produk di mana targetAccId atau targetUsername tercantum eksplisit di allowed_accounts
+      // Filter produk terhubung sah ke akun ini
       var eligibleProductsForAcc = [];
       for (var pr = 0; pr < allProducts.length; pr++) {
         var pCandidate = allProducts[pr];
         var allowedStr = String(pCandidate.allowed_accounts || '').trim();
-        if (!allowedStr) continue; // STRICT: Abaikan produk tanpa kaitan akun sah
+        if (!allowedStr) continue;
 
         var allowedList = allowedStr.split(',').map(function(s) { return s.trim().toLowerCase(); });
         var isAllowed = false;
@@ -2671,178 +2593,109 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
 
       if (eligibleProductsForAcc.length === 0) continue;
 
-      // Rotasi 7 Hari Produk: Prioritaskan produk yang belum pernah diposting 7 hari terakhir
-      eligibleProductsForAcc.sort(function(a, b) {
-        var tA = prodUsageLast7Days[a.product_id] || 0;
-        var tB = prodUsageLast7Days[b.product_id] || 0;
-        return tA - tB;
-      });
-      var chosenProd = eligibleProductsForAcc[0];
+      // Hitung titik waktu jadwal terdistribusi proporsional untuk seluruh kuota target_posts
+      var distributedSlots = generateDistributedScheduleSlots(ruleWindows, targetPosts, jitterMin, accIdx, now);
 
-      // Ambil paket media utuh HANYA dari sesi ulasan bergilir (Round-Robin 7 Hari Anti-Duplikasi)
-      var prodSessions = {};
-      var sessionOrder = [];
-      for (var m = 0; m < allMedia.length; m++) {
-        var med = allMedia[m];
-        if (med.product_id === chosenProd.product_id) {
-          var sId = med.session_id || 'SESI_DEFAULT';
-          if (!prodSessions[sId]) {
-            prodSessions[sId] = [];
-            sessionOrder.push(sId);
-          }
-          prodSessions[sId].push(med.media_id);
-        }
-      }
+      for (var slotIdx = 0; slotIdx < distributedSlots.length; slotIdx++) {
+        var scheduledDate = distributedSlots[slotIdx];
+        var chosenProd = eligibleProductsForAcc[slotIdx % eligibleProductsForAcc.length];
 
-      if (sessionOrder.length === 0) continue;
-
-      // Urutkan sesi: Prioritaskan sesi yang belum pernah tayang dalam 7 hari terakhir untuk akun ini
-      sessionOrder.sort(function(sA, sB) {
-        var tA = sessUsageLast7Days[sA] || (sA === ruleLastSession ? (now - 1000) : 0);
-        var tB = sessUsageLast7Days[sB] || (sB === ruleLastSession ? (now - 1000) : 0);
-        return tA - tB;
-      });
-      var chosenSessionId = sessionOrder[0];
-      var chosenMediaIds = prodSessions[chosenSessionId];
-      ruleLastSession = chosenSessionId;
-
-      if (!chosenMediaIds || chosenMediaIds.length === 0) continue;
-
-      // 3. TIGA SUMBER PINTAR CAPTION SUMOPOD AI (Referensi Viral, Winner Context, Selling Points)
-      // Sumber (b): Winner Context (postingan berviews tertinggi)
-      var winnerPost = null;
-      var highestViews = 0;
-      for (var w = 0; w < allPosts.length; w++) {
-        var itemP = allPosts[w];
-        if (itemP.status === 'PUBLISHED' && Number(itemP.current_views || 0) > highestViews) {
-          if (!chosenProd.product_id || itemP.product_id === chosenProd.product_id) {
-            highestViews = Number(itemP.current_views);
-            winnerPost = itemP;
+        // Kelompokkan sesi media untuk produk terpilih
+        var prodSessions = {};
+        var sessionOrder = [];
+        for (var m = 0; m < allMedia.length; m++) {
+          var med = allMedia[m];
+          if (med.product_id === chosenProd.product_id) {
+            var sId = med.session_id || 'SESI_DEFAULT';
+            if (!prodSessions[sId]) {
+              prodSessions[sId] = [];
+              sessionOrder.push(sId);
+            }
+            prodSessions[sId].push(med.media_id);
           }
         }
-      }
-      if (!winnerPost) {
-        for (var gw = 0; gw < allPosts.length; gw++) {
-          var gItem = allPosts[gw];
-          if (gItem.status === 'PUBLISHED' && Number(gItem.current_views || 0) > highestViews) {
-            highestViews = Number(gItem.current_views);
-            winnerPost = gItem;
+
+        if (sessionOrder.length === 0) continue;
+
+        var chosenSessionId = sessionOrder[slotIdx % sessionOrder.length];
+        var chosenMediaIds = prodSessions[chosenSessionId];
+        ruleLastSession = chosenSessionId;
+
+        // Ambil referensi viral & context
+        var matchingRefs = [];
+        for (var v = 0; v < allViralRefs.length; v++) {
+          if (allViralRefs[v].product_id === chosenProd.product_id) {
+            matchingRefs.push(allViralRefs[v]);
           }
         }
-      }
+        var chosenRef = matchingRefs.length > 0
+          ? matchingRefs[slotIdx % matchingRefs.length]
+          : (allViralRefs.length > 0 ? allViralRefs[slotIdx % allViralRefs.length] : null);
 
-      var winnerHookText = '';
-      var winnerViewsCount = 0;
-      if (winnerPost && highestViews >= 50) {
-        winnerViewsCount = highestViews;
+        var origHook = chosenRef ? (chosenRef.hook_thread_1 || '') : ('Rekomendasi ' + chosenProd.product_name + ' paling worth it!');
+        var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK_AFFILIATE]';
+
+        var remakeResult = { hook_1: origHook, spill_2: origSpill };
         try {
-          var parsedWNodes = typeof winnerPost.thread_content_json === 'string'
-            ? JSON.parse(winnerPost.thread_content_json)
-            : winnerPost.thread_content_json;
-          if (Array.isArray(parsedWNodes) && parsedWNodes.length > 0) {
-            winnerHookText = typeof parsedWNodes[0] === 'string' ? parsedWNodes[0] : (parsedWNodes[0].content || '');
-            winnerHookText = winnerHookText.replace(/^\(?\d+\/\d+\)?\s*/i, '');
+          remakeResult = generateSumopodRemake({
+            product_name: chosenProd.product_name,
+            selling_points: chosenProd.selling_points || '',
+            hook_thread_1: origHook,
+            spill_thread_2: origSpill
+          });
+        } catch(aiErr) {
+          Logger.log('[Autopilot AI Remake Fallback]: ' + aiErr.message);
+        }
+
+        var hook1 = remakeResult.hook_1 || origHook;
+        var spill2 = remakeResult.spill_2 || origSpill;
+
+        var rawAff = chosenProd.shopee_affiliate_url || chosenProd.shopee_raw_url || 'shope.ee/affiliate';
+        var cleanShortAff = stripProtocol(rawAff).replace(/^https?:\/\//i, '').trim();
+
+        var cleanSpill = spill2;
+        if (cleanSpill.indexOf('[LINK') !== -1) {
+          cleanSpill = cleanSpill.replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, cleanShortAff);
+        } else if (cleanSpill.indexOf(cleanShortAff) === -1) {
+          cleanSpill = cleanSpill + '\n\nakunya ambil di ' + cleanShortAff + ' pas lagi flash sale';
+        }
+        cleanSpill = cleanSpill.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
+
+        var threadNodes = [
+          {
+            content: hook1,
+            product_ids: [chosenProd.product_id],
+            product_id: chosenProd.product_id,
+            media_ids: chosenMediaIds,
+            media_id: chosenMediaIds[0],
+            status: 'Pending_Scheduled'
+          },
+          {
+            content: cleanSpill,
+            product_ids: [chosenProd.product_id],
+            product_id: chosenProd.product_id,
+            media_ids: [],
+            media_id: '',
+            status: 'WAITING_VIEWS'
           }
-        } catch(eWin) {}
-      }
+        ];
 
-      // Sumber (a): Bank Referensi Viral (Swipe-File)
-      var matchingRefs = [];
-      var fallbackRefs = [];
-      for (var v = 0; v < allViralRefs.length; v++) {
-        if (allViralRefs[v].product_id === chosenProd.product_id) {
-          matchingRefs.push(allViralRefs[v]);
-        } else if (!allViralRefs[v].product_id) {
-          fallbackRefs.push(allViralRefs[v]);
-        }
-      }
-      var chosenRef = null;
-      if (matchingRefs.length > 0) {
-        chosenRef = matchingRefs[Math.floor(Math.random() * matchingRefs.length)];
-      } else if (fallbackRefs.length > 0) {
-        chosenRef = fallbackRefs[Math.floor(Math.random() * fallbackRefs.length)];
-      }
-
-      var origHook = chosenRef ? (chosenRef.hook_thread_1 || '') : ('Rekomendasi ' + chosenProd.product_name + ' paling worth it!');
-      var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK_AFFILIATE]';
-
-      // Sumber (c): Selling Points Produk + Panggil Sumopod AI
-      var remakeResult = { hook_1: origHook, spill_2: origSpill };
-      try {
-        remakeResult = generateSumopodRemake({
-          product_name: chosenProd.product_name,
-          selling_points: chosenProd.selling_points || '',
-          hook_thread_1: origHook,
-          spill_thread_2: origSpill,
-          winner_hook: winnerHookText,
-          winner_views: winnerViewsCount
+        // Masukkan ke database & Posting_Queue berstatus Pending_Scheduled (TIDAK terbit saat itu juga)
+        createPost({
+          account_id: targetAccId,
+          product_id: chosenProd.product_id,
+          publish_mode: 'DRIP_ON_VIEWS',
+          thread_content_json: JSON.stringify(threadNodes),
+          media_ids_json: JSON.stringify(chosenMediaIds),
+          views_threshold: thresh,
+          scheduled_time: scheduledDate.toISOString(),
+          status: 'Pending_Scheduled'
         });
-      } catch(aiErr) {
-        Logger.log('[Autopilot AI Remake Fallback]: ' + aiErr.message);
+
+        totalGenerated++;
       }
-
-      var hook1 = remakeResult.hook_1 || origHook;
-      var spill2 = remakeResult.spill_2 || origSpill;
-
-      var postsTodayAcc = accountPostsTodayMap[targetAccId] || 0;
-      var ruleWindows = [];
-      try {
-        ruleWindows = typeof rule.time_windows_json === 'string' ? JSON.parse(rule.time_windows_json) : (rule.time_windows_json || []);
-      } catch(eWin) {}
-      if (!Array.isArray(ruleWindows) || ruleWindows.length === 0) {
-        ruleWindows = ['06:00-08:30', '11:30-13:30', '16:30-18:30', '19:30-21:30'];
-      }
-      var scheduledDate = calculateAutopilotSlot(ruleWindows, postsTodayAcc, maxDailyPerAcc, jitterMin, accIdx, now);
-
-      // Siapkan shortlink affiliate Shopee murni (tanpa https://) menyatu di dalam kalimat
-      var rawAff = chosenProd.shopee_affiliate_url || chosenProd.shopee_raw_url || 'shope.ee/affiliate';
-      var cleanShortAff = stripProtocol(rawAff).replace(/^https?:\/\//i, '').trim();
-
-      var cleanSpill = spill2;
-      if (cleanSpill.indexOf('[LINK') !== -1) {
-        cleanSpill = cleanSpill.replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, cleanShortAff);
-      } else if (cleanSpill.indexOf(cleanShortAff) === -1) {
-        cleanSpill = cleanSpill + '\n\nakunya ambil di ' + cleanShortAff + ' pas lagi flash sale';
-      }
-      cleanSpill = cleanSpill.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
-
-      // STRICT 2-THREAD FUNNEL:
-      // Utas 1 dijadwalkan masuk antrean sesuai jendela jam aktif.
-      // Utas 2 tersimpan terpisah berstatus WAITING_VIEWS dan DILARANG terbit bersamaan dengan Utas 1.
-      var threadNodes = [
-        {
-          content: hook1,
-          product_ids: [chosenProd.product_id],
-          product_id: chosenProd.product_id,
-          media_ids: chosenMediaIds,
-          media_id: chosenMediaIds[0],
-          status: 'SCHEDULED'
-        },
-        {
-          content: cleanSpill,
-          product_ids: [chosenProd.product_id],
-          product_id: chosenProd.product_id,
-          media_ids: [],
-          media_id: '',
-          status: 'WAITING_VIEWS'
-        }
-      ];
-
-      createPost({
-        account_id: targetAccId,
-        product_id: chosenProd.product_id,
-        publish_mode: 'DRIP_ON_VIEWS',
-        thread_content_json: JSON.stringify(threadNodes),
-        media_ids_json: JSON.stringify(chosenMediaIds),
-        views_threshold: thresh,
-        scheduled_time: scheduledDate.toISOString(),
-        status: 'SCHEDULED'
-      });
-
-      totalGenerated++;
     }
 
-    // Perbarui riwayat last_run_at & last_session_id di sheet
     if (ruleSheet && ruleIdCol !== -1) {
       for (var rRow = 1; rRow < ruleData.length; rRow++) {
         if (String(ruleData[rRow][ruleIdCol]) === String(rule.rule_id)) {
@@ -2861,8 +2714,8 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
   return {
     generated_count: totalGenerated,
     message: totalGenerated > 0
-      ? ('Autopilot otonom berhasil: ' + totalGenerated + ' postingan dijadwalkan dengan rotasi produk, sesi utuh, dan 3 sumber pintar Sumopod AI.')
-      : 'Semua akun autopilot berada dalam batas aman spam harian (rate limit aktif).'
+      ? ('Autopilot Batch Scheduling berhasil: ' + totalGenerated + ' postingan terjadwal dimasukkan ke antrean (Pending_Scheduled) sesuai jendela jam aktif.')
+      : 'Semua akun autopilot berada dalam batas aman atau belum memiliki produk terhubung.'
   };
 }
 
@@ -3440,8 +3293,9 @@ function checkAndPublishQueue() {
 
   for (var i = 1; i < qData.length && processed < batchLimit; i++) {
     var status = String(qData[i][6] || '').toLowerCase();
-    if (status !== 'scheduled' && status !== 'pending') continue;
+    if (status !== 'scheduled' && status !== 'pending' && status !== 'pending_scheduled') continue;
 
+    // CEGAH POSTING TERBIT SEBELUM WAKTUNYA: Hanya eksekusi jika waktu sistem saat ini sudah melewati jam tayang
     var schedTime = new Date(qData[i][3]).getTime();
     if (isNaN(schedTime) || schedTime > now) continue;
 
