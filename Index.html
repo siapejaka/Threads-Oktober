@@ -406,19 +406,14 @@
               <!-- Indikator Mesin Otonom Penuh -->
               <div class="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center space-x-3 text-xs">
                 <div class="w-10 h-10 rounded-lg bg-purple-50 border border-purple-200 overflow-hidden flex items-center justify-center flex-shrink-0 text-purple-600">
-                  <template x-if="rule.product_id && getProductObj(rule.product_id)?.product_image_url">
-                    <img :src="getProductObj(rule.product_id)?.product_image_url" class="w-full h-full object-cover" alt="product">
-                  </template>
-                  <template x-if="!rule.product_id || !getProductObj(rule.product_id)?.product_image_url">
-                    <i data-lucide="cpu" class="w-5 h-5 text-purple-600"></i>
-                  </template>
+                  <i data-lucide="cpu" class="w-5 h-5 text-purple-600"></i>
                 </div>
                 <div class="min-w-0 flex-1">
-                  <div class="font-bold text-slate-900 truncate" x-text="rule.product_id ? getProductName(rule.product_id) : 'Pemilihan Produk & Sesi Media Otomatis (Per-Akun)'"></div>
+                  <div class="font-bold text-slate-900 truncate">100% Otonom: Rotasi Produk &amp; Sesi Ulasan</div>
                   <div class="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
-                    <span class="text-emerald-700 font-semibold" x-text="rule.product_id ? ('Rp ' + Number(getProductObj(rule.product_id)?.price || 0).toLocaleString('id-ID')) : 'Terkait Katalog Akun Terpilih'"></span>
+                    <span class="text-emerald-700 font-semibold">Anti-Duplikasi Visual 7 Hari</span>
                     <span>•</span>
-                    <span class="text-purple-700 font-semibold truncate" x-text="rule.preferred_session_id ? ('Sesi: ' + rule.preferred_session_id) : 'Rotasi Sesi Ulasan Utuh'"></span>
+                    <span class="text-purple-700 font-semibold">Strict Matching Akun Terpilih</span>
                   </div>
                 </div>
               </div>
@@ -1407,12 +1402,12 @@
                       <div class="min-w-0">
                         <div class="font-bold text-slate-900 truncate max-w-[240px] group-hover:text-emerald-700 transition" x-text="item.product_name"></div>
                         <div class="flex items-center space-x-1 mt-1">
-                          <template x-if="!item.allowed_accounts || item.allowed_accounts.length === 0">
+                          <template x-if="getValidUsernamesList(item.allowed_accounts).length === 0">
                             <span class="inline-flex items-center px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[9px]">
                               Belum Terhubung
                             </span>
                           </template>
-                          <template x-if="item.allowed_accounts && item.allowed_accounts.length > 0">
+                          <template x-if="getValidUsernamesList(item.allowed_accounts).length > 0">
                             <span class="inline-flex items-center px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[9px]" :title="'Diizinkan untuk: ' + getAllowedAccountNames(item.allowed_accounts)">
                               <span x-text="getAllowedAccountNames(item.allowed_accounts)"></span>
                             </span>
@@ -3312,20 +3307,40 @@
             </div>
           </div>
 
-          <!-- KOLOM KANAN: Jendela Jam Tayang Dinamis & Penjelasan 3 Sumber AI -->
+          <!-- KOLOM KANAN: Jendela Jam Aktif (Pagi, Siang, Sore, Malam) -->
           <div class="space-y-3.5">
             <div class="p-4 bg-purple-50/70 border border-purple-200 rounded-2xl space-y-3">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-1.5">
                   <i data-lucide="calendar-range" class="w-4 h-4 text-purple-700"></i>
-                  <span class="text-xs font-bold text-purple-950">Jendela Jam Tayang Dinamis</span>
+                  <span class="text-xs font-bold text-purple-950">Jendela Jam Aktif (Pagi, Siang, Sore, Malam)</span>
                 </div>
                 <button type="button" @click="resetRuleWindowsToDefault()" class="text-[10px] text-purple-700 hover:underline font-bold">
                   Reset 4 Default
                 </button>
               </div>
 
-              <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              <!-- Quick Presets Button Bar -->
+              <div class="grid grid-cols-2 gap-1.5">
+                <div class="p-2 bg-white rounded-lg border border-purple-200 text-center">
+                  <span class="text-[10px] font-bold text-amber-700 block">🌅 Pagi</span>
+                  <span class="font-mono text-[11px] text-slate-700 font-bold">06:00 - 08:30</span>
+                </div>
+                <div class="p-2 bg-white rounded-lg border border-purple-200 text-center">
+                  <span class="text-[10px] font-bold text-amber-600 block">☀️ Siang</span>
+                  <span class="font-mono text-[11px] text-slate-700 font-bold">11:30 - 13:30</span>
+                </div>
+                <div class="p-2 bg-white rounded-lg border border-purple-200 text-center">
+                  <span class="text-[10px] font-bold text-orange-700 block">☕ Sore</span>
+                  <span class="font-mono text-[11px] text-slate-700 font-bold">16:30 - 18:30</span>
+                </div>
+                <div class="p-2 bg-white rounded-lg border border-purple-200 text-center">
+                  <span class="text-[10px] font-bold text-indigo-700 block">🌙 Malam</span>
+                  <span class="font-mono text-[11px] text-slate-700 font-bold">19:30 - 21:30</span>
+                </div>
+              </div>
+
+              <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                 <template x-for="(win, wIdx) in currentRule.time_windows" :key="wIdx">
                   <div class="flex items-center space-x-2">
                     <span class="w-6 h-6 rounded-md bg-purple-200 text-purple-900 text-[10px] font-bold flex items-center justify-center flex-shrink-0" x-text="wIdx + 1"></span>
@@ -3346,16 +3361,17 @@
               <span class="text-[9px] text-slate-500 block leading-relaxed">Target kuota posting dibagi merata ke seluruh jendela aktif ini dengan interval dinamis &amp; random jitter anti-spam.</span>
             </div>
 
-            <!-- Penjelasan Mekanisme Otonom 3 Sumber Caption -->
+            <!-- Penjelasan Mekanisme Otonom & Strict 2-Thread Funnel -->
             <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-slate-600">
               <div class="flex items-center space-x-1.5 font-bold text-purple-900 text-xs">
                 <i data-lucide="sparkles" class="w-4 h-4 text-purple-600"></i>
-                <span>3 Sumber Cerdas Caption Sumopod AI:</span>
+                <span>Alur 100% Otonom &amp; Strict 2-Thread Funnel:</span>
               </div>
               <ul class="list-disc pl-4 space-y-1.5 text-[10px] text-slate-500 leading-relaxed">
-                <li><strong>Auto Produk &amp; Rotasi Sesi Utuh:</strong> Memilih produk Shopee yang terikat dengan akun dan mengunci media dari sesi ulasan utuh secara bergantian tanpa campur aduk.</li>
-                <li><strong>3 Sumber Pintar:</strong> Mengombinasikan (a) Bank Referensi Viral, (b) Winner Context (belajar dari post berviews tertinggi), dan (c) Selling Points produk Shopee.</li>
-                <li><strong>Auto-Drip Link:</strong> Utas 1 tayang bebas link eksternal. Utas 2 menyusul HANYA jika ambang target views berhasil ditembus.</li>
+                <li><strong>Strict Product Match:</strong> Otomatis memilih produk yang terhubung sah ke username akun penayang.</li>
+                <li><strong>Rotasi Anti-Duplikasi 7 Hari:</strong> Memilih produk dan paket sesi ulasan yang belum pernah tayang dalam 7 hari terakhir.</li>
+                <li><strong>Utas 1 (Root Hook):</strong> Meniru 1:1 ritme dan emosi Bank Referensi Viral, 100% bebas dari segala link.</li>
+                <li><strong>Utas 2 (Spill Link):</strong> Shortlink affiliate murni terselip inline di tengah kalimat, berstatus <span class="font-mono text-purple-700 font-bold">Waiting_Views_Threshold</span> dan tidak tayang bersamaan.</li>
               </ul>
             </div>
           </div>
@@ -3509,19 +3525,19 @@
                 <label class="font-semibold text-slate-700 flex items-center">
                   <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Akun yang Diizinkan (Allowed Accounts)
                 </label>
-                <span class="text-[10px] text-rose-500 font-medium" x-show="!newProd.allowed_accounts || newProd.allowed_accounts.length === 0">Wajib pilih minimal 1 akun</span>
+                <span class="text-[10px] text-rose-500 font-medium" x-show="getValidUsernamesList(newProd.allowed_accounts).length === 0">Wajib pilih minimal 1 akun</span>
               </div>
               <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
                 <div class="flex items-center justify-between text-[11px]">
-                  <span class="font-medium" :class="(!newProd.allowed_accounts || newProd.allowed_accounts.length === 0) ? 'text-rose-600' : 'text-emerald-700'" x-text="(!newProd.allowed_accounts || newProd.allowed_accounts.length === 0) ? 'Status: Belum Terhubung (Diisolasi dari Post Composer)' : (newProd.allowed_accounts.length + ' akun terhubung aktif')"></span>
-                  <button type="button" @click="newProd.allowed_accounts = []" x-show="newProd.allowed_accounts && newProd.allowed_accounts.length > 0" class="text-slate-500 hover:text-rose-600 font-bold hover:underline text-[10px]">
+                  <span class="font-medium" :class="getValidUsernamesList(newProd.allowed_accounts).length === 0 ? 'text-rose-600' : 'text-emerald-700'" x-text="getValidUsernamesList(newProd.allowed_accounts).length === 0 ? 'Status: Belum Terhubung (Diisolasi dari Post Composer)' : (getValidUsernamesList(newProd.allowed_accounts).length + ' akun terhubung aktif')"></span>
+                  <button type="button" @click="newProd.allowed_accounts = []" x-show="getValidUsernamesList(newProd.allowed_accounts).length > 0" class="text-slate-500 hover:text-rose-600 font-bold hover:underline text-[10px]">
                     Kosongkan Semua
                   </button>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
                   <template x-for="acc in accounts" :key="acc.account_id">
-                    <label :class="isAllowedAccountSelected(acc.account_id) ? 'border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-500' : 'border-slate-200 bg-white hover:bg-slate-100'" class="p-2 rounded-xl border flex items-center space-x-2 cursor-pointer transition text-xs">
-                      <input type="checkbox" :checked="isAllowedAccountSelected(acc.account_id)" @change="toggleAllowedAccount(acc.account_id)" class="checkbox checkbox-xs checkbox-primary">
+                    <label :class="isAllowedAccountSelected(acc.username || acc.account_id) ? 'border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-500' : 'border-slate-200 bg-white hover:bg-slate-100'" class="p-2 rounded-xl border flex items-center space-x-2 cursor-pointer transition text-xs">
+                      <input type="checkbox" :checked="isAllowedAccountSelected(acc.username || acc.account_id)" @change="toggleAllowedAccount(acc.username || acc.account_id)" class="checkbox checkbox-xs checkbox-primary">
                       <div class="flex items-center space-x-1.5 truncate min-w-0">
                         <span class="truncate font-bold text-slate-800 text-[11px]" x-text="'@' + acc.username"></span>
                         <span class="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-semibold flex-shrink-0" x-text="acc.category || 'Umum'"></span>
@@ -3638,7 +3654,7 @@
         <div>
           <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Akun yang Diizinkan (Allowed Accounts)</label>
           <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-            <span class="font-semibold text-slate-700" x-text="getAllowedAccountNames(selectedProductDetail?.allowed_accounts)"></span>
+            <span class="font-semibold" :class="getValidUsernamesList(selectedProductDetail?.allowed_accounts).length === 0 ? 'text-rose-600 italic' : 'text-slate-700'" x-text="getAllowedAccountNames(selectedProductDetail?.allowed_accounts)"></span>
           </div>
         </div>
 
@@ -4749,20 +4765,14 @@
         isProductAllowedForComposer(p) {
           if (!p) return false;
           if (!this.composerAccounts || this.composerAccounts.length === 0) return false;
-          var raw = p.allowed_accounts;
-          if (!raw) return false;
-          var allowed = Array.isArray(raw) ? raw : String(raw).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-          if (allowed.length === 0) return false;
+          var validUsers = this.getValidUsernamesList(p.allowed_accounts);
+          if (validUsers.length === 0) return false;
 
           var self = this;
           return this.composerAccounts.every(function(accId) {
             var accObj = self.getAccountObj(accId);
             var uName = accObj && accObj.username ? accObj.username.toLowerCase().trim() : '';
-            var cleanId = String(accId).replace(/^'/, '').trim();
-            return allowed.some(function(item) {
-              var cleanItem = String(item).replace(/^'/, '').trim();
-              return cleanItem === cleanId || (uName && cleanItem.toLowerCase() === uName);
-            });
+            return uName && validUsers.indexOf(uName) !== -1;
           });
         },
 
@@ -4788,29 +4798,65 @@
           });
         },
 
-        toggleAllowedAccount(accId) {
-          if (!this.newProd.allowed_accounts) this.newProd.allowed_accounts = [];
-          var idx = this.newProd.allowed_accounts.indexOf(accId);
-          if (idx > -1) {
-            this.newProd.allowed_accounts.splice(idx, 1);
-          } else {
-            this.newProd.allowed_accounts.push(accId);
-          }
+        resolveToUsername(idOrUser) {
+          if (!idOrUser) return '';
+          var s = String(idOrUser).replace(/^['@\s]+|[\s']+$/g, '').trim();
+          var cleanId = s.replace(/^'/, '');
+          var found = (this.accounts || []).find(function(a) {
+            var aId = String(a.account_id || '').replace(/^'/, '').trim();
+            var aUser = String(a.username || '').toLowerCase().trim();
+            return (cleanId && aId === cleanId) || aUser === s.toLowerCase();
+          });
+          if (found && found.username) return found.username.toLowerCase().trim();
+          // Filter sampah: buang notasi ilmiah (e+) atau deretan angka
+          if (/e\+/i.test(s) || /^\d+$/.test(s)) return '';
+          // Validasi regex username Meta: hanya huruf, angka, titik, underscore
+          if (/^[a-zA-Z0-9._]+$/.test(s)) return s.toLowerCase();
+          return '';
         },
 
-        isAllowedAccountSelected(accId) {
-          return this.newProd.allowed_accounts && this.newProd.allowed_accounts.indexOf(accId) > -1;
+        getValidUsernamesList(raw) {
+          if (!raw) return [];
+          var arr = Array.isArray(raw) ? raw : String(raw).split(',');
+          var self = this;
+          var validUsers = [];
+          for (var i = 0; i < arr.length; i++) {
+            var item = String(arr[i] || '').replace(/^['@\s]+|[\s']+$/g, '').trim();
+            if (!item) continue;
+            var u = self.resolveToUsername(item);
+            if (u && validUsers.indexOf(u) === -1) {
+              validUsers.push(u);
+            }
+          }
+          return validUsers;
+        },
+
+        toggleAllowedAccount(accIdentifier) {
+          if (!this.newProd.allowed_accounts) this.newProd.allowed_accounts = [];
+          var u = this.resolveToUsername(accIdentifier);
+          if (!u) return;
+          var validList = this.getValidUsernamesList(this.newProd.allowed_accounts);
+          var idx = validList.indexOf(u);
+          if (idx > -1) {
+            validList.splice(idx, 1);
+          } else {
+            validList.push(u);
+          }
+          this.newProd.allowed_accounts = validList;
+        },
+
+        isAllowedAccountSelected(accIdentifier) {
+          if (!this.newProd || !this.newProd.allowed_accounts) return false;
+          var u = this.resolveToUsername(accIdentifier);
+          if (!u) return false;
+          var validList = this.getValidUsernamesList(this.newProd.allowed_accounts);
+          return validList.indexOf(u) > -1;
         },
 
         getAllowedAccountNames(raw) {
-          if (!raw) return 'Belum Terhubung';
-          var arr = Array.isArray(raw) ? raw : String(raw).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-          if (arr.length === 0) return 'Belum Terhubung';
-          var self = this;
-          var names = arr.map(function(id) {
-            return '@' + self.getAccountName(id);
-          });
-          return names.join(', ');
+          var validList = this.getValidUsernamesList(raw);
+          if (validList.length === 0) return 'Belum Terhubung';
+          return validList.map(function(u) { return '@' + u; }).join(', ');
         },
 
         getNodeReviewSessions(thread) {
@@ -5284,12 +5330,6 @@
 
         openEditProductModal(item) {
           this.isEditingProduct = true;
-          var allowed = [];
-          if (Array.isArray(item.allowed_accounts)) {
-            allowed = item.allowed_accounts;
-          } else if (item.allowed_accounts) {
-            allowed = String(item.allowed_accounts).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-          }
           this.newProd = {
             product_id: item.product_id || '',
             product_name: item.product_name || '',
@@ -5299,7 +5339,7 @@
             shopee_raw_url: item.shopee_raw_url || '',
             shopee_affiliate_url: item.shopee_affiliate_url || '',
             selling_points: item.selling_points || '',
-            allowed_accounts: allowed,
+            allowed_accounts: this.getValidUsernamesList(item.allowed_accounts),
             created_at: item.created_at || ''
           };
           this.openModal('addProductModal');
@@ -5366,28 +5406,18 @@
             });
           }
 
+          var self = this;
           if (acc === 'UNLINKED') {
             list = list.filter(function(p) {
-              if (!p) return false;
-              var raw = p.allowed_accounts;
-              if (!raw) return true;
-              var allowed = Array.isArray(raw) ? raw : String(raw).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-              return allowed.length === 0;
+              return !p || self.getValidUsernamesList(p.allowed_accounts).length === 0;
             });
           } else if (acc && acc !== 'ALL') {
+            var accObj = self.getAccountObj(acc);
+            var targetUser = accObj && accObj.username ? accObj.username.toLowerCase().trim() : '';
             list = list.filter(function(p) {
               if (!p) return false;
-              var raw = p.allowed_accounts;
-              if (!raw) return false;
-              var allowed = Array.isArray(raw) ? raw : String(raw).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-              if (allowed.length === 0) return false;
-              var accObj = self.getAccountObj(acc);
-              var uName = accObj && accObj.username ? accObj.username.toLowerCase().trim() : '';
-              var cleanId = String(acc).replace(/^'/, '').trim();
-              return allowed.some(function(item) {
-                var cleanItem = String(item).replace(/^'/, '').trim();
-                return cleanItem === cleanId || (uName && cleanItem.toLowerCase() === uName);
-              });
+              var validUsers = self.getValidUsernamesList(p.allowed_accounts);
+              return targetUser && validUsers.indexOf(targetUser) !== -1;
             });
           }
 
@@ -6291,8 +6321,6 @@
             rule_id: '',
             name: '',
             account_ids: defaultAccs,
-            product_id: '',
-            preferred_session_id: '',
             frequency_per_day: 2,
             views_threshold: 500,
             jitter_minutes: 15,
@@ -6309,8 +6337,6 @@
             rule_id: rule.rule_id || '',
             name: rule.name || '',
             account_ids: this.parseRuleAccounts(rule.account_ids_json),
-            product_id: rule.product_id || '',
-            preferred_session_id: rule.preferred_session_id || '',
             frequency_per_day: Number(rule.frequency_per_day || 2),
             views_threshold: Number(rule.views_threshold || 500),
             jitter_minutes: Number(rule.jitter_minutes || 15),

@@ -152,6 +152,13 @@ function setupDatabase() {
     }
     var headers = schema[tab];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    if (tab === 'Products') {
+      var aCol = headers.indexOf('allowed_accounts') + 1;
+      if (aCol > 0) {
+        var lastR = Math.max(sheet.getLastRow(), 2);
+        sheet.getRange(1, aCol, lastR, 1).setNumberFormat('@');
+      }
+    }
   }
 
   // Isi default Hook Bank jika masih kosong
@@ -268,6 +275,17 @@ function getSheetRecords(tabName) {
     var item = {};
     for (var j = 0; j < headers.length; j++) {
       item[headers[j]] = serializeForClient(data[i][j]);
+    }
+    if (tabName === 'Products' && item.allowed_accounts) {
+      var rawParts = String(item.allowed_accounts).split(',');
+      var cleanParts = [];
+      for (var p = 0; p < rawParts.length; p++) {
+        var part = rawParts[p].replace(/^['@\s]+|[\s']+$/g, '').trim().toLowerCase();
+        if (part && !/e\+/i.test(part) && !/^\d+$/.test(part) && /^[a-z0-9._]+$/.test(part)) {
+          if (cleanParts.indexOf(part) === -1) cleanParts.push(part);
+        }
+      }
+      item.allowed_accounts = cleanParts.join(', ');
     }
     rows.push(item);
   }
@@ -661,11 +679,49 @@ function saveProduct(payload) {
     productId = 'PROD_' + Utilities.getUuid().substring(0, 8);
   }
 
-  var allowedStr = '';
-  if (Array.isArray(payload.allowed_accounts)) {
-    allowedStr = payload.allowed_accounts.join(',');
-  } else if (payload.allowed_accounts) {
-    allowedStr = String(payload.allowed_accounts).trim();
+  // Sanitasi ketat allowed_accounts: resolusi ID ke username sah, buang sampah angka & format ilmiah
+  var accRecords = getSheetRecords('Accounts');
+  var idToUserMap = {};
+  for (var a = 0; a < accRecords.length; a++) {
+    var aId = cleanAccountId(accRecords[a].account_id);
+    var aUser = String(accRecords[a].username || '').toLowerCase().trim();
+    if (aId && aUser) idToUserMap[aId] = aUser;
+    if (aUser) idToUserMap[aUser] = aUser;
+  }
+
+  var rawAllowed = payload.allowed_accounts;
+  var rawList = [];
+  if (Array.isArray(rawAllowed)) {
+    rawList = rawAllowed;
+  } else if (rawAllowed) {
+    rawList = String(rawAllowed).split(',');
+  }
+
+  var cleanUsernames = [];
+  var seenUsers = {};
+  for (var k = 0; k < rawList.length; k++) {
+    var rawItem = String(rawList[k] || '').replace(/^['@\s]+|[\s']+$/g, '').trim().toLowerCase();
+    if (!rawItem) continue;
+    var resolvedUser = idToUserMap[cleanAccountId(rawItem)] || idToUserMap[rawItem] || rawItem;
+
+    // Buang notasi ilmiah (e+) atau deretan angka
+    if (/e\+/i.test(resolvedUser) || /^\d+$/.test(resolvedUser)) {
+      continue;
+    }
+
+    // Hanya izinkan format username valid: huruf, angka, titik, underscore
+    if (/^[a-z0-9._]+$/.test(resolvedUser) && !seenUsers[resolvedUser]) {
+      seenUsers[resolvedUser] = true;
+      cleanUsernames.push(resolvedUser);
+    }
+  }
+
+  var allowedStr = cleanUsernames.join(', ');
+  var allowedCol = headers.indexOf('allowed_accounts');
+  if (allowedCol === -1) {
+    allowedCol = headers.length;
+    headers.push('allowed_accounts');
+    sheet.getRange(1, allowedCol + 1).setValue('allowed_accounts');
   }
 
   var rowObj = {
@@ -688,9 +744,15 @@ function saveProduct(payload) {
   }
 
   if (existingRow > 0) {
+    // Format Plain Text ('@') sebelum dan sesudah penulisan untuk mencegah konversi eksponensial
+    sheet.getRange(existingRow, allowedCol + 1).setNumberFormat('@');
     sheet.getRange(existingRow, 1, 1, rowValues.length).setValues([rowValues]);
+    sheet.getRange(existingRow, allowedCol + 1).setNumberFormat('@').setValue(allowedStr);
   } else {
+    var nextRow = sheet.getLastRow() + 1;
+    sheet.getRange(nextRow, allowedCol + 1).setNumberFormat('@');
     sheet.appendRow(rowValues);
+    sheet.getRange(nextRow, allowedCol + 1).setNumberFormat('@').setValue(allowedStr);
   }
 
   return { product_id: productId };
@@ -2011,14 +2073,13 @@ function generateSumopodRemake(payload) {
     '   - Tiru penekanan kata tertentu dengan HURUF BESAR (KAPITAL).\n' +
     '   - Tiru penggunaan serta frekuensi emoji.\n' +
     '   - Tiru sudut pandang keresahan audiens (curhat, syok, nyesel, rekomendasi santai).\n' +
-    '3. Tugas Anda MURNI menukar konteks masalah dan nama barang pada referensi ke produk Shopee terkait, dengan menjaga 100% nada bicara, ritme, dan format penulisan aslinya.\n' +
+    '3. Tugas Anda MURNI meniru ritme dan emosi referensi tanpa bergantung pada kolom spesifikasi teknis.\n' +
     '4. Utas 1 (Root Hook): WAJIB 100% BEBAS DARI SEGALA LINK eksternal agar distribusi jangkauan organik Threads maksimal.\n' +
-    '5. Utas 2 (Lanjutan / Spill): WAJIB merajut link affiliate menyatu secara kontekstual di dalam kalimat (inline embedding dengan tag [LINK] atau [LINK_AFFILIATE]), BUKAN ditaruh di baris terbawah seperti footer iklan.\n' +
+    '5. Utas 2 (Lanjutan / Spill): WAJIB menyisipkan shortlink affiliate (tag [LINK]) secara mengalir di tengah kalimat (inline context), BUKAN ditaruh di baris terbawah seperti footer iklan.\n' +
     '   Contoh pola yang diinginkan:\n' +
     '   - "Bisa custom nama disini [LINK] biar ga ketuker"\n' +
     '   - "aku ambil yg ukuran sedang di [LINK] pas bgt di wastafel"\n' +
     '   - "kalo mau checkout lgsg di toko ini ya [LINK] mumpung gratis ongkir"\n' +
-    '   DILARANG keras membuat bullet list centang spesifikasi kaku.\n' +
     '6. Format balasan WAJIB berupa JSON valid murni tanpa teks pengantar:\n' +
     '{"hook_1": "...", "spill_2": "...", "threads": ["Utas 1...", "Utas 2..."]}';
 
@@ -2512,7 +2573,17 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
     var thresh = Number(rule.views_threshold || 500);
     var ruleLastSession = rule.last_session_id || '';
 
-    // 2. PEMILIHAN PRODUK & MEDIA SESI UTUH OTOMATIS PER AKUN TERPILIH
+    // Peta media_id -> session_id untuk pelacakan visual ulasan 7 hari terakhir
+    var mediaToSessionMap = {};
+    for (var mi = 0; mi < allMedia.length; mi++) {
+      var medRow = allMedia[mi];
+      if (medRow.media_id && medRow.session_id) {
+        mediaToSessionMap[String(medRow.media_id).trim()] = String(medRow.session_id).trim();
+      }
+    }
+    var sevenDaysMs = 7 * 24 * 3600 * 1000;
+
+    // 2. PEMILIHAN PRODUK & MEDIA SESI UTUH 100% OTONOM (STRICT MATCH & 7-DAY ROTATION)
     for (var accIdx = 0; accIdx < eligibleAccounts.length; accIdx++) {
       var targetAccId = eligibleAccounts[accIdx];
       var targetUsername = '';
@@ -2523,72 +2594,91 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         }
       }
 
+      // Kumpulkan riwayat pemakaian produk & sesi ulasan dalam 7 hari terakhir untuk akun ini
+      var prodUsageLast7Days = {};
+      var sessUsageLast7Days = {};
+
+      for (var ps = 0; ps < allPosts.length; ps++) {
+        if (cleanAccountId(allPosts[ps].account_id) === targetAccId) {
+          var pTime = allPosts[ps].created_at ? new Date(allPosts[ps].created_at).getTime() : 0;
+          if ((now - pTime) < sevenDaysMs) {
+            var pid = allPosts[ps].product_id;
+            if (pid) prodUsageLast7Days[pid] = Math.max(prodUsageLast7Days[pid] || 0, pTime);
+            var mIdsJson = allPosts[ps].media_ids_json;
+            if (mIdsJson) {
+              try {
+                var mIds = typeof mIdsJson === 'string' ? JSON.parse(mIdsJson) : mIdsJson;
+                if (Array.isArray(mIds)) {
+                  for (var mIdx = 0; mIdx < mIds.length; mIdx++) {
+                    var sid = mediaToSessionMap[String(mIds[mIdx]).trim()];
+                    if (sid) sessUsageLast7Days[sid] = Math.max(sessUsageLast7Days[sid] || 0, pTime);
+                  }
+                }
+              } catch(e) {}
+            }
+          }
+        }
+      }
+
+      for (var q = 0; q < allQueue.length; q++) {
+        if (cleanAccountId(allQueue[q].account_id) === targetAccId) {
+          var qTime = allQueue[q].scheduled_time ? new Date(allQueue[q].scheduled_time).getTime() : 0;
+          if ((now - qTime) < sevenDaysMs && (allQueue[q].status || '').toLowerCase() !== 'failed') {
+            var qMedia = allQueue[q].media_ids_json;
+            if (qMedia) {
+              try {
+                var qmArr = typeof qMedia === 'string' ? JSON.parse(qMedia) : qMedia;
+                if (Array.isArray(qmArr)) {
+                  for (var qm = 0; qm < qmArr.length; qm++) {
+                    var qSid = mediaToSessionMap[String(qmArr[qm]).trim()];
+                    if (qSid) sessUsageLast7Days[qSid] = Math.max(sessUsageLast7Days[qSid] || 0, qTime);
+                  }
+                }
+              } catch(e) {}
+            }
+          }
+        }
+      }
+
       // STRICT MATCHING: Hanya pilih produk di mana targetAccId atau targetUsername tercantum eksplisit di allowed_accounts
       var eligibleProductsForAcc = [];
       for (var pr = 0; pr < allProducts.length; pr++) {
         var pCandidate = allProducts[pr];
         var allowedStr = String(pCandidate.allowed_accounts || '').trim();
+        if (!allowedStr) continue; // STRICT: Abaikan produk tanpa kaitan akun sah
+
+        var allowedList = allowedStr.split(',').map(function(s) { return s.trim().toLowerCase(); });
         var isAllowed = false;
-        if (allowedStr) {
-          var allowedList = allowedStr.split(',').map(function(s) { return s.trim().toLowerCase(); });
-          for (var al = 0; al < allowedList.length; al++) {
-            var aItem = allowedList[al];
-            if (cleanAccountId(aItem) === targetAccId || (targetUsername && aItem === targetUsername)) {
-              isAllowed = true;
-              break;
-            }
+        for (var al = 0; al < allowedList.length; al++) {
+          var aItem = allowedList[al];
+          if (cleanAccountId(aItem) === targetAccId || (targetUsername && aItem === targetUsername)) {
+            isAllowed = true;
+            break;
           }
         }
-        if (isAllowed) {
-          var hasMedia = false;
-          for (var md = 0; md < allMedia.length; md++) {
-            if (allMedia[md].product_id === pCandidate.product_id) {
-              hasMedia = true;
-              break;
-            }
+        if (!isAllowed) continue;
+
+        var hasMedia = false;
+        for (var md = 0; md < allMedia.length; md++) {
+          if (allMedia[md].product_id === pCandidate.product_id) {
+            hasMedia = true;
+            break;
           }
-          if (hasMedia) eligibleProductsForAcc.push(pCandidate);
         }
+        if (hasMedia) eligibleProductsForAcc.push(pCandidate);
       }
 
-      // Pilih produk: jika ada rule.product_id, validasi STRICT apakah diizinkan untuk targetAccId
-      var chosenProd = null;
-      if (rule.product_id && prodMap[rule.product_id]) {
-        var ruleProd = prodMap[rule.product_id];
-        var ruleProdAllowed = String(ruleProd.allowed_accounts || '').trim();
-        if (ruleProdAllowed) {
-          var rList = ruleProdAllowed.split(',').map(function(s) { return s.trim().toLowerCase(); });
-          for (var rl = 0; rl < rList.length; rl++) {
-            if (cleanAccountId(rList[rl]) === targetAccId || (targetUsername && rList[rl] === targetUsername)) {
-              chosenProd = ruleProd;
-              break;
-            }
-          }
-        }
-      }
+      if (eligibleProductsForAcc.length === 0) continue;
 
-      if (!chosenProd && eligibleProductsForAcc.length > 0) {
-        var prodLastPostedMap = {};
-        for (var ep = 0; ep < eligibleProductsForAcc.length; ep++) {
-          prodLastPostedMap[eligibleProductsForAcc[ep].product_id] = 0;
-        }
-        for (var ap = 0; ap < allPosts.length; ap++) {
-          if (cleanAccountId(allPosts[ap].account_id) === targetAccId && prodLastPostedMap[allPosts[ap].product_id] !== undefined) {
-            var postT = allPosts[ap].created_at ? new Date(allPosts[ap].created_at).getTime() : 0;
-            if (postT > prodLastPostedMap[allPosts[ap].product_id]) {
-              prodLastPostedMap[allPosts[ap].product_id] = postT;
-            }
-          }
-        }
-        eligibleProductsForAcc.sort(function(a, b) {
-          return (prodLastPostedMap[a.product_id] || 0) - (prodLastPostedMap[b.product_id] || 0);
-        });
-        chosenProd = eligibleProductsForAcc[0];
-      }
+      // Rotasi 7 Hari Produk: Prioritaskan produk yang belum pernah diposting 7 hari terakhir
+      eligibleProductsForAcc.sort(function(a, b) {
+        var tA = prodUsageLast7Days[a.product_id] || 0;
+        var tB = prodUsageLast7Days[b.product_id] || 0;
+        return tA - tB;
+      });
+      var chosenProd = eligibleProductsForAcc[0];
 
-      if (!chosenProd) continue;
-
-      // Ambil paket media utuh HANYA dari sesi ulasan bergilir (Cohesive Review Session)
+      // Ambil paket media utuh HANYA dari sesi ulasan bergilir (Round-Robin 7 Hari Anti-Duplikasi)
       var prodSessions = {};
       var sessionOrder = [];
       for (var m = 0; m < allMedia.length; m++) {
@@ -2605,20 +2695,14 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
 
       if (sessionOrder.length === 0) continue;
 
-      var chosenSessionId = '';
-      var chosenMediaIds = [];
-      if (rule.preferred_session_id && prodSessions[rule.preferred_session_id]) {
-        chosenSessionId = rule.preferred_session_id;
-        chosenMediaIds = prodSessions[chosenSessionId];
-      } else {
-        var nextIdx = 0;
-        var foundLastIdx = sessionOrder.indexOf(ruleLastSession);
-        if (foundLastIdx !== -1) {
-          nextIdx = (foundLastIdx + 1) % sessionOrder.length;
-        }
-        chosenSessionId = sessionOrder[nextIdx];
-        chosenMediaIds = prodSessions[chosenSessionId];
-      }
+      // Urutkan sesi: Prioritaskan sesi yang belum pernah tayang dalam 7 hari terakhir untuk akun ini
+      sessionOrder.sort(function(sA, sB) {
+        var tA = sessUsageLast7Days[sA] || (sA === ruleLastSession ? (now - 1000) : 0);
+        var tB = sessUsageLast7Days[sB] || (sB === ruleLastSession ? (now - 1000) : 0);
+        return tA - tB;
+      });
+      var chosenSessionId = sessionOrder[0];
+      var chosenMediaIds = prodSessions[chosenSessionId];
       ruleLastSession = chosenSessionId;
 
       if (!chosenMediaIds || chosenMediaIds.length === 0) continue;
@@ -2709,30 +2793,40 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
       }
       var scheduledDate = calculateAutopilotSlot(ruleWindows, postsTodayAcc, maxDailyPerAcc, jitterMin, accIdx, now);
 
-      var cleanSpill = spill2;
-      if (cleanSpill.indexOf('[LINK_AFFILIATE') === -1) {
-        var shortAff = chosenProd.shopee_affiliate_url || 'shope.ee/affiliate';
-        cleanSpill = cleanSpill + '\n\n' + stripProtocol(shortAff);
-      }
+      // Siapkan shortlink affiliate Shopee murni (tanpa https://) menyatu di dalam kalimat
+      var rawAff = chosenProd.shopee_affiliate_url || chosenProd.shopee_raw_url || 'shope.ee/affiliate';
+      var cleanShortAff = stripProtocol(rawAff).replace(/^https?:\/\//i, '').trim();
 
+      var cleanSpill = spill2;
+      if (cleanSpill.indexOf('[LINK') !== -1) {
+        cleanSpill = cleanSpill.replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, cleanShortAff);
+      } else if (cleanSpill.indexOf(cleanShortAff) === -1) {
+        cleanSpill = cleanSpill + '\n\nakunya ambil di ' + cleanShortAff + ' pas lagi flash sale';
+      }
+      cleanSpill = cleanSpill.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
+
+      // STRICT 2-THREAD FUNNEL:
+      // Utas 1 dijadwalkan masuk antrean sesuai jendela jam aktif.
+      // Utas 2 tersimpan terpisah berstatus WAITING_VIEWS dan DILARANG terbit bersamaan dengan Utas 1.
       var threadNodes = [
         {
           content: hook1,
           product_ids: [chosenProd.product_id],
           product_id: chosenProd.product_id,
           media_ids: chosenMediaIds,
-          media_id: chosenMediaIds[0]
+          media_id: chosenMediaIds[0],
+          status: 'SCHEDULED'
         },
         {
           content: cleanSpill,
           product_ids: [chosenProd.product_id],
           product_id: chosenProd.product_id,
           media_ids: [],
-          media_id: ''
+          media_id: '',
+          status: 'WAITING_VIEWS'
         }
       ];
 
-      // Utas 2 terkunci dalam mode DRIP_ON_VIEWS menunggu target views tercapai
       createPost({
         account_id: targetAccId,
         product_id: chosenProd.product_id,
