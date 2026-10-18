@@ -456,10 +456,14 @@
                 </div>
               </div>
 
-              <!-- Footer: Riwayat Eksekusi Terakhir -->
-              <div class="pt-2 border-t border-slate-200 text-[10px] text-slate-400 flex items-center justify-between">
-                <span>Terakhir generate: <strong class="text-slate-600" x-text="rule.last_run_at ? formatDateTime(rule.last_run_at) : 'Belum pernah'"></strong></span>
-                <span class="badge badge-xs badge-neutral text-[9px]" x-text="getViralRefsCountForProduct(rule.product_id) + ' Ref Viral'"></span>
+              <!-- Footer: Riwayat Eksekusi & Shortcut Lihat Postingan -->
+              <div class="pt-2.5 border-t border-slate-200 text-[10px] flex items-center justify-between gap-2">
+                <span class="text-slate-400 truncate">Terakhir: <strong class="text-slate-600" x-text="rule.last_run_at ? formatDateTime(rule.last_run_at) : 'Belum pernah'"></strong></span>
+                <button type="button" @click="filterPostsByRule(rule.rule_id)" class="px-2.5 py-1 bg-white hover:bg-purple-50 text-purple-700 hover:text-purple-900 border border-purple-200 text-[10px] font-bold rounded-lg flex items-center transition shadow-2xs flex-shrink-0" title="Buka arsip postingan terbit dari aturan ini">
+                  <i data-lucide="check-circle-2" class="w-3 h-3 mr-1 text-purple-600"></i>
+                  <span x-text="getRulePublishedCount(rule.rule_id) + ' Post Terbit'"></span>
+                  <i data-lucide="chevron-right" class="w-3 h-3 ml-0.5 text-purple-400"></i>
+                </button>
               </div>
             </div>
           </template>
@@ -1534,8 +1538,17 @@
             </button>
           </div>
 
-          <!-- Date Filter & Auto-Reply Filter & Per-Page -->
+          <!-- Active Rule Filter Banner, Date Filter & Auto-Reply Filter & Per-Page -->
           <div class="flex flex-wrap items-center gap-2 text-xs">
+            <!-- Badge Filter Aturan Autopilot Aktif -->
+            <div x-show="publishedRuleFilter" class="flex items-center space-x-1.5 bg-purple-50 border border-purple-200 text-purple-800 px-2.5 py-1 rounded-xl text-xs font-semibold">
+              <i data-lucide="bot" class="w-3.5 h-3.5 text-purple-600"></i>
+              <span>Aturan: <strong class="font-bold" x-text="getRuleName(publishedRuleFilter)"></strong></span>
+              <button type="button" @click="publishedRuleFilter = ''; publishedPage = 1" title="Hapus filter aturan" class="text-purple-600 hover:text-purple-900 ml-1">
+                <i data-lucide="x" class="w-3 h-3"></i>
+              </button>
+            </div>
+
             <!-- Filter Tanggal -->
             <div class="flex items-center space-x-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
               <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
@@ -1589,9 +1602,16 @@
                         <div class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs flex-shrink-0" x-text="(getAccountName(p?.account_id) || 'A').charAt(0).toUpperCase()"></div>
                       </template>
                       <div>
-                        <div class="flex items-center space-x-1.5">
+                        <div class="flex items-center space-x-1.5 flex-wrap gap-1">
                           <span class="font-bold text-slate-900 text-xs" x-text="'@' + getAccountName(p?.account_id)"></span>
-                          <span x-show="getAccountCategory(p?.account_id)" class="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-semibold" x-text="getAccountCategory(p?.account_id)"></span>
+                          <!-- Badge Sumber: Autopilot vs Manual -->
+                          <span x-show="p?.source_type === 'autopilot'" class="inline-flex items-center px-1.5 py-0.2 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-bold">
+                            <i data-lucide="bot" class="w-2.5 h-2.5 mr-1"></i>Autopilot
+                          </span>
+                          <span x-show="p?.source_type !== 'autopilot'" class="inline-flex items-center px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[9px] font-medium">
+                            <i data-lucide="edit-3" class="w-2.5 h-2.5 mr-1 text-slate-500"></i>Manual
+                          </span>
+                          <span x-show="getAccountCategory(p?.account_id)" class="px-1.5 py-0.2 rounded bg-slate-50 text-slate-600 border border-slate-200 text-[9px] font-semibold" x-text="getAccountCategory(p?.account_id)"></span>
                         </div>
                         <div class="text-[10px] text-slate-500 mt-0.5 flex items-center">
                           <i data-lucide="clock" class="w-3 h-3 mr-1 text-slate-400"></i>
@@ -1737,9 +1757,16 @@
                         <div class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs flex-shrink-0" x-text="(getAccountName(p?.account_id) || 'A').charAt(0).toUpperCase()"></div>
                       </template>
                       <div>
-                        <div class="flex items-center space-x-1.5">
+                        <div class="flex items-center space-x-1.5 flex-wrap gap-1">
                           <span class="font-bold text-slate-900 text-xs" x-text="'@' + getAccountName(p?.account_id)"></span>
-                          <span x-show="getAccountCategory(p?.account_id)" class="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-semibold" x-text="getAccountCategory(p?.account_id)"></span>
+                          <!-- Badge Sumber: Autopilot vs Manual -->
+                          <span x-show="p?.source_type === 'autopilot'" class="inline-flex items-center px-1.5 py-0.2 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-bold">
+                            <i data-lucide="bot" class="w-2.5 h-2.5 mr-1"></i>Autopilot
+                          </span>
+                          <span x-show="p?.source_type !== 'autopilot'" class="inline-flex items-center px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[9px] font-medium">
+                            <i data-lucide="edit-3" class="w-2.5 h-2.5 mr-1 text-slate-500"></i>Manual
+                          </span>
+                          <span x-show="getAccountCategory(p?.account_id)" class="px-1.5 py-0.2 rounded bg-slate-50 text-slate-600 border border-slate-200 text-[9px] font-semibold" x-text="getAccountCategory(p?.account_id)"></span>
                         </div>
                         <div class="text-[10px] text-slate-400 mt-0.5 flex items-center">
                           <i data-lucide="clock" class="w-3 h-3 mr-1 text-slate-400"></i>
@@ -4071,6 +4098,7 @@
         publishedSearchQuery: '',
         publishedFilterDate: '',
         publishedFilterReply: 'ALL',
+        publishedRuleFilter: '',
         publishedPage: 1,
         publishedPerPage: 10,
         selectedPostForComments: null,
@@ -4131,6 +4159,13 @@
               if (!p) return false;
               var isSent = (p?.auto_reply_sent === true || String(p?.auto_reply_sent).toLowerCase() === 'true');
               return reply === 'SENT' ? isSent : !isSent;
+            });
+          }
+
+          if (this.publishedRuleFilter) {
+            var targetRule = String(this.publishedRuleFilter).trim();
+            list = list.filter(function(p) {
+              return p && String(p.rule_id || '').trim() === targetRule;
             });
           }
 
@@ -5665,7 +5700,9 @@
                     views_threshold: this.postViewsThreshold,
                     auto_reply_content: '',
                     scheduled_time: this.scheduledDateTime,
-                    status: status
+                    status: status,
+                    source_type: 'manual',
+                    rule_id: ''
                   }
                 })
               });
@@ -6293,6 +6330,29 @@
           return (this.viral_references || []).filter(function(v) {
             return v.product_id === prodId || !v.product_id;
           }).length;
+        },
+
+        getRulePublishedCount(ruleId) {
+          if (!ruleId) return 0;
+          var rId = String(ruleId).trim();
+          return this.publishedPosts.filter(function(p) {
+            return p && String(p.rule_id || '').trim() === rId;
+          }).length;
+        },
+
+        getRuleName(ruleId) {
+          if (!ruleId) return '';
+          var r = (this.autopilot_rules || []).find(function(it) {
+            return String(it.rule_id).trim() === String(ruleId).trim();
+          });
+          return r ? (r.name || r.rule_id) : ruleId;
+        },
+
+        filterPostsByRule(ruleId) {
+          this.publishedRuleFilter = ruleId || '';
+          this.publishedPage = 1;
+          this.switchTab('published');
+          this.showToast('Menampilkan postingan dari aturan: ' + this.getRuleName(ruleId));
         },
 
         parseRuleAccounts(raw) {

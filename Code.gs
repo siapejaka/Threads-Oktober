@@ -135,10 +135,10 @@ function setupDatabase() {
     'Accounts': ['account_id', 'username', 'profile_pic_url', 'access_token', 'token_expires_at', 'status', 'updated_at', 'category'],
     'Products': ['product_id', 'product_name', 'category', 'price', 'product_image_url', 'shopee_raw_url', 'shopee_affiliate_url', 'selling_points', 'allowed_accounts', 'created_at'],
     'Media': ['media_id', 'product_id', 'session_id', 'media_url', 'media_type', 'file_hash', 'uploaded_at', 'cooldown_until'],
-    'Posts': ['post_id', 'account_id', 'thread_content_json', 'media_ids_json', 'product_id', 'affiliate_sub_id', 'views_threshold', 'current_views', 'status', 'threads_post_id', 'auto_reply_content', 'auto_reply_sent', 'created_at', 'likes_count', 'replies_count', 'permalink', 'drip_status'],
+    'Posts': ['post_id', 'account_id', 'thread_content_json', 'media_ids_json', 'product_id', 'affiliate_sub_id', 'views_threshold', 'current_views', 'status', 'threads_post_id', 'auto_reply_content', 'auto_reply_sent', 'created_at', 'likes_count', 'replies_count', 'permalink', 'drip_status', 'source_type', 'rule_id'],
     'Comments': ['comment_id', 'post_id', 'account_id', 'parent_comment_id', 'sender_username', 'content', 'intent_flag', 'status', 'created_at'],
     'Thread_Interactions': ['interaction_id', 'post_id', 'threads_post_id', 'account_id', 'comment_id', 'parent_comment_id', 'sender_username', 'author_type', 'content', 'intent_flag', 'reply_status', 'created_at'],
-    'Posting_Queue': ['queue_id', 'post_id', 'account_id', 'scheduled_time', 'thread_content_json', 'media_ids_json', 'status', 'error_log', 'executed_at', 'reply_to_id', 'drip_step'],
+    'Posting_Queue': ['queue_id', 'post_id', 'account_id', 'scheduled_time', 'thread_content_json', 'media_ids_json', 'status', 'error_log', 'executed_at', 'reply_to_id', 'drip_step', 'source_type', 'rule_id'],
     'Hook_Bank': ['hook_id', 'category', 'hook_text', 'formula', 'created_at'],
     'Viral_References': ['ref_id', 'product_id', 'title', 'hook_thread_1', 'spill_thread_2', 'original_url', 'media_urls_json', 'created_at', 'threads_json'],
     'Autopilot_Rules': ['rule_id', 'name', 'account_ids_json', 'product_id', 'preferred_session_id', 'frequency_per_day', 'views_threshold', 'jitter_minutes', 'status', 'last_run_at', 'created_at', 'max_posts_per_day', 'min_interval_hours', 'last_session_id', 'time_windows_json'],
@@ -1100,6 +1100,9 @@ function createPost(payload) {
 
   var rootPermalink = (nodes[0] && nodes[0].permalink) ? nodes[0].permalink : '';
 
+  var sourceType = payload.source_type || 'manual';
+  var ruleId = payload.rule_id || '';
+
   var row = [
     postId,
     payload.account_id,
@@ -1117,7 +1120,9 @@ function createPost(payload) {
     0,
     0,
     rootPermalink,
-    dripStatus
+    dripStatus,
+    sourceType,
+    ruleId
   ];
   sheet.appendRow(row);
 
@@ -1138,7 +1143,9 @@ function createPost(payload) {
         '',
         '',
         publishedThreadId,
-        2
+        2,
+        sourceType,
+        ruleId
       ]);
     } else if (status === 'SCHEDULED' || status === 'Pending_Scheduled') {
       var qIdSched = 'Q_' + Utilities.getUuid().substring(0, 8);
@@ -1154,7 +1161,9 @@ function createPost(payload) {
         '',
         '',
         '',
-        isDripMode ? 1 : 0
+        isDripMode ? 1 : 0,
+        sourceType,
+        ruleId
       ]);
     }
   }
@@ -2067,21 +2076,15 @@ function generateSumopodRemake(payload) {
 
   var systemPrompt = 'Anda adalah spesialis Meta Threads copywriter Shopee Affiliate dengan metode STRICT STYLE MIRRORING (Meniru Gaya Referensi 1:1).\n' +
     'ATURAN KETAT:\n' +
-    '1. DILARANG membuat template kaku atau membuat bullet list centang spesifikasi barang.\n' +
-    '2. Lakukan Analisis & Peniruan Gaya 1:1 terhadap teks referensi yang diberikan:\n' +
-    '   - Tiru panjang kalimat per baris.\n' +
-    '   - Tiru pemenggalan jeda baris (line breaks / spasi antar baris).\n' +
-    '   - Tiru penekanan kata tertentu dengan HURUF BESAR (KAPITAL).\n' +
-    '   - Tiru penggunaan serta frekuensi emoji.\n' +
-    '   - Tiru sudut pandang keresahan audiens (curhat, syok, nyesel, rekomendasi santai).\n' +
-    '3. Tugas Anda MURNI meniru ritme dan emosi referensi tanpa bergantung pada kolom spesifikasi teknis.\n' +
-    '4. Utas 1 (Root Hook): WAJIB 100% BEBAS DARI SEGALA LINK eksternal agar distribusi jangkauan organik Threads maksimal.\n' +
-    '5. Utas 2 (Lanjutan / Spill): WAJIB menyisipkan shortlink affiliate (tag [LINK]) secara mengalir di tengah kalimat (inline context), BUKAN ditaruh di baris terbawah seperti footer iklan.\n' +
+    '1. DILARANG membuat template kaku atau bullet list spesifikasi brosur.\n' +
+    '2. DILARANG memunculkan URL/link mentah apa pun. Gunakan HANYA tag placeholder [LINK] bila dibutuhkan.\n' +
+    '3. Utas 1 (Root Hook): WAJIB 100% BEBAS DARI SEGALA LINK atau tag link agar distribusi jangkauan organik Threads maksimal.\n' +
+    '4. Utas 2 (Lanjutan / Spill): WAJIB SANGAT RINGKAS (maksimal 1-2 kalimat santai mengalir, DILARANG panjang lebar atau berbau brosur/iklan). Sisipkan HANYA tag placeholder [LINK] menyatu secara natural di tengah kalimat (inline context), BUKAN di baris terbawah seperti footer iklan.\n' +
     '   Contoh pola yang diinginkan:\n' +
     '   - "Bisa custom nama disini [LINK] biar ga ketuker"\n' +
     '   - "aku ambil yg ukuran sedang di [LINK] pas bgt di wastafel"\n' +
     '   - "kalo mau checkout lgsg di toko ini ya [LINK] mumpung gratis ongkir"\n' +
-    '6. Format balasan WAJIB berupa JSON valid murni tanpa teks pengantar:\n' +
+    '5. Format balasan WAJIB berupa JSON valid murni tanpa teks pengantar:\n' +
     '{"hook_1": "...", "spill_2": "...", "threads": ["Utas 1...", "Utas 2..."]}';
 
   var winnerContext = '';
@@ -2101,13 +2104,17 @@ function generateSumopodRemake(payload) {
       'Referensi Asli Utas #2 (Spill):\n"' + (payload ? (payload.spill_thread_2 || '') : '') + '"';
   }
 
+  // Isolasi ketat: bersihkan URL penawaran/dashboard agar tidak bocor ke prompt AI
+  var cleanProdName = String(payload ? (payload.product_name || '') : '').replace(/https?:\/\/[^\s]+/gi, '').trim();
+  var cleanSellingPoints = String(payload ? (payload.selling_points || '-') : '-').replace(/https?:\/\/[^\s]+/gi, '').trim();
+
   var userPrompt = '[PRODUK SHOPEE TARGET]:\n' +
-    'Nama Produk: ' + (payload ? (payload.product_name || '') : '') + '\n' +
-    'Keunggulan / Selling Points: ' + (payload ? (payload.selling_points || '-') : '-') + '\n\n' +
+    'Nama Produk: ' + cleanProdName + '\n' +
+    'Keunggulan / Selling Points: ' + cleanSellingPoints + '\n\n' +
     '[TEKS REFERENSI VIRAL YANG WAJIB DITIRU 1:1 GAYANYA]:\n' +
     threadsSourceText + '\n' +
     winnerContext + '\n' +
-    'Instruksi: Terapkan STRICT STYLE MIRRORING sekarang. Tukar konteks masalah dan nama barang ke produk Shopee target. Tiru ritme baris, HURUF BESAR, dan emoji aslinya. Utas 2 WAJIB merajut tag [LINK] menyatu di dalam kalimat (inline embedding, contoh: "Bisa custom nama disini [LINK] biar ga ketuker"), bukan ditaruh di baris paling bawah.';
+    'Instruksi: Terapkan STRICT STYLE MIRRORING sekarang. Tukar konteks masalah dan nama barang ke produk Shopee target. Utas 2 WAJIB SANGAT RINGKAS (1-2 kalimat santai) dan merajut tag [LINK] menyatu di dalam kalimat, bukan di baris paling bawah.';
 
   var body = {
     model: model,
@@ -2633,7 +2640,7 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
           : (allViralRefs.length > 0 ? allViralRefs[slotIdx % allViralRefs.length] : null);
 
         var origHook = chosenRef ? (chosenRef.hook_thread_1 || '') : ('Rekomendasi ' + chosenProd.product_name + ' paling worth it!');
-        var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK_AFFILIATE]';
+        var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK]';
 
         var remakeResult = { hook_1: origHook, spill_2: origSpill };
         try {
@@ -2650,14 +2657,16 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         var hook1 = remakeResult.hook_1 || origHook;
         var spill2 = remakeResult.spill_2 || origSpill;
 
-        var rawAff = chosenProd.shopee_affiliate_url || chosenProd.shopee_raw_url || 'shope.ee/affiliate';
+        // Isolasi ketat: ambil HANYA shopee_affiliate_url murni (shortlink), JANGAN PERNAH gunakan raw offer url
+        var rawAff = chosenProd.shopee_affiliate_url ? String(chosenProd.shopee_affiliate_url).trim() : '';
+        if (!rawAff) rawAff = 's.shopee.co.id/affiliate';
         var cleanShortAff = stripProtocol(rawAff).replace(/^https?:\/\//i, '').trim();
 
         var cleanSpill = spill2;
         if (cleanSpill.indexOf('[LINK') !== -1) {
           cleanSpill = cleanSpill.replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, cleanShortAff);
         } else if (cleanSpill.indexOf(cleanShortAff) === -1) {
-          cleanSpill = cleanSpill + '\n\nakunya ambil di ' + cleanShortAff + ' pas lagi flash sale';
+          cleanSpill = cleanSpill + ' cek di ' + cleanShortAff;
         }
         cleanSpill = cleanSpill.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
 
@@ -2689,7 +2698,9 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
           media_ids_json: JSON.stringify(chosenMediaIds),
           views_threshold: thresh,
           scheduled_time: scheduledDate.toISOString(),
-          status: 'Pending_Scheduled'
+          status: 'Pending_Scheduled',
+          source_type: 'autopilot',
+          rule_id: rule.rule_id || ''
         });
 
         totalGenerated++;
