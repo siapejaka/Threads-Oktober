@@ -7595,7 +7595,12 @@
             this.showToast('Pilih produk target terlebih dahulu', 'error');
             return;
           }
-          var refText = this.factorySourceRef ? (this.factorySourceRef.hook_thread_1 || '') : '';
+          var refU1 = this.factorySourceRef ? (this.factorySourceRef.hook_thread_1 || '') : '';
+          var refU2 = this.factorySourceRef ? (this.factorySourceRef.spill_thread_2 || '') : '';
+          var refId = this.factorySourceRef ? (this.factorySourceRef.ref_id || '') : '';
+          var accObj = this.getAccountObj(this.factoryTargetAccountId);
+          var accUser = accObj ? (accObj.username || '') : '';
+
           this.isGeneratingVariations = true;
           this.showToast('SumoPod AI sedang meracik 3 variasi konten...');
           var self = this;
@@ -7606,9 +7611,13 @@
             body: JSON.stringify({
               action: 'generateVariationsFromReference',
               payload: {
-                ref_text: refText,
+                reference_id: refId,
+                utas1_ref: refU1,
+                utas2_ref: refU2,
+                ref_text: refU1 + (refU2 ? ('\n' + refU2) : ''),
                 product_id: this.factoryTargetProductId,
-                account_id: this.factoryTargetAccountId
+                account_id: this.factoryTargetAccountId,
+                account_username: accUser
               }
             })
           })

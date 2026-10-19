@@ -1437,9 +1437,11 @@ function publishPostNow(payload) {
   }
 
   var rootPermalink = (nodes[0] && nodes[0].permalink) ? nodes[0].permalink : '';
+  var realPublishedTime = new Date().toISOString();
   postSheet.getRange(targetRow, 3).setValue(JSON.stringify(nodes));
   postSheet.getRange(targetRow, 9).setValue('PUBLISHED');
   postSheet.getRange(targetRow, 10).setValue(publishedThreadId);
+  postSheet.getRange(targetRow, 13).setValue(realPublishedTime); // Update created_at / published_at ke waktu riil saat terbit
   if (rootPermalink) postSheet.getRange(targetRow, 16).setValue(rootPermalink);
 
   var qSheet = ss.getSheetByName('Posting_Queue');
@@ -2525,9 +2527,29 @@ function saveViralReference(payload) {
 
 // Generator 3 Variasi Konten Berdasarkan Referensi Mentah untuk Amunisi Autopilot
 function generateVariationsFromReference(payload) {
-  var refText = payload ? String(payload.ref_text || '').trim() : '';
+  var refText = '';
+  if (payload) {
+    if (payload.utas1_ref || payload.utas2_ref) {
+      refText = (payload.utas1_ref || '') + (payload.utas2_ref ? ('\n' + payload.utas2_ref) : '');
+    } else if (payload.ref_text) {
+      refText = String(payload.ref_text);
+    }
+    refText = refText.trim();
+  }
+
   var prodId = payload ? String(payload.product_id || '').trim() : '';
   var accId = payload ? String(payload.account_id || '').trim() : '';
+  var accUsername = payload ? String(payload.account_username || '').toLowerCase().trim() : '';
+
+  if (accUsername && !accId) {
+    var accountsList = getSheetRecords('Accounts');
+    for (var a = 0; a < accountsList.length; a++) {
+      if (String(accountsList[a].username || '').toLowerCase().trim() === accUsername) {
+        accId = cleanAccountId(accountsList[a].account_id);
+        break;
+      }
+    }
+  }
 
   if (!prodId) throw new Error('Pilih produk target terlebih dahulu.');
 
@@ -2653,6 +2675,7 @@ function generateVariationsFromReference(payload) {
   });
 
   return {
+    success: true,
     product_id: prodId,
     product_name: cleanProdName,
     variations: formattedVars
@@ -4360,6 +4383,7 @@ function checkAndPublishQueue() {
               postSheet.getRange(p + 1, 3).setValue(JSON.stringify(nodes));
               postSheet.getRange(p + 1, 9).setValue('PUBLISHED');
               postSheet.getRange(p + 1, 10).setValue(lastThreadId || '');
+              postSheet.getRange(p + 1, 13).setValue(nowIso); // Waktu terbit riil saat antrean dieksekusi
               if (qRootPermalink) postSheet.getRange(p + 1, 16).setValue(qRootPermalink);
               break;
             }
