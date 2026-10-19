@@ -27,8 +27,12 @@ function doGet(e) {
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ ok: false, success: false, error: err.toString(), message: err.message || err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    if (e && e.parameter && e.parameter.action) {
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, success: false, error: err.toString(), message: err.message || err.toString() }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return HtmlService.createHtmlOutput('<div style="font-family:sans-serif;padding:24px;color:#991b1b;background:#fef2f2;border-radius:12px;border:1px solid #fecaca;"><h3>Sistem Sedang Memuat / Terjadi Kendala</h3><p>' + (err.message || err.toString()) + '</p><p style="font-size:12px;color:#6b7280;">Muat ulang halaman atau periksa konfigurasi deployment.</p></div>')
+      .setTitle('ThreadAffiliate Engine');
   }
 }
 
@@ -129,6 +133,8 @@ function doPost(e) {
       result = updateAccountCategory(payload);
     } else if (action === 'saveAccountPersona') {
       result = saveAccountPersona(payload);
+    } else if (action === 'optimizeAccountPrompt') {
+      result = optimizeAccountPrompt(payload);
     } else if (action === 'getCloudinaryUsage') {
       result = getCloudinaryUsage(payload);
     } else if (action === 'getAccountScheduleRadar') {
@@ -137,6 +143,12 @@ function doPost(e) {
       result = saveMediaOrder(payload);
     } else if (action === 'saveMediaOrder') {
       result = saveMediaOrder(payload);
+    } else if (action === 'generateVariationsFromReference') {
+      result = generateVariationsFromReference(payload);
+    } else if (action === 'saveAutopilotAmmo') {
+      result = saveAutopilotAmmo(payload);
+    } else if (action === 'deleteAutopilotAmmo') {
+      result = deleteAutopilotAmmo(payload);
     } else if (action === 'setupDb') {
       result = setupDatabase();
     } else {
@@ -164,6 +176,7 @@ function setupDatabase() {
     'Posting_Queue': ['queue_id', 'post_id', 'account_id', 'scheduled_time', 'thread_content_json', 'media_ids_json', 'status', 'error_log', 'executed_at', 'reply_to_id', 'drip_step', 'source_type', 'rule_id'],
     'Hook_Bank': ['hook_id', 'category', 'hook_text', 'formula', 'created_at'],
     'Viral_References': ['ref_id', 'product_id', 'title', 'hook_thread_1', 'spill_thread_2', 'original_url', 'media_urls_json', 'created_at', 'threads_json'],
+    'Autopilot_Bank': ['ammo_id', 'product_id', 'hook_1', 'spill_2', 'threads_json', 'media_ids_json', 'status', 'created_at'],
     'Autopilot_Rules': ['rule_id', 'name', 'account_ids_json', 'product_id', 'preferred_session_id', 'frequency_per_day', 'views_threshold', 'jitter_minutes', 'status', 'last_run_at', 'created_at', 'max_posts_per_day', 'min_interval_hours', 'last_session_id', 'time_windows_json'],
     'Settings': ['key', 'value']
   };
@@ -332,6 +345,7 @@ function getDashboardData(payload) {
   var hooks = getSheetRecords('Hook_Bank');
   var viralRefs = getSheetRecords('Viral_References');
   var autopilotRules = getSheetRecords('Autopilot_Rules');
+  var autopilotBank = getSheetRecords('Autopilot_Bank');
   var interactions = getSheetRecords('Thread_Interactions');
 
   // Sinkronkan jadwal tayang riil dari antrean ke daftar postingan
@@ -475,6 +489,7 @@ function getDashboardData(payload) {
     interactions: interactions || [],
     hooks: hooks || [],
     viral_references: viralRefs || [],
+    autopilot_bank: autopilotBank || [],
     autopilot_rules: autopilotRules || [],
     queue: queue || [],
     settings: settings || {}
@@ -907,10 +922,69 @@ function buildPersonaSystemInstruction(persona) {
     '- Target Audiens / POV: ' + pov + '\n' +
     '- Gaya Bahasa & Kata Ganti: ' + pronoun + '\n';
   if (custom) {
-    text += '- Instruksi Khusus Gaya Bicara: ' + custom + '\n';
+    text += '[PERSONA & TONE GUARD UTAMA AKUN - WAJIB DIPATUHI 100%]:\n' + custom + '\n';
+  } else {
+    text += 'Wajib berbicara dalam Bahasa Indonesia percakapan santai harian yang selaras dengan persona akun di atas.\n';
   }
-  text += 'Wajib berbicara dalam Bahasa Indonesia percakapan santai harian yang selaras dengan persona akun di atas.\n';
   return text;
+}
+
+function optimizeAccountPrompt(payload) {
+  var rawPrompt = payload ? String(payload.raw_prompt || '').trim() : '';
+  if (!rawPrompt) throw new Error('Tuliskan instruksi atau draf gaya bicara terlebih dahulu.');
+
+  var settings = getDashboardData().settings || {};
+  var apiKey = settings.sumopod_api_key;
+  if (!apiKey) throw new Error('Sumopod API Key belum dikonfigurasi di Pengaturan Sistem (Settings).');
+
+  var rawEndpoint = (settings.sumopod_endpoint || '').trim();
+  var endpoint = buildSumopodEndpoint(rawEndpoint);
+  var model = (settings.sumopod_model && settings.sumopod_model.trim()) ? settings.sumopod_model.trim() : 'claude-haiku-4-5';
+
+  var systemPrompt = 'Anda adalah prompt engineer spesialis persona AI untuk media sosial Meta Threads.\n' +
+    'Tugas Anda: Ubah instruksi bebas berikut menjadi System Prompt Persona yang terstruktur, ringkas, dan jelas untuk model AI pembuat caption Threads.\n' +
+    'Pastikan mencakup poin-poin penting berikut secara rapi:\n' +
+    '1. Bahasa Output Wajib (misal: Bahasa Indonesia santai, Bahasa Melayu, gaul Jakarta, dsb sesuai instruksi)\n' +
+    '2. Persona & POV (sudut pandang pencerita/pembuat konten)\n' +
+    '3. Gaya Bicara & Diksi (panggilan audiens, kata ganti, intonasi, emoji yang disukai/dilarang)\n' +
+    '4. Aturan Penyesuaian Referensi (pantangan kata, penyesuaian konteks lokal)\n' +
+    'Berikan HANYA teks prompt hasil optimasi tanpa tanda kutip pembuka/penutup, tanpa pembuka markdown ``` atau basa-basi.';
+
+  var userPrompt = 'Instruksi/Gaya Bicara Mentah Pengguna:\n"' + rawPrompt + '"\n\nOptimasi menjadi instruksi persona AI yang terstruktur dan siap pakai:';
+
+  var body = {
+    model: model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: 0.5
+  };
+
+  var response = UrlFetchApp.fetch(endpoint, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'Authorization': 'Bearer ' + cleanToken(apiKey),
+      'Content-Type': 'application/json'
+    },
+    payload: JSON.stringify(body),
+    muteHttpExceptions: true
+  });
+
+  var code = response.getResponseCode();
+  var rawText = (response.getContentText() || '').trim();
+  if (code !== 200) {
+    var resJson = {};
+    try { resJson = JSON.parse(rawText); } catch(e) {}
+    throw new Error(extractSumopodError(code, resJson, endpoint));
+  }
+
+  var resJson = JSON.parse(rawText);
+  var content = (resJson.choices && resJson.choices[0] && resJson.choices[0].message) ? resJson.choices[0].message.content : '';
+  content = content.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
+
+  return { optimized_prompt: content };
 }
 
 // Helper pemetaan detail error respons SumoPod AI transparan
@@ -1026,8 +1100,13 @@ function generateThreadOptions(payload) {
     throw new Error(errMsg);
   }
 
-  var replyContent = resJson.choices[0].message.content || '';
-  var cleanJsonStr = replyContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+  var replyContent = (resJson.choices[0].message && resJson.choices[0].message.content) ? resJson.choices[0].message.content : '';
+  var cleanJsonStr = replyContent.replace(/```json/gi, '').replace(/```/gi, '').trim();
+  var firstOpen = cleanJsonStr.indexOf('{');
+  var lastClose = cleanJsonStr.lastIndexOf('}');
+  if (firstOpen !== -1 && lastClose > firstOpen) {
+    cleanJsonStr = cleanJsonStr.substring(firstOpen, lastClose + 1);
+  }
 
   try {
     var parsed = JSON.parse(cleanJsonStr);
@@ -2444,6 +2523,208 @@ function saveViralReference(payload) {
   return { ref_id: refId };
 }
 
+// Generator 3 Variasi Konten Berdasarkan Referensi Mentah untuk Amunisi Autopilot
+function generateVariationsFromReference(payload) {
+  var refText = payload ? String(payload.ref_text || '').trim() : '';
+  var prodId = payload ? String(payload.product_id || '').trim() : '';
+  var accId = payload ? String(payload.account_id || '').trim() : '';
+
+  if (!prodId) throw new Error('Pilih produk target terlebih dahulu.');
+
+  var prods = getSheetRecords('Products');
+  var prodObj = null;
+  for (var p = 0; p < prods.length; p++) {
+    if (prods[p].product_id === prodId) {
+      prodObj = prods[p];
+      break;
+    }
+  }
+  if (!prodObj) throw new Error('Data produk target tidak ditemukan.');
+
+  var settings = getDashboardData().settings || {};
+  var apiKey = settings.sumopod_api_key;
+  if (!apiKey) throw new Error('Sumopod API Key belum dikonfigurasi di Settings.');
+
+  var endpoint = buildSumopodEndpoint(settings.sumopod_endpoint);
+  var model = (settings.sumopod_model && settings.sumopod_model.trim()) ? settings.sumopod_model.trim() : 'claude-haiku-4-5';
+
+  var persona = getAccountPersona(accId);
+  var personaBlock = buildPersonaSystemInstruction(persona);
+
+  var cleanProdName = String(prodObj.product_name || 'Produk Shopee').replace(/https?:\/\/[^\s]+/gi, '').trim();
+  var cleanSellingPoints = String(prodObj.selling_points || '-').replace(/https?:\/\/[^\s]+/gi, '').trim();
+  var cleanShortAff = stripProtocol(prodObj.shopee_affiliate_url || '').replace(/^https?:\/\//i, '').trim();
+
+  var systemPrompt = 'Anda adalah spesialis kurasi konten Meta Threads untuk Shopee Affiliate Indonesia.\n\n' +
+    personaBlock + '\n' +
+    'TUGAS ANDA:\n' +
+    'Buatkan persis 3 VARIASI RANGKAIAN UTAS LENGKAP (Utas 1 & Utas 2) yang mempromosikan produk target.\n' +
+    'Setiap variasi HARUS memiliki:\n' +
+    '1. hook_1 (Utas #1): Pancingan emosional/masalah yang memikat, mengalir santai sesuai persona akun. 100% BEBAS DARI LINK/URL.\n' +
+    '2. spill_2 (Utas #2): 1-2 kalimat santai mengalir lanjutan dari Utas 1 dengan menyematkan tag [LINK] terselip natural di tengah kalimat (inline context).\n' +
+    'DILARANG menyalin nama merek atau produk lama yang ada pada teks referensi. Fokus 100% pada produk target!\n' +
+    'Output WAJIB HANYA berupa JSON valid berformat:\n' +
+    '{"variations": [{"hook_1": "...", "spill_2": "..."}, {"hook_1": "...", "spill_2": "..."}, {"hook_1": "...", "spill_2": "..."}]}';
+
+  var userPrompt = '[PRODUK TARGET]:\n' +
+    'Nama Produk: ' + cleanProdName + '\n' +
+    'Kategori: ' + (prodObj.category || 'General') + '\n' +
+    'Fakta / Selling Points: ' + cleanSellingPoints + '\n\n' +
+    '[TEKS INSPIRASI / REFERENSI MENTAH]:\n' +
+    (refText ? ('"' + refText.replace(/https?:\/\/[^\s]+/gi, '').trim() + '"') : '(Tanpa referensi teks - buat 3 sudut pandang berbeda)') + '\n\n' +
+    'Buatkan 3 variasi rangkaian konten yang siap masuk ke amunisi autopilot:';
+
+  var body = {
+    model: model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: 0.75
+  };
+
+  var response = UrlFetchApp.fetch(endpoint, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'Authorization': 'Bearer ' + cleanToken(apiKey),
+      'Content-Type': 'application/json'
+    },
+    payload: JSON.stringify(body),
+    muteHttpExceptions: true
+  });
+
+  var code = response.getResponseCode();
+  var rawText = (response.getContentText() || '').trim();
+  if (code !== 200) {
+    var errObj = {};
+    try { errObj = JSON.parse(rawText); } catch(e) {}
+    throw new Error(extractSumopodError(code, errObj, endpoint));
+  }
+
+  var resJson = JSON.parse(rawText);
+  var replyContent = (resJson.choices && resJson.choices[0] && resJson.choices[0].message) ? resJson.choices[0].message.content : '';
+  var cleanJsonStr = replyContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+  var jsonMatch = cleanJsonStr.match(/\{[\s\S]*\}/);
+  if (jsonMatch) cleanJsonStr = jsonMatch[0];
+
+  var parsedVars = [];
+  try {
+    var parsed = JSON.parse(cleanJsonStr);
+    if (parsed && Array.isArray(parsed.variations)) {
+      parsedVars = parsed.variations;
+    }
+  } catch(parseErr) {}
+
+  if (parsedVars.length === 0) {
+    parsedVars = [
+      {
+        hook_1: 'Nyesel banget baru nemu ' + cleanProdName + ' ini, beneran ngebantu dan worth it parah!',
+        spill_2: 'Bisa langsung cek toko resminya di ' + (cleanShortAff || '[LINK]') + ' mumpung stoknya ready.'
+      },
+      {
+        hook_1: 'Tadinya skeptis liat review sliweran di FYP, tapi pas paket ' + cleanProdName + ' ini dateng langsung kaget...',
+        spill_2: 'Aku ambil yang ready di ' + (cleanShortAff || '[LINK]') + ' pengirimannya juga cepet.'
+      },
+      {
+        hook_1: 'Stop buang duit beli yang mahal kalau ' + cleanProdName + ' ini kualitasnya 11-12 dan harganya jauh lebih masuk akal.',
+        spill_2: 'Kemarin checkout lewat toko resminya di ' + (cleanShortAff || '[LINK]') + ' jangan salah beli ya.'
+      }
+    ];
+  }
+
+  var formattedVars = parsedVars.slice(0, 3).map(function(v, idx) {
+    var h1 = String(v.hook_1 || '').replace(/https?:\/\/[^\s]+/gi, '').trim();
+    var s2 = String(v.spill_2 || '').trim();
+    if (cleanShortAff) {
+      if (s2.indexOf('[LINK]') !== -1 || s2.indexOf('[LINK_AFFILIATE]') !== -1) {
+        s2 = s2.replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, cleanShortAff);
+      } else if (s2.indexOf(cleanShortAff) === -1) {
+        s2 = s2 + ' ' + cleanShortAff;
+      }
+    } else if (s2.indexOf('[LINK]') === -1) {
+      s2 = s2 + ' [LINK]';
+    }
+    return {
+      index: idx + 1,
+      hook_1: h1,
+      spill_2: s2
+    };
+  });
+
+  return {
+    product_id: prodId,
+    product_name: cleanProdName,
+    variations: formattedVars
+  };
+}
+
+// Simpan Variasi Matang ke Amunisi Autopilot (Sheet: Autopilot_Bank)
+function saveAutopilotAmmo(payload) {
+  var prodId = payload ? String(payload.product_id || '').trim() : '';
+  var hook1 = payload ? String(payload.hook_1 || '').trim() : '';
+  var spill2 = payload ? String(payload.spill_2 || '').trim() : '';
+
+  if (!prodId) throw new Error('ID Produk wajib diisi.');
+  if (!hook1) throw new Error('Teks Utas #1 (Hook) wajib diisi.');
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Autopilot_Bank');
+  if (!sheet) {
+    setupDatabase();
+    sheet = ss.getSheetByName('Autopilot_Bank');
+  }
+
+  var ammoId = 'AMMO_' + Utilities.getUuid().substring(0, 8);
+  var threadNodes = [
+    { content: hook1, product_id: prodId },
+    { content: spill2, product_id: prodId }
+  ];
+
+  var mediaIds = Array.isArray(payload.media_ids) ? payload.media_ids : [];
+  if (mediaIds.length === 0) {
+    var allMedia = getSheetRecords('Media');
+    for (var m = 0; m < allMedia.length; m++) {
+      if (allMedia[m].product_id === prodId) {
+        mediaIds.push(allMedia[m].media_id);
+      }
+    }
+  }
+
+  var row = [
+    ammoId,
+    prodId,
+    hook1,
+    spill2,
+    JSON.stringify(threadNodes),
+    JSON.stringify(mediaIds),
+    'READY',
+    new Date().toISOString()
+  ];
+
+  sheet.appendRow(row);
+  return { ammo_id: ammoId, status: 'READY' };
+}
+
+// Hapus Amunisi Autopilot dari Sheet Autopilot_Bank
+function deleteAutopilotAmmo(payload) {
+  var ammoId = payload ? String(payload.ammo_id || '').trim() : '';
+  if (!ammoId) throw new Error('ID Amunisi wajib disertakan.');
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Autopilot_Bank');
+  if (!sheet) throw new Error('Sheet Autopilot_Bank tidak ditemukan.');
+
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() === ammoId) {
+      sheet.deleteRow(i + 1);
+      return { success: true, ammo_id: ammoId };
+    }
+  }
+  throw new Error('Amunisi tidak ditemukan di database.');
+}
+
 function deleteViralReference(payload) {
   var refId = payload.ref_id ? String(payload.ref_id).trim() : '';
   if (!refId) throw new Error('Reference ID wajib diisi');
@@ -2475,50 +2756,49 @@ function generateSumopodRemake(payload) {
   var persona = getAccountPersona(payload ? payload.account_id : null);
   var personaBlock = buildPersonaSystemInstruction(persona);
 
-  var systemPrompt = 'Anda adalah spesialis Meta Threads copywriter Shopee Affiliate dengan prinsip SEMANTIC RELEVANCE GATE, ADAPTASI PERSONA, dan AUTO-FALLBACK.\n\n' +
+  var systemPrompt = 'Anda adalah spesialis Meta Threads copywriter Shopee Affiliate.\n\n' +
     personaBlock + '\n' +
-    'MEKANISME KERJA WAJIB (SEMANTIC RELEVANCE GATE):\n' +
-    '1. Evaluasi Kelayakan Relevansi Referensi vs Produk:\n' +
-    '   - Periksa apakah topik atau pola masalah pada Teks Referensi masuk akal dan relevan jika diadaptasi ke [Nama Produk].\n' +
-    '   - JIKA RELEVAN (misal masalah rumah berantakan vs rak piring organizer): Tiru ritme dan struktur emosional referensi tersebut untuk mempromosikan produk target.\n' +
-    '   - JIKA BERTOLAK BELAKANG / TIDAK NYAMBUNG (misal referensi wisata alam/kuliner/parenting/lukisan anak dipasangkan ke elektronik/alat kopi, atau jika referensi kosong):\n' +
-    '     DILARANG KERAS memaksakan analogi yang tidak masuk akal dan DILARANG mencetak teks referensi mentah-mentah.\n' +
-    '2. AUTO-FALLBACK KE PURE GENERATION (MODE GENERATE MANDIRI):\n' +
-    '   - Jika referensi dinilai tidak relevan atau kosong, segera abaikan referensi tersebut dan racik konten dari nol (Pure AI Generation).\n' +
-    '   - Hook Utas 1 dan penutup Utas 2 dibuat 100% kontekstual dengan [Nama Produk], fungsi/kegunaan aslinya, serta disesuaikan dengan Karakter Persona Akun pengirim (POV, gaya bahasa, panggilan audiens).\n\n' +
-    'ATURAN KETAT FORMAT UTAS:\n' +
-    '- Utas 1 (Root Hook): Hook pembuka organik, memikat, relevan dengan visual media ulasan yang dilampirkan, dan WAJIB 100% BEBAS DARI SEGALA LINK/URL.\n' +
-    '- Utas 2 (Lanjutan / Spill): WAJIB SANGAT RINGKAS (1-2 kalimat santai mengalir). Sisipkan HANYA tag placeholder [LINK] atau shortlink Shopee (s.shopee.co.id/... tanpa https://) menyatu secara natural di tengah kalimat (inline context), BUKAN di baris paling bawah seperti footer iklan.\n' +
-    '  Contoh pola yang benar:\n' +
-    '  * "Bisa custom nama disini [LINK] biar ga ketuker sama punya orang kantor"\n' +
-    '  * "aku ambil yg ukuran sedang di [LINK] pas bgt di wastafel mungilku"\n' +
-    '- DILARANG bullet list spesifikasi, bahasa brosur kaku, atau tanda centang (✓).\n' +
-    '- Format balasan WAJIB JSON murni tanpa teks pengantar:\n' +
-    '{"hook_1": "...", "spill_2": "...", "threads": ["Utas 1...", "Utas 2..."]}';
+    'PRINSIP KERJA & PATTERN EXTRACTION:\n' +
+    '1. Analisis teks Referensi Viral HANYA untuk mengambil pola emosi, ritme baris, dan gaya pancingannya (hook framework). DILARANG menyalin kata benda, nama produk lama, atau merek dari referensi tersebut. Tulis ulang seluruh kalimat 100% mengenai [Nama Produk Target] dengan menggunakan Persona Akun penayang.\n' +
+    '2. Pembuatan Utas 1 dan Utas 2 Secara Bersamaan (Unified Context):\n' +
+    '   - Utas 1 (Root Hook): Hook masalah / emosi / rasa penasaran yang memikat tentang produk target. WAJIB 100% BEBAS DARI SEGALA LINK/URL.\n' +
+    '   - Utas 2 (Solusi & Spill): Sangat ringkas (1-2 kalimat santai mengalir lanjutan dari Utas 1). Wajib menaruh HANYA tag placeholder [LINK] menyatu secara natural di tengah kalimat (inline context), BUKAN di baris terbawah seperti footer iklan.\n' +
+    '3. Jika referensi kosong atau tidak relevan, buat konten 100% secara mandiri (Pure AI Generation) berdasarkan Nama Produk, Deskripsi, dan Persona Akun.\n' +
+    '4. DILARANG KERAS menuliskan teks pengantar, basa-basi, penjelasan, status relevansi, atau catatan evaluasi apa pun.\n' +
+    '5. Output WAJIB 100% HANYA format JSON murni tanpa pembuka/penutup:\n' +
+    '{"hook_1": "teks utas 1", "spill_2": "teks utas 2"}';
+
+  var sanitizeRefText = function(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/https?:\/\/[^\s]+/gi, '')
+      .replace(/(?:s\.shopee\.co\.id|shope\.ee|shopee\.co\.id)\/[^\s]+/gi, '')
+      .replace(/\[(?:LINK_AFFILIATE|LINK)\]/gi, '')
+      .trim();
+  };
 
   var winnerContext = '';
   if (payload && payload.winner_hook) {
-    winnerContext = '\n[SELF-LEARNING WINNER CONTEXT - Postingan Juara Sebelumnya Menembus ' +
-      (payload.winner_views || 0) + ' Views]:\n"' + payload.winner_hook + '"\n' +
-      'Tiru struktur emosi dan penekanan kata dari postingan juara di atas!\n';
+    winnerContext = '\n[CONTOH STRUKTUR POSTINGAN POPULER SEBELUMNYA]:\n"' + sanitizeRefText(payload.winner_hook) + '"\n';
   }
 
   var threadsSourceText = '';
   if (payload && Array.isArray(payload.threads) && payload.threads.length > 0) {
     threadsSourceText = payload.threads.map(function(t, idx) {
-      return 'Referensi Asli Utas #' + (idx + 1) + ':\n"' + (typeof t === 'string' ? t : (t.content || '')) + '"';
+      var rawT = typeof t === 'string' ? t : (t.content || '');
+      return 'Referensi Utas #' + (idx + 1) + ':\n"' + sanitizeRefText(rawT) + '"';
     }).join('\n\n');
   } else {
-    var rawHook = payload ? (payload.hook_thread_1 || '') : '';
-    var rawSpill = payload ? (payload.spill_thread_2 || '') : '';
+    var rawHook = sanitizeRefText(payload ? payload.hook_thread_1 : '');
+    var rawSpill = sanitizeRefText(payload ? payload.spill_thread_2 : '');
     if (rawHook || rawSpill) {
-      threadsSourceText = 'Referensi Asli Utas #1 (Hook):\n"' + rawHook + '"\n\n' +
-        'Referensi Asli Utas #2 (Spill):\n"' + rawSpill + '"';
+      threadsSourceText = 'Referensi Utas #1 (Hook):\n"' + rawHook + '"\n\n' +
+        'Referensi Utas #2 (Spill):\n"' + rawSpill + '"';
     }
   }
 
   // Isolasi ketat: bersihkan URL penawaran/dashboard agar tidak bocor ke prompt AI
-  var cleanProdName = String(payload ? (payload.product_name || '') : '').replace(/https?:\/\/[^\s]+/gi, '').trim();
+  var cleanProdName = String(payload ? (payload.product_name || '') : '').replace(/https?:\/\/[^\s]+/gi, '').trim() || 'Produk Shopee';
   var cleanCategory = String(payload ? (payload.category || '') : '').trim();
   var cleanSellingPoints = String(payload ? (payload.selling_points || '-') : '-').replace(/https?:\/\/[^\s]+/gi, '').trim();
 
@@ -2527,9 +2807,9 @@ function generateSumopodRemake(payload) {
     (cleanCategory ? ('Kategori Produk: ' + cleanCategory + '\n') : '') +
     'Fungsi / Selling Points: ' + cleanSellingPoints + '\n\n' +
     '[TEKS REFERENSI KONTEN]:\n' +
-    (threadsSourceText ? threadsSourceText : '(Tidak ada referensi - Gunakan Mode Generate Mandiri)') + '\n' +
+    (threadsSourceText ? threadsSourceText : '(Tidak ada referensi - Buat 100% Mandiri dari Nol)') + '\n' +
     winnerContext + '\n' +
-    'Instruksi: Terapkan Semantic Relevance Gate sekarang. Jika referensi relevan, adaptasi strukturnya. Jika bertolak belakang/tidak nyambung, abaikan referensi dan beralihlah ke Auto-Fallback (Pure AI Generation dari nol). Utas 1 wajib bebas link, Utas 2 wajib sangat ringkas (1-2 kalimat) dengan tag [LINK] terselip inline di tengah kalimat.';
+    'Instruksi: Analisis teks Referensi Viral HANYA untuk mengambil pola emosi, ritme baris, dan gaya pancingannya (hook framework). DILARANG menyalin kata benda, nama produk lama, atau merek dari referensi tersebut. Tulis ulang seluruh kalimat 100% mengenai ' + cleanProdName + ' dengan menggunakan Persona Akun penayang. Hasilkan HANYA JSON murni {"hook_1": "...", "spill_2": "..."} tanpa catatan evaluasi atau teks apapun di luar JSON. Utas 1 bebas link, Utas 2 wajib 1-2 kalimat dengan tag placeholder [LINK] terselip inline di tengah kalimat.';
 
   var body = {
     model: model,
@@ -2581,26 +2861,66 @@ function generateSumopodRemake(payload) {
 
   var replyContent = resJson.choices[0].message.content || '';
   var cleanJsonStr = replyContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+  var jsonMatch = cleanJsonStr.match(/\{[\s\S]*\}/);
+  if (jsonMatch) cleanJsonStr = jsonMatch[0];
+
+  var parsedHook1 = '';
+  var parsedSpill2 = '';
 
   try {
     var parsed = JSON.parse(cleanJsonStr);
-    var outThreads = Array.isArray(parsed.threads) ? parsed.threads : [];
-    if (outThreads.length === 0) {
-      if (parsed.hook_1) outThreads.push(parsed.hook_1);
-      if (parsed.spill_2) outThreads.push(parsed.spill_2);
+    if (parsed) {
+      if (parsed.hook_1) parsedHook1 = String(parsed.hook_1).trim();
+      else if (Array.isArray(parsed.threads) && parsed.threads[0]) parsedHook1 = String(parsed.threads[0]).trim();
+
+      if (parsed.spill_2) parsedSpill2 = String(parsed.spill_2).trim();
+      else if (Array.isArray(parsed.threads) && parsed.threads[1]) parsedSpill2 = String(parsed.threads[1]).trim();
     }
-    return {
-      hook_1: parsed.hook_1 || (outThreads[0] || ''),
-      spill_2: parsed.spill_2 || (outThreads[1] || ''),
-      threads: outThreads
-    };
   } catch(parseErr) {
-    return {
-      hook_1: replyContent,
-      spill_2: payload.spill_thread_2 || '',
-      threads: [replyContent, payload.spill_thread_2 || ''].filter(Boolean)
-    };
+    Logger.log('[generateSumopodRemake JSON parse error]: ' + parseErr.message);
   }
+
+  // Fallback darurat bersih jika parsing gagal (DILARANG membocorkan JSON/catatan mentah)
+  if (!parsedHook1) {
+    parsedHook1 = 'Nyesel banget baru tau ada ' + cleanProdName + ' sebagus ini, beneran ngebantu dan worth it parah!';
+  }
+  if (!parsedSpill2) {
+    parsedSpill2 = 'Bisa langsung cek toko resminya di sini [LINK] mumpung lagi ready stok.';
+  }
+
+  // Sanitasi akhir: pastikan Utas 1 bebas link, dan Utas 2 bebas link liar
+  parsedHook1 = parsedHook1.replace(/https?:\/\/[^\s]+/gi, '').replace(/\[(?:LINK_AFFILIATE|LINK)\]/gi, '').trim();
+  parsedSpill2 = parsedSpill2.replace(/https?:\/\/[^\s]+/gi, '').replace(/(?:s\.shopee\.co\.id|shope\.ee|shopee\.co\.id)\/[^\s]+/gi, '').trim();
+
+  if (parsedSpill2.indexOf('[LINK]') === -1 && parsedSpill2.indexOf('[LINK_AFFILIATE]') === -1) {
+    parsedSpill2 = parsedSpill2 + ' [LINK]';
+  }
+
+  // Gantikan string [LINK] secara terprogram jika target produk memiliki shortlink affiliate
+  var targetAffUrl = '';
+  if (payload && payload.shopee_affiliate_url) {
+    targetAffUrl = stripProtocol(payload.shopee_affiliate_url).replace(/^https?:\/\//i, '').trim();
+  } else if (payload && payload.product_id) {
+    var prodsList = getSheetRecords('Products');
+    for (var pi = 0; pi < prodsList.length; pi++) {
+      if (prodsList[pi].product_id === payload.product_id && prodsList[pi].shopee_affiliate_url) {
+        targetAffUrl = stripProtocol(prodsList[pi].shopee_affiliate_url).replace(/^https?:\/\//i, '').trim();
+        break;
+      }
+    }
+  }
+
+  var resolvedSpill = parsedSpill2;
+  if (targetAffUrl) {
+    resolvedSpill = resolvedSpill.replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, targetAffUrl);
+    resolvedSpill = resolvedSpill.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
+  }
+
+  return {
+    hook_1: parsedHook1,
+    spill_2: resolvedSpill,
+    threads: [parsedHook1, resolvedSpill]
+  };
 }
 
 // Jadwalkan Batch Autopilot dengan Strict Session Binding & Jitter Delay
@@ -3033,6 +3353,10 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
     // Pindai ulang produk & media secara real-time dari master database
     var liveProducts = getSheetRecords('Products');
     var liveMedia = getSheetRecords('Media');
+    var prodCatLookup = {};
+    for (var pci = 0; pci < liveProducts.length; pci++) {
+      prodCatLookup[liveProducts[pci].product_id] = String(liveProducts[pci].category || '').toLowerCase().trim();
+    }
 
     for (var accIdx = 0; accIdx < rawAccIds.length; accIdx++) {
       var targetAccId = cleanAccountId(rawAccIds[accIdx]);
@@ -3173,41 +3497,119 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         var chosenMediaIds = chosenSession.media_ids;
         ruleLastSession = chosenSessionId;
 
-        var matchingRefs = [];
-        for (var v = 0; v < allViralRefs.length; v++) {
-          if (allViralRefs[v].product_id === chosenProd.product_id) {
-            matchingRefs.push(allViralRefs[v]);
-          }
-        }
-        var chosenRef = matchingRefs.length > 0
-          ? matchingRefs[step % matchingRefs.length]
-          : (allViralRefs.length > 0 ? allViralRefs[step % allViralRefs.length] : null);
+        // Alur Prioritas Generator Autopilot (Anti Salah Produk):
+        // Prioritas Utama: Amunisi Konten Matang (Autopilot_Bank) khusus produk target
+        // Prioritas 2: Bank Viral yang terkunci khusus ke produk target (Bukan Arsip Pribadi)
+        // Prioritas 3: Winner Learning (Postingan sukses produk target yang tembus target views)
+        // Prioritas 4 (Fallback): Generate mandiri 100% dari nama produk dan persona akun
+        var targetProdId = String(chosenProd.product_id || '').trim();
+        var origHookPattern = '';
+        var winnerHookText = '';
+        var matchedAmmo = null;
 
-        var origHook = chosenRef ? (chosenRef.hook_thread_1 || '') : ('Rekomendasi ' + chosenProd.product_name + ' paling worth it!');
-        var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK]';
-
-        var remakeResult = { hook_1: origHook, spill_2: origSpill };
-        var elapsedMs = Date.now() - executionStartTime;
-        var canCallAi = (aiCallsMade < MAX_AI_CALLS_PER_RUN) && (elapsedMs < 210000);
-
-        if (canCallAi) {
-          try {
-            remakeResult = generateSumopodRemake({
-              account_id: targetAccId,
-              product_name: chosenProd.product_name,
-              category: chosenProd.category || 'General',
-              selling_points: chosenProd.selling_points || '',
-              hook_thread_1: origHook,
-              spill_thread_2: origSpill
-            });
-            aiCallsMade++;
-          } catch(aiErr) {
-            Logger.log('[Autopilot AI Remake Fallback]: ' + aiErr.message);
+        // Cek Amunisi Konten Matang (Autopilot_Bank)
+        var allAmmo = getSheetRecords('Autopilot_Bank');
+        var readyAmmoList = [];
+        for (var am = 0; am < allAmmo.length; am++) {
+          var ammoItem = allAmmo[am];
+          if (String(ammoItem.product_id || '').trim() === targetProdId && String(ammoItem.status || 'READY').toUpperCase() === 'READY') {
+            readyAmmoList.push(ammoItem);
           }
         }
 
-        var hook1 = remakeResult.hook_1 || origHook;
-        var spill2 = remakeResult.spill_2 || origSpill;
+        if (readyAmmoList.length > 0) {
+          matchedAmmo = readyAmmoList[step % readyAmmoList.length];
+        }
+
+        // 2. Prioritas 2: Bank Viral terkunci ke produk target (jika Amunisi Matang belum tersedia)
+        var p1Refs = [];
+        if (!matchedAmmo) {
+          for (var v = 0; v < allViralRefs.length; v++) {
+            var vRef = allViralRefs[v];
+            var vProdId = String(vRef.product_id || '').trim();
+            if (vProdId && vProdId === targetProdId) {
+              p1Refs.push(vRef);
+            }
+          }
+        }
+
+        if (p1Refs.length > 0) {
+          var chosenRef = p1Refs[step % p1Refs.length];
+          origHookPattern = chosenRef ? (chosenRef.hook_thread_1 || '') : '';
+        } else {
+          // 2. Prioritas 2: Winner Learning dari postingan sukses produk target
+          var winningPosts = [];
+          for (var wp = 0; wp < allPosts.length; wp++) {
+            var postRow = allPosts[wp];
+            var pProdId = String(postRow.product_id || '').trim();
+            var pStatus = String(postRow.status || '').toUpperCase();
+            var pViews = Number(postRow.current_views || 0);
+            var pThresh = Number(postRow.views_threshold || 100);
+            if (pProdId === targetProdId && pStatus === 'PUBLISHED' && pViews >= pThresh && postRow.thread_content_json) {
+              winningPosts.push(postRow);
+            }
+          }
+
+          if (winningPosts.length > 0) {
+            winningPosts.sort(function(a, b) { return Number(b.current_views || 0) - Number(a.current_views || 0); });
+            var topWinPost = winningPosts[step % winningPosts.length];
+            try {
+              var winNodes = typeof topWinPost.thread_content_json === 'string' ? JSON.parse(topWinPost.thread_content_json) : topWinPost.thread_content_json;
+              if (Array.isArray(winNodes) && winNodes.length > 0) {
+                var firstWinNode = winNodes[0];
+                winnerHookText = typeof firstWinNode === 'string' ? firstWinNode : (firstWinNode.content || '');
+                origHookPattern = winnerHookText;
+              }
+            } catch(eWin) {}
+          }
+          // 3. Prioritas 3 (Fallback Mandiri): Jika p1 dan p2 kosong, origHookPattern tetap '' (Pure AI Mandiri)
+        }
+
+        var hook1 = '';
+        var spill2 = '';
+
+        if (matchedAmmo) {
+          hook1 = matchedAmmo.hook_1 || '';
+          spill2 = matchedAmmo.spill_2 || '';
+          if (matchedAmmo.media_ids_json) {
+            try {
+              var parsedAmmoMedia = JSON.parse(matchedAmmo.media_ids_json);
+              if (Array.isArray(parsedAmmoMedia) && parsedAmmoMedia.length > 0) {
+                chosenMediaIds = parsedAmmoMedia;
+              }
+            } catch(eAmmoM) {}
+          }
+        } else {
+          var remakeResult = null;
+          var elapsedMs = Date.now() - executionStartTime;
+          var canCallAi = (aiCallsMade < MAX_AI_CALLS_PER_RUN) && (elapsedMs < 210000);
+
+          if (canCallAi) {
+            try {
+              remakeResult = generateSumopodRemake({
+                account_id: targetAccId,
+                product_id: chosenProd.product_id,
+                product_name: chosenProd.product_name,
+                category: chosenProd.category || 'General',
+                selling_points: chosenProd.selling_points || '',
+                shopee_affiliate_url: chosenProd.shopee_affiliate_url || '',
+                hook_thread_1: origHookPattern,
+                winner_hook: winnerHookText,
+                spill_thread_2: '' // Utas 2 diracik AI terpadu dengan tag [LINK], dilarang salin teks lama
+              });
+              aiCallsMade++;
+            } catch(aiErr) {
+              Logger.log('[Autopilot AI Remake Fallback]: ' + aiErr.message);
+            }
+          }
+
+          hook1 = (remakeResult && remakeResult.hook_1)
+            ? remakeResult.hook_1
+            : ('Nyesel banget baru tau ' + chosenProd.product_name + ' ini, beneran ngebantu dan worth it parah!');
+          spill2 = (remakeResult && remakeResult.spill_2)
+            ? remakeResult.spill_2
+            : ('Bisa langsung cek toko resminya di sini [LINK] mumpung lagi ready stok.');
+        }
 
         var rawAff = String(chosenProd.shopee_affiliate_url || '').trim();
         var cleanShortAff = stripProtocol(rawAff).replace(/^https?:\/\//i, '').trim();

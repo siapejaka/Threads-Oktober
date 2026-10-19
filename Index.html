@@ -474,25 +474,48 @@
 
     </div>
 
-    <!-- TAB: BANK REFERENSI VIRAL (HALAMAN MANDIRI DENGAN UTAS DINAMIS & REMAKE COMPOSER) -->
+    <!-- TAB: BANK KONTEN & PABRIK AMUNISI AUTOPILOT -->
     <div x-show="activeTab === 'viral_refs'" x-cloak class="space-y-6">
-      <!-- Standard Compact Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-        <div>
-          <div class="flex items-center space-x-2">
-            <h2 class="text-sm font-bold text-slate-900 flex items-center">
-              <i data-lucide="bookmark" class="w-4 h-4 text-amber-500 mr-2"></i> Bank Referensi Viral & Remake Instan
-            </h2>
-            <span class="badge badge-xs badge-warning font-mono font-bold text-slate-950" x-text="viral_references.length + ' Formula'"></span>
+      <!-- Standard Header with Sub-Tabs Navigation -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center space-x-2">
+              <h2 class="text-sm font-bold text-slate-900 flex items-center">
+                <i data-lucide="sparkles" class="w-4 h-4 text-purple-600 mr-2"></i> Pabrik Variasi Bank Konten Autopilot
+              </h2>
+              <span class="badge badge-xs badge-secondary font-mono font-bold" x-text="autopilot_bank.length + ' Amunisi Matang'"></span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Kelola swipe file referensi luar dan amunisi konten matang yang siap tayang oleh mesin autopilot.</p>
           </div>
-          <p class="text-xs text-slate-500 mt-0.5">Koleksi formula hook dan swipe-file konten viral Threads untuk di-remake ke Composer.</p>
+          <div class="flex items-center space-x-2 flex-shrink-0">
+            <button type="button" @click="openAddViralRefModal()" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl flex items-center transition shadow-xs">
+              <i data-lucide="plus" class="w-3.5 h-3.5 mr-1.5"></i> + Referensi Mentah
+            </button>
+          </div>
         </div>
-        <div class="flex items-center space-x-2 flex-shrink-0">
-          <button type="button" @click="openAddViralRefModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl flex items-center transition shadow-xs">
-            <i data-lucide="plus" class="w-3.5 h-3.5 mr-1.5"></i> + Tambah Referensi Baru
+
+        <!-- 2 Sub-Tabs Pil: Bank Referensi Mentah vs Amunisi Konten Autopilot -->
+        <div class="flex space-x-2 border-t border-slate-100 pt-3">
+          <button type="button" @click="contentBankSubTab = 'RAW'; $nextTick(() => lucide.createIcons())"
+                  :class="contentBankSubTab === 'RAW' ? 'bg-amber-500 text-slate-950 font-bold shadow-2xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                  class="px-4 py-2 rounded-xl text-xs flex items-center transition">
+            <i data-lucide="bookmark" class="w-3.5 h-3.5 mr-1.5"></i>
+            <span>Tab 1: Bank Referensi Mentah</span>
+            <span class="badge badge-xs badge-neutral font-mono font-bold ml-2" x-text="viral_references.length"></span>
+          </button>
+          <button type="button" @click="contentBankSubTab = 'AMMO'; $nextTick(() => lucide.createIcons())"
+                  :class="contentBankSubTab === 'AMMO' ? 'bg-purple-700 text-white font-bold shadow-2xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                  class="px-4 py-2 rounded-xl text-xs flex items-center transition">
+            <i data-lucide="check-check" class="w-3.5 h-3.5 mr-1.5 text-purple-300"></i>
+            <span>Tab 2: Amunisi Konten Autopilot</span>
+            <span class="badge badge-xs badge-success font-mono font-bold ml-2" x-text="autopilot_bank.length"></span>
           </button>
         </div>
       </div>
+
+      <!-- KONTEN SUB-TAB 1: BANK REFERENSI MENTAH -->
+      <div x-show="contentBankSubTab === 'RAW'" class="space-y-4">
 
       <!-- Filter & Search Toolbar -->
       <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -509,6 +532,7 @@
             <i data-lucide="filter" class="w-3.5 h-3.5 text-slate-400"></i>
             <select x-model="viralRefProductFilter" class="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer">
               <option value="ALL">Semua Produk</option>
+              <option value="ARCHIVE">Arsip Pribadi (Non-Autopilot)</option>
               <template x-for="p in products" :key="p.product_id">
                 <option :value="p.product_id" x-text="p.product_name"></option>
               </template>
@@ -528,7 +552,18 @@
                 <div class="min-w-0">
                   <h3 class="font-bold text-slate-900 text-sm truncate" x-text="ref.title"></h3>
                   <div class="flex items-center space-x-1.5 mt-0.5">
-                    <span class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded" x-text="getProductName(ref.product_id) || 'Umum (Semua Produk)'"></span>
+                    <template x-if="ref.product_id">
+                      <span class="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded inline-flex items-center">
+                        <i data-lucide="bot" class="w-2.5 h-2.5 mr-1 text-emerald-600"></i>
+                        <span x-text="getProductName(ref.product_id)"></span>
+                      </span>
+                    </template>
+                    <template x-if="!ref.product_id">
+                      <span class="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-300 px-1.5 py-0.2 rounded inline-flex items-center" title="Referensi ini hanya tersimpan di arsip dan tidak digunakan oleh mesin AI Autopilot">
+                        <i data-lucide="lock" class="w-2.5 h-2.5 mr-1 text-slate-500"></i>
+                        <span>Arsip Pribadi (Non-Autopilot)</span>
+                      </span>
+                    </template>
                     <span class="badge badge-xs badge-neutral font-mono text-[9px]" x-text="getViralRefThreads(ref).length + ' Utas'"></span>
                   </div>
                 </div>
@@ -573,16 +608,127 @@
               </div>
             </div>
 
-            <!-- Tombol Aksi Utama: ✨ Remake di Composer -->
-            <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-              <span class="text-[9px] text-slate-400 font-mono" x-text="'ID: ' + ref.ref_id"></span>
-              <button type="button" @click="remakeViralRefToComposer(ref)" class="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl flex items-center transition shadow-2xs group-hover:scale-102">
-                <i data-lucide="sparkles" class="w-3.5 h-3.5 mr-1.5 text-amber-300"></i>
-                <span>✨ Remake di Composer</span>
+            <!-- Tombol Aksi Utama: Pabrik Variasi Autopilot & Remake Composer -->
+            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+              <button type="button" @click="openVariationFactoryModal(ref)" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] rounded-xl flex items-center transition shadow-2xs">
+                <i data-lucide="sparkles" class="w-3 h-3 mr-1 text-amber-300"></i>
+                <span>✨ Buat Variasi untuk Autopilot</span>
+              </button>
+              <button type="button" @click="remakeViralRefToComposer(ref)" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] rounded-xl flex items-center transition">
+                <i data-lucide="edit-3" class="w-3 h-3 mr-1"></i>
+                <span>Remake</span>
               </button>
             </div>
           </div>
         </template>
+      </div>
+
+      <div x-show="filteredViralReferences.length === 0" class="text-center py-16 bg-white rounded-3xl border border-slate-200 space-y-3">
+        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+          <i data-lucide="bookmark" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="text-xs font-bold text-slate-800">Belum Ada Formula Referensi Mentah</div>
+          <p class="text-[11px] text-slate-400 max-w-sm mx-auto mt-0.5">
+            Simpan formula hook viral Threads favorit Anda di sini sebagai ide awal (swipe-file).
+          </p>
+        </div>
+        <button type="button" @click="openAddViralRefModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl inline-flex items-center shadow-xs">
+          <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> Tambah Referensi Pertama
+        </button>
+      </div>
+      </div>
+
+      <!-- KONTEN SUB-TAB 2: AMUNISI KONTEN AUTOPILOT (KONTEN MATANG & BERSIH) -->
+      <div x-show="contentBankSubTab === 'AMMO'" class="space-y-4">
+        <!-- Info Banner Amunisi -->
+        <div class="p-3.5 bg-purple-50/80 rounded-2xl border border-purple-200 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="shield-check" class="w-4 h-4 text-purple-700 flex-shrink-0"></i>
+            <span class="font-bold text-purple-950">Amunisi Matang Autopilot:</span>
+            <span class="text-slate-600 text-[11px]">Konten di tab ini sudah dikurasi dan disesuaikan 100% dengan produk & persona. Mesin Autopilot memprioritaskan bank ini.</span>
+          </div>
+          <span class="text-[11px] font-mono font-bold text-purple-800" x-text="autopilot_bank.length + ' Konten Siap'"></span>
+        </div>
+
+        <!-- Filter & Search Toolbar Amunisi -->
+        <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="relative flex-1 max-w-md">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" x-model="ammoSearchQuery" placeholder="Cari isi amunisi, hook, atau nama produk..." class="w-full pl-9 pr-8 py-2 bg-slate-50 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            <button x-show="ammoSearchQuery" @click="ammoSearchQuery = ''" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <div class="flex items-center space-x-2 text-xs">
+            <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+              <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-slate-400"></i>
+              <select x-model="ammoProductFilter" class="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer">
+                <option value="ALL">Semua Produk</option>
+                <template x-for="p in products" :key="p.product_id">
+                  <option :value="p.product_id" x-text="p.product_name"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid Kartu Amunisi Konten Matang -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <template x-for="ammo in filteredAmmoList" :key="ammo.ammo_id">
+            <div class="bg-white rounded-2xl border border-purple-200/90 p-4 shadow-sm hover:border-purple-400 transition flex flex-col justify-between space-y-3">
+              <div>
+                <div class="flex justify-between items-start gap-2">
+                  <div class="min-w-0">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-[10px] bg-purple-50 text-purple-900 border border-purple-200 truncate">
+                      <i data-lucide="package" class="w-3 h-3 mr-1 text-purple-600"></i>
+                      <span x-text="getProductName(ammo.product_id)"></span>
+                    </span>
+                    <div class="text-[9px] text-slate-400 font-mono mt-1" x-text="'ID: ' + ammo.ammo_id"></div>
+                  </div>
+                  <div class="flex items-center space-x-1">
+                    <span class="badge badge-xs badge-success text-[9px] font-bold">READY</span>
+                    <button type="button" @click="confirmDeleteAmmo(ammo)" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Hapus Amunisi">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Tampilan Dua Utas Matang -->
+                <div class="space-y-2 mt-3 text-xs">
+                  <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                    <span class="text-[9px] uppercase font-bold text-slate-500 block">Utas #1 (Hook Pembuka)</span>
+                    <p class="text-slate-800 leading-relaxed font-sans" x-text="ammo.hook_1"></p>
+                  </div>
+                  <div class="p-2.5 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-1">
+                    <span class="text-[9px] uppercase font-bold text-emerald-800 block">Utas #2 (Spill & Link Affiliate)</span>
+                    <p class="text-slate-800 leading-relaxed font-sans" x-text="ammo.spill_2"></p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Footer Kartu Amunisi -->
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                <span x-text="ammo.created_at ? formatDateTime(ammo.created_at) : 'Siap Tayang'"></span>
+                <span class="text-purple-700 font-bold flex items-center">
+                  <i data-lucide="bot" class="w-3 h-3 mr-1"></i> Prioritas Autopilot
+                </span>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="filteredAmmoList.length === 0" class="text-center py-16 bg-white rounded-3xl border border-slate-200 space-y-3">
+          <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mx-auto">
+            <i data-lucide="check-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-800">Belum Ada Amunisi Konten Matang</div>
+            <p class="text-[11px] text-slate-400 max-w-sm mx-auto mt-0.5">
+              Buka Tab 1 (Referensi Mentah), lalu klik "✨ Buat Variasi untuk Autopilot" untuk mengurasi konten siap pakai.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div x-show="filteredViralReferences.length === 0" class="text-center py-16 bg-white rounded-3xl border border-slate-200 space-y-3">
@@ -2384,19 +2530,6 @@
               </div>
             </div>
           </div>
-
-          <!-- Manual Trigger Execution -->
-          <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
-            <div>
-              <span class="font-bold text-slate-800 block">Uji Eksekusi Manual Seluruh Mesin</span>
-              <span class="text-[11px] text-slate-500">Menjalankan satu siklus penuh langsung dari browser: Autopilot Worker + Antrean Tayang + Views Polling.</span>
-            </div>
-            <button type="button" @click="executeQueueAndViewsNow()" :disabled="isExecutingQueueAndViews" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl flex items-center transition shadow-xs disabled:opacity-50 flex-shrink-0">
-              <span x-show="isExecutingQueueAndViews" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
-              <i x-show="!isExecutingQueueAndViews" data-lucide="play" class="w-3.5 h-3.5 mr-1.5"></i>
-              <span>Jalankan Manual Sekarang</span>
-            </button>
-          </div>
         </div>
 
         <!-- Sub-Tab 4: Kustomisasi & Branding -->
@@ -2491,6 +2624,112 @@
 </div>
 </div>
 
+  <!-- MODAL PABRIK VARIASI KONTEN AUTOPILOT (GENERATOR & KURASI) -->
+  <div x-show="modals.variationFactoryModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4">
+    <div @click.away="!isGeneratingVariations && closeModal('variationFactoryModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-4xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-100 flex-shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold flex-shrink-0">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900">Pabrik Variasi Konten Autopilot</h3>
+            <span class="text-[11px] text-slate-500 font-medium">Ubah referensi mentah menjadi 3 variasi matang &amp; simpan ke Amunisi</span>
+          </div>
+        </div>
+        <button type="button" @click="closeModal('variationFactoryModal')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-4 text-xs overflow-y-auto flex-1 pr-1">
+        <!-- Referensi Asli Mentah -->
+        <div class="p-3 bg-amber-50/60 border border-amber-200 rounded-2xl space-y-1">
+          <div class="flex items-center justify-between text-[10px] font-bold text-amber-900">
+            <span>Referensi Asli Terpilih:</span>
+            <span x-text="factorySourceRef?.title || 'Referensi Mentah'"></span>
+          </div>
+          <p class="text-slate-700 italic text-[11px] leading-relaxed line-clamp-3" x-text="factorySourceRef ? (factorySourceRef.hook_thread_1 || '') : ''"></p>
+        </div>
+
+        <!-- Pilihan Produk Target & Akun Persona Acuan -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">
+              Produk Shopee Target <span class="text-rose-500">*</span>
+            </label>
+            <select x-model="factoryTargetProductId" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-bold text-xs focus:ring-2 focus:ring-purple-500">
+              <option value="">-- Pilih Produk Target --</option>
+              <template x-for="p in products" :key="p.product_id">
+                <option :value="p.product_id" x-text="p.product_name + ' [Rp ' + Number(p.price || 0).toLocaleString('id-ID') + ']'"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">
+              Akun Acuan (Persona &amp; Gaya Bahasa)
+            </label>
+            <select x-model="factoryTargetAccountId" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-bold text-xs focus:ring-2 focus:ring-purple-500">
+              <option value="">-- Default / Netral --</option>
+              <template x-for="acc in accounts" :key="acc.account_id">
+                <option :value="acc.account_id" x-text="'@' + acc.username + ' (' + (acc.category || 'Umum') + ')'"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tombol Generate 3 Variasi -->
+        <div class="flex justify-center pt-1">
+          <button type="button" @click="generateVariationsFromFactory()" :disabled="isGeneratingVariations || !factoryTargetProductId" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl flex items-center transition shadow-md disabled:opacity-50">
+            <span x-show="isGeneratingVariations" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-4 h-4"></i></span>
+            <i x-show="!isGeneratingVariations" data-lucide="sparkles" class="w-4 h-4 mr-1.5 text-amber-300"></i>
+            <span x-text="isGeneratingVariations ? 'Meracik 3 Variasi AI...' : '✨ Generate 3 Variasi AI'"></span>
+          </button>
+        </div>
+
+        <!-- Daftar 3 Hasil Variasi -->
+        <div x-show="factoryResults.length > 0" class="space-y-3 pt-2">
+          <span class="text-xs font-bold text-slate-900 block uppercase tracking-wider">
+            Hasil Variasi Siap Simpan:
+          </span>
+
+          <div class="space-y-3">
+            <template x-for="(v, vIdx) in factoryResults" :key="vIdx">
+              <div class="p-3.5 bg-white border border-purple-200 rounded-2xl shadow-xs space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="w-6 h-6 rounded-lg bg-purple-700 text-white text-[11px] font-bold flex items-center justify-center" x-text="vIdx + 1"></span>
+                  <button type="button" @click="saveVariationToAmmo(v, vIdx)" :disabled="v._isSaving || v._saved"
+                          :class="v._saved ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-purple-700 hover:bg-purple-800 text-white'"
+                          class="px-3 py-1.5 text-xs font-bold rounded-xl flex items-center transition shadow-2xs disabled:opacity-70">
+                    <span x-show="v._isSaving" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
+                    <i x-show="!v._isSaving && !v._saved" data-lucide="save" class="w-3 h-3 mr-1"></i>
+                    <i x-show="v._saved" data-lucide="check" class="w-3 h-3 mr-1 text-emerald-700"></i>
+                    <span x-text="v._saved ? 'Tersimpan di Amunisi' : '💾 Simpan ke Amunisi Autopilot'"></span>
+                  </button>
+                </div>
+
+                <div class="space-y-2">
+                  <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="text-[9px] uppercase font-bold text-slate-400 block">Utas #1 (Root Hook)</span>
+                    <p class="text-slate-800 text-[11px] leading-relaxed mt-0.5" x-text="v.hook_1"></p>
+                  </div>
+                  <div class="p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-200">
+                    <span class="text-[9px] uppercase font-bold text-emerald-800 block">Utas #2 (Spill &amp; Shortlink)</span>
+                    <p class="text-slate-800 text-[11px] leading-relaxed mt-0.5" x-text="v.spill_2"></p>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sticky Footer -->
+      <div class="mt-auto pt-3 border-t border-slate-100 flex justify-end space-x-2 flex-shrink-0 sticky bottom-0 bg-white z-10">
+        <button type="button" @click="closeModal('variationFactoryModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Tutup</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL TAMBAH / EDIT REFERENSI VIRAL (RANGKAIAN UTAS DINAMIS DENGAN MEDIA CAROUSEL) -->
   <div x-show="modals.addViralRefModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4">
     <div @click.away="!isSavingViralRef && closeModal('addViralRefModal')" class="bg-white w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-5xl md:max-w-6xl rounded-none sm:rounded-3xl shadow-2xl p-4 sm:p-6 border border-slate-200 flex flex-col overflow-hidden">
@@ -2523,7 +2762,7 @@
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="font-semibold text-slate-700 flex items-center">
-                <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Produk Terkait (Visual)
+                <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-emerald-600 mr-1"></i> Produk Terkait (Wajib untuk AI Autopilot)
               </label>
               <button type="button" @click="closeModal('addViralRefModal'); openAddProductModal()" class="text-[11px] font-bold text-emerald-700 hover:underline flex items-center">
                 <i data-lucide="plus" class="w-3 h-3 mr-0.5"></i> + Produk
@@ -2532,7 +2771,7 @@
 
             <!-- Custom Visual Product Selector dengan Thumbnail -->
             <div class="relative" @click.away="viralRefProductDropdownOpen = false">
-              <div @click="viralRefProductDropdownOpen = !viralRefProductDropdownOpen; $nextTick(() => lucide.createIcons())" class="p-2 border border-slate-300 rounded-xl bg-white flex items-center justify-between cursor-pointer hover:border-amber-400 transition shadow-2xs">
+              <div @click="viralRefProductDropdownOpen = !viralRefProductDropdownOpen; $nextTick(() => lucide.createIcons())" class="p-2 border rounded-xl bg-white flex items-center justify-between cursor-pointer hover:border-amber-400 transition shadow-2xs" :class="newViralRef.product_id ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-slate-300'">
                 <template x-if="getProductObj(newViralRef.product_id)">
                   <div class="flex items-center space-x-2 min-w-0 flex-1">
                     <div class="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -2544,19 +2783,22 @@
                       </template>
                     </div>
                     <div class="min-w-0 flex-1">
-                      <div class="font-bold text-slate-900 text-xs truncate" x-text="getProductObj(newViralRef.product_id).product_name"></div>
+                      <div class="font-bold text-slate-900 text-xs truncate flex items-center space-x-1">
+                        <span x-text="getProductObj(newViralRef.product_id).product_name"></span>
+                        <span class="badge badge-xs badge-success text-[8px] font-bold">AUTOPILOT READY</span>
+                      </div>
                       <div class="text-[10px] text-emerald-700 font-mono font-bold" x-text="'Rp ' + Number(getProductObj(newViralRef.product_id).price || 0).toLocaleString('id-ID')"></div>
                     </div>
                   </div>
                 </template>
                 <template x-if="!getProductObj(newViralRef.product_id)">
                   <div class="flex items-center space-x-2 text-slate-500 py-1">
-                    <i data-lucide="layers" class="w-4 h-4 text-slate-400"></i>
-                    <span class="text-xs">-- Umum / Tanpa Produk Khusus --</span>
+                    <i data-lucide="lock" class="w-4 h-4 text-slate-400"></i>
+                    <span class="text-xs">-- Arsip Pribadi (Tidak Digunakan Autopilot) --</span>
                   </div>
                 </template>
                 <div class="flex items-center space-x-1 flex-shrink-0 ml-1">
-                  <button type="button" x-show="newViralRef.product_id" @click.stop="newViralRef.product_id = ''" class="p-1 text-slate-400 hover:text-rose-500 rounded" title="Kosongkan produk">
+                  <button type="button" x-show="newViralRef.product_id" @click.stop="newViralRef.product_id = ''" class="p-1 text-slate-400 hover:text-rose-500 rounded" title="Kosongkan produk (Jadikan Arsip Pribadi)">
                     <i data-lucide="x" class="w-3.5 h-3.5"></i>
                   </button>
                   <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform" :class="viralRefProductDropdownOpen ? 'rotate-180' : ''"></i>
@@ -2570,9 +2812,12 @@
                 </div>
                 <button type="button" @click="newViralRef.product_id = ''; viralRefProductDropdownOpen = false" class="w-full text-left p-1.5 rounded-lg hover:bg-slate-50 flex items-center space-x-2 text-xs text-slate-600 transition">
                   <div class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
-                    <i data-lucide="slash" class="w-3.5 h-3.5"></i>
+                    <i data-lucide="lock" class="w-3.5 h-3.5"></i>
                   </div>
-                  <span>Umum (Semua Produk)</span>
+                  <div>
+                    <span class="font-bold text-slate-700 block text-xs">Tanpa Produk Khusus</span>
+                    <span class="text-[10px] text-slate-400 block">Tersimpan sebagai Arsip Pribadi (dilewati oleh AI Autopilot)</span>
+                  </div>
                 </button>
                 <template x-for="p in filteredViralRefProductOptions" :key="p.product_id">
                   <button type="button" @click="newViralRef.product_id = p.product_id; viralRefProductDropdownOpen = false" class="w-full text-left p-1.5 rounded-lg hover:bg-amber-50/70 border border-transparent hover:border-amber-200 flex items-center space-x-2.5 transition" :class="newViralRef.product_id === p.product_id ? 'bg-amber-50 border-amber-300' : ''">
@@ -4030,13 +4275,21 @@
           </div>
 
           <div>
-            <div class="flex items-center space-x-1 mb-1">
-              <label class="font-semibold text-slate-700">Custom Prompt Akun (Instruksi Bebas)</label>
-              <span class="tooltip tooltip-right" data-tip="Instruksi tambahan untuk AI seperti panggilan khas, larangan kata tertentu, atau gaya bicara khusus.">
-                <span class="w-3.5 h-3.5 rounded-full bg-purple-200 text-purple-800 text-[9px] font-bold inline-flex items-center justify-center cursor-help">?</span>
-              </span>
+            <div class="flex items-center justify-between mb-1.5">
+              <div class="flex items-center space-x-1">
+                <label class="font-semibold text-slate-700">Custom Persona &amp; Instruksi Akun</label>
+                <span class="tooltip tooltip-right" data-tip="Tuliskan bahasa, sapaan, atau aturan khusus akun. Klik tombol di kanan untuk merapikannya jadi prompt AI siap pakai.">
+                  <span class="w-3.5 h-3.5 rounded-full bg-purple-200 text-purple-800 text-[9px] font-bold inline-flex items-center justify-center cursor-help">?</span>
+                </span>
+              </div>
+              <button type="button" @click="optimizePromptWithAi()" :disabled="isOptimizingPrompt || !editingAccount.custom_prompt" class="px-2.5 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg text-[10px] font-bold flex items-center transition shadow-2xs disabled:opacity-50" title="Rapikan instruksi bebas menjadi prompt AI yang terstruktur">
+                <span x-show="isOptimizingPrompt" class="animate-spin mr-1"><i data-lucide="loader-2" class="w-3 h-3"></i></span>
+                <i x-show="!isOptimizingPrompt" data-lucide="sparkles" class="w-3 h-3 mr-1 text-amber-300"></i>
+                <span x-text="isOptimizingPrompt ? 'Merapikan...' : '✨ Rapikan Prompt dengan AI'"></span>
+              </button>
             </div>
-            <textarea x-model="editingAccount.custom_prompt" rows="3" placeholder="Contoh: Gaya santai khas ibu muda, hindari istilah brosur, panggilan: Moms/Bund, terjemahkan referensi luar ke bahasa Indonesia santai..." class="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-xs focus:ring-2 focus:ring-purple-500 leading-relaxed"></textarea>
+            <textarea x-model="editingAccount.custom_prompt" rows="5" placeholder="Tulis instruksi bebas (contoh: Wajib pakai Bahasa Melayu santai / Gaya ibu muda gaul, panggilan Moms, jangan pakai kata 'gengs', selipkan humor ringan)..." class="w-full p-2.5 border border-slate-300 rounded-xl bg-white text-xs focus:ring-2 focus:ring-purple-500 leading-relaxed font-sans"></textarea>
+            <span class="text-[10px] text-slate-400 mt-1 block">Prompt ini disuntikkan langsung sebagai Persona &amp; Tone Guard utama pada Autopilot dan Post Composer.</span>
           </div>
         </div>
       </div>
@@ -4225,6 +4478,15 @@
         comments: [],
         hooks: [],
         viral_references: [],
+        autopilot_bank: [],
+        contentBankSubTab: 'RAW',
+        ammoSearchQuery: '',
+        ammoProductFilter: 'ALL',
+        factorySourceRef: null,
+        factoryTargetProductId: '',
+        factoryTargetAccountId: '',
+        factoryResults: [],
+        isGeneratingVariations: false,
         hookFilter: 'ALL',
         inboxFilter: 'UNREPLIED',
         inboxAccountFilter: 'ALL',
@@ -4544,11 +4806,12 @@
         viralRefProductSearch: '',
 
         // Modals & Toasts
-        modals: { replyModal: false, addProductModal: false, productDetailModal: false, uploadMediaModal: false, productMediaModal: false, addHookModal: false, addViralRefModal: false, ruleModal: false, composerModal: false, postCommentsModal: false, confirmModal: false, editQueueModal: false, threadDetailModal: false, videoPreviewModal: false, hookPickerModal: false, editAccountCategoryModal: false, attachProductModal: false, bulkAssignModal: false },
+        modals: { replyModal: false, addProductModal: false, productDetailModal: false, uploadMediaModal: false, productMediaModal: false, addHookModal: false, addViralRefModal: false, variationFactoryModal: false, ruleModal: false, composerModal: false, postCommentsModal: false, confirmModal: false, editQueueModal: false, threadDetailModal: false, videoPreviewModal: false, hookPickerModal: false, editAccountCategoryModal: false, attachProductModal: false, bulkAssignModal: false },
         targetThreadForProduct: null,
         productAttachSearch: '',
         editingAccount: { account_id: '', username: '', category: 'General' },
         isSavingAccountCategory: false,
+        isOptimizingPrompt: false,
         selectedProductDetail: null,
         targetThreadForHook: null,
         hookPickerSearch: '',
@@ -4567,16 +4830,30 @@
         confirmData: { title: '', message: '', actionType: '', targetId: '', confirmText: 'Ya, Hapus' },
         editingQueuePost: { post_id: '', account_id: '', root_content: '', views_threshold: 500, scheduled_time: '', status: 'SCHEDULED' },
         currentScriptUrl: (function() {
-          var saved = localStorage.getItem('CUSTOM_SCRIPT_URL');
-          if (saved && saved.indexOf('AKfycbz0GGOAcu15PuikgDeIS6LrR9mo3IeK3VX7Uklb1ft9rzohMO-UqOGV59kJ9woXkONa') !== -1) {
-            return saved;
-          }
+          try {
+            var currentHref = window.location.href.split('?')[0].split('#')[0];
+            if (currentHref.indexOf('https://script.google.com/macros/s/') === 0 && currentHref.indexOf('/exec') !== -1) {
+              return currentHref;
+            }
+          } catch(e) {}
+          try {
+            var saved = localStorage.getItem('CUSTOM_SCRIPT_URL');
+            if (saved && saved.indexOf('https://script.google.com/macros/s/') === 0 && saved.indexOf('/exec') !== -1) {
+              return saved;
+            }
+          } catch(e) {}
           return DEFAULT_SCRIPT_URL;
         })(),
         settings: { gemini_key: '', cloudinary_cloud: '', cloudinary_preset: '', cloudinary_api_key: '', cloudinary_api_secret: '', sumopod_api_key: '', sumopod_endpoint: '', sumopod_model: '', app_name: '', app_tagline: '', browser_title: '', favicon_url: '' },
         toast: { visible: false, message: '', type: 'success' },
 
         getScriptUrl() {
+          try {
+            var currentHref = window.location.href.split('?')[0].split('#')[0];
+            if (currentHref.indexOf('https://script.google.com/macros/s/') === 0 && currentHref.indexOf('/exec') !== -1) {
+              return currentHref;
+            }
+          } catch(e) {}
           var url = (this.currentScriptUrl && this.currentScriptUrl.trim()) ? this.currentScriptUrl.trim() : DEFAULT_SCRIPT_URL;
           if (url.indexOf('https://script.google.com/macros/s/') !== 0 || url.indexOf('/exec') === -1) {
             url = DEFAULT_SCRIPT_URL;
@@ -5670,6 +5947,40 @@
           this.openModal('editAccountCategoryModal');
         },
 
+        optimizePromptWithAi() {
+          var raw = (this.editingAccount.custom_prompt || '').trim();
+          if (!raw) {
+            this.showToast('Ketik draf instruksi atau gaya bicara terlebih dahulu', 'error');
+            return;
+          }
+          this.isOptimizingPrompt = true;
+          this.showToast('Merapikan prompt persona dengan SumoPod AI...');
+          var self = this;
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'optimizeAccountPrompt',
+              payload: { raw_prompt: raw }
+            })
+          })
+          .then(function(r) { return r.text(); })
+          .then(function(text) {
+            var res = JSON.parse(text);
+            if (res.ok && res.data && res.data.optimized_prompt) {
+              self.editingAccount.custom_prompt = res.data.optimized_prompt;
+              self.showToast('✨ Prompt persona berhasil dirapikan!');
+            } else {
+              self.showToast(res.message || 'Gagal merapikan prompt', 'error');
+            }
+            self.isOptimizingPrompt = false;
+          })
+          .catch(function(err) {
+            self.isOptimizingPrompt = false;
+            self.showToast('Gagal merapikan prompt: ' + err.message, 'error');
+          });
+        },
+
         saveAccountCategory() {
           if (!this.editingAccount.account_id) return;
           this.isSavingAccountCategory = true;
@@ -5994,6 +6305,7 @@
               this.comments = Array.isArray(res.data.comments) ? res.data.comments : [];
               this.hooks = Array.isArray(res.data.hooks) ? res.data.hooks : [];
               this.viral_references = Array.isArray(res.data.viral_references) ? res.data.viral_references : [];
+              this.autopilot_bank = Array.isArray(res.data.autopilot_bank) ? res.data.autopilot_bank : [];
               this.autopilot_rules = Array.isArray(res.data.autopilot_rules) ? res.data.autopilot_rules : [];
               this.settings = (res.data.settings && typeof res.data.settings === 'object') ? res.data.settings : this.settings;
               if (this.settings && this.settings.trigger_interval) {
@@ -6619,6 +6931,10 @@
             actionName = 'deleteMediaSession';
             payloadData = { session_id: targetId, product_id: this.confirmData.extraData || '' };
             successMsg = 'Seluruh media dalam sesi ulasan berhasil dihapus permanen!';
+          } else if (type === 'DELETE_AMMO') {
+            actionName = 'deleteAutopilotAmmo';
+            payloadData = { ammo_id: targetId };
+            successMsg = 'Amunisi konten autopilot berhasil dihapus!';
           }
 
           fetch(this.getScriptUrl(), {
@@ -7222,7 +7538,11 @@
           var self = this;
 
           if (prod && prod !== 'ALL') {
-            list = list.filter(function(r) { return r.product_id === prod; });
+            if (prod === 'ARCHIVE') {
+              list = list.filter(function(r) { return !r.product_id; });
+            } else {
+              list = list.filter(function(r) { return r.product_id === prod; });
+            }
           }
 
           if (q) {
@@ -7260,6 +7580,129 @@
           if (ref.hook_thread_1) res.push({ content: ref.hook_thread_1, media_urls: [] });
           if (ref.spill_thread_2) res.push({ content: ref.spill_thread_2, media_urls: [] });
           return res.length > 0 ? res : [{ content: '(Konten kosong)', media_urls: [] }];
+        },
+
+        openVariationFactoryModal(ref) {
+          this.factorySourceRef = ref;
+          this.factoryTargetProductId = ref.product_id || (this.products.length > 0 ? this.products[0].product_id : '');
+          this.factoryTargetAccountId = this.accounts.length > 0 ? this.accounts[0].account_id : '';
+          this.factoryResults = [];
+          this.openModal('variationFactoryModal');
+        },
+
+        generateVariationsFromFactory() {
+          if (!this.factoryTargetProductId) {
+            this.showToast('Pilih produk target terlebih dahulu', 'error');
+            return;
+          }
+          var refText = this.factorySourceRef ? (this.factorySourceRef.hook_thread_1 || '') : '';
+          this.isGeneratingVariations = true;
+          this.showToast('SumoPod AI sedang meracik 3 variasi konten...');
+          var self = this;
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'generateVariationsFromReference',
+              payload: {
+                ref_text: refText,
+                product_id: this.factoryTargetProductId,
+                account_id: this.factoryTargetAccountId
+              }
+            })
+          })
+          .then(function(r) { return r.text(); })
+          .then(function(text) {
+            var res = JSON.parse(text);
+            if (res.ok && res.data && Array.isArray(res.data.variations)) {
+              self.factoryResults = res.data.variations.map(function(v) {
+                return {
+                  hook_1: v.hook_1,
+                  spill_2: v.spill_2,
+                  _isSaving: false,
+                  _saved: false
+                };
+              });
+              self.showToast('3 variasi konten berhasil dibuat!');
+            } else {
+              self.showToast(res.message || 'Gagal membuat variasi', 'error');
+            }
+            self.isGeneratingVariations = false;
+            self.$nextTick(function() { lucide.createIcons(); });
+          })
+          .catch(function(err) {
+            self.isGeneratingVariations = false;
+            self.showToast('Gagal memproses AI: ' + err.message, 'error');
+          });
+        },
+
+        saveVariationToAmmo(variation, idx) {
+          if (!this.factoryTargetProductId) return;
+          variation._isSaving = true;
+          var self = this;
+
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'saveAutopilotAmmo',
+              payload: {
+                product_id: this.factoryTargetProductId,
+                hook_1: variation.hook_1,
+                spill_2: variation.spill_2
+              }
+            })
+          })
+          .then(function(r) { return r.text(); })
+          .then(function(text) {
+            var res = JSON.parse(text);
+            if (res.ok) {
+              variation._saved = true;
+              self.showToast('Variasi berhasil disimpan ke Amunisi Autopilot!');
+              self.fetchInitialData();
+            } else {
+              self.showToast(res.message || 'Gagal menyimpan amunisi', 'error');
+            }
+            variation._isSaving = false;
+          })
+          .catch(function(err) {
+            variation._isSaving = false;
+            self.showToast('Gagal menyimpan: ' + err.message, 'error');
+          });
+        },
+
+        get filteredAmmoList() {
+          var list = this.autopilot_bank || [];
+          var q = (this.ammoSearchQuery || '').toLowerCase().trim();
+          var prod = this.ammoProductFilter;
+          var self = this;
+
+          if (prod && prod !== 'ALL') {
+            list = list.filter(function(a) { return String(a.product_id).trim() === String(prod).trim(); });
+          }
+
+          if (q) {
+            list = list.filter(function(a) {
+              var h = (a.hook_1 || '').toLowerCase();
+              var s = (a.spill_2 || '').toLowerCase();
+              var pName = (self.getProductName(a.product_id) || '').toLowerCase();
+              return h.indexOf(q) !== -1 || s.indexOf(q) !== -1 || pName.indexOf(q) !== -1;
+            });
+          }
+
+          return list;
+        },
+
+        confirmDeleteAmmo(ammo) {
+          this.confirmData = {
+            title: 'Hapus Amunisi Konten?',
+            message: 'Amunisi untuk produk "' + this.getProductName(ammo.product_id) + '" akan dihapus dari bank autopilot.',
+            actionType: 'DELETE_AMMO',
+            targetId: ammo.ammo_id,
+            confirmText: 'Ya, Hapus'
+          };
+          this.openModal('confirmModal');
         },
 
         openAddViralRefModal() {
@@ -7498,11 +7941,14 @@
               action: 'generateSumopodRemake',
               payload: {
                 account_id: activeAccId,
+                product_id: primaryProdId,
                 product_name: prod ? prod.product_name : 'Produk Shopee',
+                category: prod ? (prod.category || 'General') : 'General',
                 selling_points: prod ? (prod.selling_points || '') : '',
+                shopee_affiliate_url: prod ? (prod.shopee_affiliate_url || '') : '',
                 hook_thread_1: threads[0] || '',
-                spill_thread_2: threads[1] || '',
-                threads: threads
+                spill_thread_2: '',
+                threads: [threads[0] || '']
               }
             })
           })
@@ -7514,32 +7960,15 @@
             var res = JSON.parse(text);
             if (res.ok && res.data) {
               var d = res.data;
-              if (Array.isArray(d.threads) && d.threads.length > 0) {
-                for (var k = 0; k < d.threads.length; k++) {
-                  if (this.threadList[k]) {
-                    this.threadList[k].content = d.threads[k];
-                  } else {
-                    this.threadList.push({
-                      content: d.threads[k],
-                      product_ids: primaryProdId ? [primaryProdId] : [],
-                      product_id: primaryProdId,
-                      media_ids: [],
-                      media_id: '',
-                      _showPicker: false,
-                      _showProductPicker: false,
-                      _productSearch: '',
-                      _showLinkMenu: false,
-                      _mediaFilterTab: 'ATTACHED',
-                      _isGeneratingAi: false,
-                      _aiOptions: []
-                    });
-                  }
-                }
-              } else {
-                if (d.hook_1 && this.threadList[0]) this.threadList[0].content = d.hook_1;
-                if (d.spill_2 && this.threadList[1]) this.threadList[1].content = d.spill_2;
+              if (this.threadList.length === 0) {
+                this.addThreadNode();
               }
-              this.showToast('✨ Seluruh utas berhasil di-remake oleh Sumopod AI!');
+              this.threadList[0].content = d.hook_1 || (Array.isArray(d.threads) ? d.threads[0] : '');
+              if (this.threadList.length < 2) {
+                this.addThreadNode();
+              }
+              this.threadList[1].content = d.spill_2 || (Array.isArray(d.threads) ? d.threads[1] : '');
+              this.showToast('✨ Utas 1 & Utas 2 berhasil di-remake terpadu oleh Sumopod AI!');
             } else {
               this.showToast(res.message || 'Gagal meremake dengan AI', 'error');
             }
