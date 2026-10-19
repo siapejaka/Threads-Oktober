@@ -114,6 +114,10 @@ function doPost(e) {
       result = updateQueuePost(payload);
     } else if (action === 'deleteQueuePost') {
       result = deleteQueuePost(payload);
+    } else if (action === 'bulkDeleteQueuePosts') {
+      result = bulkDeleteQueuePosts(payload);
+    } else if (action === 'bulkAssignProductAccounts') {
+      result = bulkAssignProductAccounts(payload);
     } else if (action === 'deleteThreadsAccount') {
       result = deleteThreadsAccount(payload);
     } else if (action === 'updateAccountCategory') {
@@ -4246,6 +4250,109 @@ function deleteQueuePost(payload) {
   }
 
   return { success: true, post_id: postId };
+}
+
+// Hapus banyak antrean postingan sekaligus (Bulk Delete)
+function bulkDeleteQueuePosts(payload) {
+  var postIds = payload && Array.isArray(payload.post_ids) ? payload.post_ids : [];
+  if (postIds.length === 0) {
+    throw new Error('Pilih minimal 1 antrean postingan untuk dihapus.');
+  }
+
+  var idMap = {};
+  for (var i = 0; i < postIds.length; i++) {
+    var pid = String(postIds[i]).trim();
+    if (pid) idMap[pid] = true;
+  }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var postSheet = ss.getSheetByName('Posts');
+  if (postSheet) {
+    var pData = postSheet.getDataRange().getValues();
+    for (var p = pData.length - 1; p >= 1; p--) {
+      var rowPostId = String(pData[p][0]).trim();
+      if (idMap[rowPostId]) {
+        postSheet.deleteRow(p + 1);
+      }
+    }
+  }
+
+  var qSheet = ss.getSheetByName('Posting_Queue');
+  if (qSheet) {
+    var qData = qSheet.getDataRange().getValues();
+    for (var q = qData.length - 1; q >= 1; q--) {
+      var rowQPostId = String(qData[q][1]).trim();
+      if (idMap[rowQPostId]) {
+        qSheet.deleteRow(q + 1);
+      }
+    }
+  }
+
+  return { success: true, count: postIds.length };
+}
+
+// Penugasan akun secara massal untuk banyak produk sekaligus (Bulk Assign)
+function bulkAssignProductAccounts(payload) {
+  var prodIds = payload && Array.isArray(payload.product_ids) ? payload.product_ids : [];
+  if (prodIds.length === 0) {
+    throw new Error('Pilih minimal 1 produk.');
+  }
+
+  var accRecords = getSheetRecords('Accounts');
+  var idToUserMap = {};
+  for (var a = 0; a < accRecords.length; a++) {
+    var aId = cleanAccountId(accRecords[a].account_id);
+    var aUser = String(accRecords[a].username || '').toLowerCase().trim();
+    if (aId && aUser) idToUserMap[aId] = aUser;
+    if (aUser) idToUserMap[aUser] = aUser;
+  }
+
+  var rawAllowed = payload.allowed_accounts || [];
+  var rawList = Array.isArray(rawAllowed) ? rawAllowed : String(rawAllowed).split(',');
+  var cleanUsernames = [];
+  var seenUsers = {};
+  for (var k = 0; k < rawList.length; k++) {
+    var rawItem = String(rawList[k] || '')
+      .replace(/^['"@\s]+|['"@\s]+$/g, '')
+      .replace(/[\r\n\t\s]/g, '')
+      .trim()
+      .toLowerCase();
+    if (!rawItem) continue;
+    if (/e[+-]?\d+/i.test(rawItem) || /^\d+$/.test(rawItem)) continue;
+    var resolvedUser = idToUserMap[cleanAccountId(rawItem)] || idToUserMap[rawItem] || rawItem;
+    if (/e[+-]?\d+/i.test(resolvedUser) || /^\d+$/.test(resolvedUser)) continue;
+    if (/^[a-z0-9._]+$/.test(resolvedUser) && !seenUsers[resolvedUser]) {
+      seenUsers[resolvedUser] = true;
+      cleanUsernames.push(resolvedUser);
+    }
+  }
+
+  var newAllowedStr = cleanUsernames.join(', ');
+  var targetIdMap = {};
+  for (var i = 0; i < prodIds.length; i++) {
+    targetIdMap[String(prodIds[i]).trim()] = true;
+  }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Products');
+  if (!sheet) throw new Error('Sheet Products tidak ditemukan');
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var idCol = headers.indexOf('product_id');
+  var allowedCol = headers.indexOf('allowed_accounts');
+  if (idCol === -1 || allowedCol === -1) throw new Error('Kolom database tidak sesuai');
+
+  var updatedCount = 0;
+  for (var r = 1; r < data.length; r++) {
+    var pid = String(data[r][idCol]).trim();
+    if (targetIdMap[pid]) {
+      sheet.getRange(r + 1, allowedCol + 1).setNumberFormat('@').setValue(newAllowedStr);
+      updatedCount++;
+    }
+  }
+
+  return { success: true, updated_count: updatedCount, allowed_accounts: newAllowedStr };
 }
 
 // Putuskan/hapus akun Meta Threads dari sistem
