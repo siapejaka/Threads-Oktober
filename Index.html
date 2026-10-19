@@ -2710,11 +2710,11 @@
                 <div class="space-y-2">
                   <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                     <span class="text-[9px] uppercase font-bold text-slate-400 block">Utas #1 (Root Hook)</span>
-                    <p class="text-slate-800 text-[11px] leading-relaxed mt-0.5" x-text="v.hook_1"></p>
+                    <p class="text-slate-800 text-[11px] leading-relaxed mt-0.5" x-text="v.utas1 || v.hook_1"></p>
                   </div>
                   <div class="p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-200">
                     <span class="text-[9px] uppercase font-bold text-emerald-800 block">Utas #2 (Spill &amp; Shortlink)</span>
-                    <p class="text-slate-800 text-[11px] leading-relaxed mt-0.5" x-text="v.spill_2"></p>
+                    <p class="text-slate-800 text-[11px] leading-relaxed mt-0.5" x-text="v.utas2 || v.spill_2"></p>
                   </div>
                 </div>
               </div>
@@ -7627,8 +7627,10 @@
             if (res.ok && res.data && Array.isArray(res.data.variations)) {
               self.factoryResults = res.data.variations.map(function(v) {
                 return {
-                  hook_1: v.hook_1,
-                  spill_2: v.spill_2,
+                  utas1: v.utas1 || v.hook_1,
+                  utas2: v.utas2 || v.spill_2,
+                  hook_1: v.utas1 || v.hook_1,
+                  spill_2: v.utas2 || v.spill_2,
                   _isSaving: false,
                   _saved: false
                 };
@@ -7658,8 +7660,8 @@
               action: 'saveAutopilotAmmo',
               payload: {
                 product_id: this.factoryTargetProductId,
-                hook_1: variation.hook_1,
-                spill_2: variation.spill_2
+                hook_1: variation.utas1 || variation.hook_1,
+                spill_2: variation.utas2 || variation.spill_2
               }
             })
           })

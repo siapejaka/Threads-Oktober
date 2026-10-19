@@ -144,7 +144,9 @@ function doPost(e) {
     } else if (action === 'saveMediaOrder') {
       result = saveMediaOrder(payload);
     } else if (action === 'generateVariationsFromReference') {
-      result = generateVariationsFromReference(payload);
+      result = handleGenerateVariationsFromReference(payload);
+    } else if (action === 'handleGenerateVariationsFromReference') {
+      result = handleGenerateVariationsFromReference(payload);
     } else if (action === 'saveAutopilotAmmo') {
       result = saveAutopilotAmmo(payload);
     } else if (action === 'deleteAutopilotAmmo') {
@@ -2525,161 +2527,174 @@ function saveViralReference(payload) {
   return { ref_id: refId };
 }
 
-// Generator 3 Variasi Konten Berdasarkan Referensi Mentah untuk Amunisi Autopilot
-function generateVariationsFromReference(payload) {
-  var refText = '';
-  if (payload) {
-    if (payload.utas1_ref || payload.utas2_ref) {
-      refText = (payload.utas1_ref || '') + (payload.utas2_ref ? ('\n' + payload.utas2_ref) : '');
-    } else if (payload.ref_text) {
-      refText = String(payload.ref_text);
+// Handler backend untuk menghasilkan 3 variasi rangkaian utas dari referensi
+function handleGenerateVariationsFromReference(payload) {
+  try {
+    var refText = '';
+    if (payload) {
+      if (payload.utas1_ref || payload.utas2_ref) {
+        refText = (payload.utas1_ref || '') + (payload.utas2_ref ? ('\n' + payload.utas2_ref) : '');
+      } else if (payload.ref_text) {
+        refText = String(payload.ref_text);
+      }
+      refText = refText.trim();
     }
-    refText = refText.trim();
-  }
 
-  var prodId = payload ? String(payload.product_id || '').trim() : '';
-  var accId = payload ? String(payload.account_id || '').trim() : '';
-  var accUsername = payload ? String(payload.account_username || '').toLowerCase().trim() : '';
+    var prodId = payload ? String(payload.product_id || '').trim() : '';
+    var accUsername = payload ? String(payload.account_username || '').toLowerCase().trim() : '';
+    var accId = payload ? String(payload.account_id || '').trim() : '';
 
-  if (accUsername && !accId) {
-    var accountsList = getSheetRecords('Accounts');
-    for (var a = 0; a < accountsList.length; a++) {
-      if (String(accountsList[a].username || '').toLowerCase().trim() === accUsername) {
-        accId = cleanAccountId(accountsList[a].account_id);
+    if (accUsername && !accId) {
+      var accountsList = getSheetRecords('Accounts');
+      for (var a = 0; a < accountsList.length; a++) {
+        if (String(accountsList[a].username || '').toLowerCase().trim() === accUsername) {
+          accId = cleanAccountId(accountsList[a].account_id);
+          break;
+        }
+      }
+    }
+
+    if (!prodId) throw new Error('Pilih produk target terlebih dahulu.');
+
+    var prods = getSheetRecords('Products');
+    var prodObj = null;
+    for (var p = 0; p < prods.length; p++) {
+      if (prods[p].product_id === prodId) {
+        prodObj = prods[p];
         break;
       }
     }
-  }
+    if (!prodObj) throw new Error('Data produk target tidak ditemukan.');
 
-  if (!prodId) throw new Error('Pilih produk target terlebih dahulu.');
+    var settings = getDashboardData().settings || {};
+    var apiKey = settings.sumopod_api_key;
+    if (!apiKey) throw new Error('Sumopod API Key belum dikonfigurasi di Pengaturan Sistem (Settings).');
 
-  var prods = getSheetRecords('Products');
-  var prodObj = null;
-  for (var p = 0; p < prods.length; p++) {
-    if (prods[p].product_id === prodId) {
-      prodObj = prods[p];
-      break;
-    }
-  }
-  if (!prodObj) throw new Error('Data produk target tidak ditemukan.');
+    var endpoint = buildSumopodEndpoint(settings.sumopod_endpoint);
+    var model = (settings.sumopod_model && settings.sumopod_model.trim()) ? settings.sumopod_model.trim() : 'claude-haiku-4-5';
 
-  var settings = getDashboardData().settings || {};
-  var apiKey = settings.sumopod_api_key;
-  if (!apiKey) throw new Error('Sumopod API Key belum dikonfigurasi di Settings.');
+    var persona = getAccountPersona(accId);
+    var personaBlock = buildPersonaSystemInstruction(persona);
 
-  var endpoint = buildSumopodEndpoint(settings.sumopod_endpoint);
-  var model = (settings.sumopod_model && settings.sumopod_model.trim()) ? settings.sumopod_model.trim() : 'claude-haiku-4-5';
+    var cleanProdName = String(prodObj.product_name || 'Produk Shopee').replace(/https?:\/\/[^\s]+/gi, '').trim();
+    var cleanSellingPoints = String(prodObj.selling_points || '-').replace(/https?:\/\/[^\s]+/gi, '').trim();
+    var cleanShortAff = stripProtocol(prodObj.shopee_affiliate_url || '').replace(/^https?:\/\//i, '').trim();
 
-  var persona = getAccountPersona(accId);
-  var personaBlock = buildPersonaSystemInstruction(persona);
+    var systemPrompt = 'Anda adalah copywriter Meta Threads profesional untuk Shopee Affiliate Indonesia.\n\n' +
+      personaBlock + '\n' +
+      'TUGAS ANDA:\n' +
+      'Buatkan persis 3 VARIASI RANGKAIAN UTAS LENGKAP (Utas 1 & Utas 2) yang mempromosikan produk target.\n' +
+      'Aturan Penulisan:\n' +
+      '1. Utas 1 (utas1): Hook emosional/masalah yang memikat, mengalir santai sesuai persona akun. 100% BEBAS DARI LINK/URL.\n' +
+      '2. Utas 2 (utas2): 1-2 kalimat santai mengalir lanjutan dari Utas 1 dengan menyematkan tag [LINK] terselip natural di tengah kalimat (inline context).\n' +
+      '3. DILARANG menyalin kata benda, nama produk lama, atau merek dari teks referensi. Fokus 100% pada produk target!\n' +
+      'Output WAJIB HANYA berupa JSON valid berformat:\n' +
+      '{"variations": [{"utas1": "...", "utas2": "..."}, {"utas1": "...", "utas2": "..."}, {"utas1": "...", "utas2": "..."}]}';
 
-  var cleanProdName = String(prodObj.product_name || 'Produk Shopee').replace(/https?:\/\/[^\s]+/gi, '').trim();
-  var cleanSellingPoints = String(prodObj.selling_points || '-').replace(/https?:\/\/[^\s]+/gi, '').trim();
-  var cleanShortAff = stripProtocol(prodObj.shopee_affiliate_url || '').replace(/^https?:\/\//i, '').trim();
+    var userPrompt = '[PRODUK TARGET]:\n' +
+      'Nama Produk: ' + cleanProdName + '\n' +
+      'Kategori: ' + (prodObj.category || 'General') + '\n' +
+      'Fakta / Selling Points: ' + cleanSellingPoints + '\n\n' +
+      '[TEKS INSPIRASI / REFERENSI MENTAH]:\n' +
+      (refText ? ('"' + refText.replace(/https?:\/\/[^\s]+/gi, '').trim() + '"') : '(Tanpa referensi teks - buat 3 sudut pandang berbeda)') + '\n\n' +
+      'Buatkan 3 variasi rangkaian konten yang siap masuk ke amunisi autopilot:';
 
-  var systemPrompt = 'Anda adalah spesialis kurasi konten Meta Threads untuk Shopee Affiliate Indonesia.\n\n' +
-    personaBlock + '\n' +
-    'TUGAS ANDA:\n' +
-    'Buatkan persis 3 VARIASI RANGKAIAN UTAS LENGKAP (Utas 1 & Utas 2) yang mempromosikan produk target.\n' +
-    'Setiap variasi HARUS memiliki:\n' +
-    '1. hook_1 (Utas #1): Pancingan emosional/masalah yang memikat, mengalir santai sesuai persona akun. 100% BEBAS DARI LINK/URL.\n' +
-    '2. spill_2 (Utas #2): 1-2 kalimat santai mengalir lanjutan dari Utas 1 dengan menyematkan tag [LINK] terselip natural di tengah kalimat (inline context).\n' +
-    'DILARANG menyalin nama merek atau produk lama yang ada pada teks referensi. Fokus 100% pada produk target!\n' +
-    'Output WAJIB HANYA berupa JSON valid berformat:\n' +
-    '{"variations": [{"hook_1": "...", "spill_2": "..."}, {"hook_1": "...", "spill_2": "..."}, {"hook_1": "...", "spill_2": "..."}]}';
-
-  var userPrompt = '[PRODUK TARGET]:\n' +
-    'Nama Produk: ' + cleanProdName + '\n' +
-    'Kategori: ' + (prodObj.category || 'General') + '\n' +
-    'Fakta / Selling Points: ' + cleanSellingPoints + '\n\n' +
-    '[TEKS INSPIRASI / REFERENSI MENTAH]:\n' +
-    (refText ? ('"' + refText.replace(/https?:\/\/[^\s]+/gi, '').trim() + '"') : '(Tanpa referensi teks - buat 3 sudut pandang berbeda)') + '\n\n' +
-    'Buatkan 3 variasi rangkaian konten yang siap masuk ke amunisi autopilot:';
-
-  var body = {
-    model: model,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    temperature: 0.75
-  };
-
-  var response = UrlFetchApp.fetch(endpoint, {
-    method: 'post',
-    contentType: 'application/json',
-    headers: {
-      'Authorization': 'Bearer ' + cleanToken(apiKey),
-      'Content-Type': 'application/json'
-    },
-    payload: JSON.stringify(body),
-    muteHttpExceptions: true
-  });
-
-  var code = response.getResponseCode();
-  var rawText = (response.getContentText() || '').trim();
-  if (code !== 200) {
-    var errObj = {};
-    try { errObj = JSON.parse(rawText); } catch(e) {}
-    throw new Error(extractSumopodError(code, errObj, endpoint));
-  }
-
-  var resJson = JSON.parse(rawText);
-  var replyContent = (resJson.choices && resJson.choices[0] && resJson.choices[0].message) ? resJson.choices[0].message.content : '';
-  var cleanJsonStr = replyContent.replace(/```json/gi, '').replace(/```/g, '').trim();
-  var jsonMatch = cleanJsonStr.match(/\{[\s\S]*\}/);
-  if (jsonMatch) cleanJsonStr = jsonMatch[0];
-
-  var parsedVars = [];
-  try {
-    var parsed = JSON.parse(cleanJsonStr);
-    if (parsed && Array.isArray(parsed.variations)) {
-      parsedVars = parsed.variations;
-    }
-  } catch(parseErr) {}
-
-  if (parsedVars.length === 0) {
-    parsedVars = [
-      {
-        hook_1: 'Nyesel banget baru nemu ' + cleanProdName + ' ini, beneran ngebantu dan worth it parah!',
-        spill_2: 'Bisa langsung cek toko resminya di ' + (cleanShortAff || '[LINK]') + ' mumpung stoknya ready.'
-      },
-      {
-        hook_1: 'Tadinya skeptis liat review sliweran di FYP, tapi pas paket ' + cleanProdName + ' ini dateng langsung kaget...',
-        spill_2: 'Aku ambil yang ready di ' + (cleanShortAff || '[LINK]') + ' pengirimannya juga cepet.'
-      },
-      {
-        hook_1: 'Stop buang duit beli yang mahal kalau ' + cleanProdName + ' ini kualitasnya 11-12 dan harganya jauh lebih masuk akal.',
-        spill_2: 'Kemarin checkout lewat toko resminya di ' + (cleanShortAff || '[LINK]') + ' jangan salah beli ya.'
-      }
-    ];
-  }
-
-  var formattedVars = parsedVars.slice(0, 3).map(function(v, idx) {
-    var h1 = String(v.hook_1 || '').replace(/https?:\/\/[^\s]+/gi, '').trim();
-    var s2 = String(v.spill_2 || '').trim();
-    if (cleanShortAff) {
-      if (s2.indexOf('[LINK]') !== -1 || s2.indexOf('[LINK_AFFILIATE]') !== -1) {
-        s2 = s2.replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, cleanShortAff);
-      } else if (s2.indexOf(cleanShortAff) === -1) {
-        s2 = s2 + ' ' + cleanShortAff;
-      }
-    } else if (s2.indexOf('[LINK]') === -1) {
-      s2 = s2 + ' [LINK]';
-    }
-    return {
-      index: idx + 1,
-      hook_1: h1,
-      spill_2: s2
+    var body = {
+      model: model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.75
     };
-  });
 
-  return {
-    success: true,
-    product_id: prodId,
-    product_name: cleanProdName,
-    variations: formattedVars
-  };
+    var response = UrlFetchApp.fetch(endpoint, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        'Authorization': 'Bearer ' + cleanToken(apiKey),
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify(body),
+      muteHttpExceptions: true
+    });
+
+    var code = response.getResponseCode();
+    var rawText = (response.getContentText() || '').trim();
+    if (code !== 200) {
+      var errObj = {};
+      try { errObj = JSON.parse(rawText); } catch(e) {}
+      throw new Error(extractSumopodError(code, errObj, endpoint));
+    }
+
+    var resJson = JSON.parse(rawText);
+    var replyContent = (resJson.choices && resJson.choices[0] && resJson.choices[0].message) ? resJson.choices[0].message.content : '';
+    var cleanJsonStr = replyContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+    var jsonMatch = cleanJsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleanJsonStr = jsonMatch[0];
+
+    var parsedVars = [];
+    try {
+      var parsed = JSON.parse(cleanJsonStr);
+      if (parsed && Array.isArray(parsed.variations)) {
+        parsedVars = parsed.variations;
+      }
+    } catch(parseErr) {}
+
+    if (parsedVars.length === 0) {
+      parsedVars = [
+        {
+          utas1: 'Nyesel banget baru nemu ' + cleanProdName + ' ini, beneran ngebantu dan worth it parah!',
+          utas2: 'Bisa langsung cek toko resminya di ' + (cleanShortAff || '[LINK]') + ' mumpung stoknya ready.'
+        },
+        {
+          utas1: 'Tadinya skeptis liat review sliweran di FYP, tapi pas paket ' + cleanProdName + ' ini dateng langsung kaget...',
+          utas2: 'Aku ambil yang ready di ' + (cleanShortAff || '[LINK]') + ' pengirimannya juga cepet.'
+        },
+        {
+          utas1: 'Stop buang duit beli yang mahal kalau ' + cleanProdName + ' ini kualitasnya 11-12 dan harganya jauh lebih masuk akal.',
+          utas2: 'Kemarin checkout lewat toko resminya di ' + (cleanShortAff || '[LINK]') + ' jangan salah beli ya.'
+        }
+      ];
+    }
+
+    var formattedVars = parsedVars.slice(0, 3).map(function(v, idx) {
+      var u1 = String(v.utas1 || v.hook_1 || '').replace(/https?:\/\/[^\s]+/gi, '').trim();
+      var u2 = String(v.utas2 || v.spill_2 || '').trim();
+
+      if (cleanShortAff) {
+        if (u2.indexOf('[LINK]') !== -1 || u2.indexOf('[LINK_AFFILIATE]') !== -1) {
+          u2 = u2.replace(/\[(?:LINK_AFFILIATE|LINK)\]/g, cleanShortAff);
+        } else if (u2.indexOf(cleanShortAff) === -1) {
+          u2 = u2 + ' ' + cleanShortAff;
+        }
+      } else if (u2.indexOf('[LINK]') === -1) {
+        u2 = u2 + ' [LINK]';
+      }
+
+      u2 = u2.replace(/https?:\/\/(shope\.ee\/|s\.shopee\.co\.id\/|shopee\.co\.id\/)/gi, '$1');
+
+      return {
+        utas1: u1,
+        utas2: u2,
+        hook_1: u1,
+        spill_2: u2
+      };
+    });
+
+    return {
+      success: true,
+      product_id: prodId,
+      product_name: cleanProdName,
+      variations: formattedVars
+    };
+  } catch(err) {
+    throw new Error('Gagal memproses variasi: ' + err.message);
+  }
+}
+
+function generateVariationsFromReference(payload) {
+  return handleGenerateVariationsFromReference(payload);
 }
 
 // Simpan Variasi Matang ke Amunisi Autopilot (Sheet: Autopilot_Bank)
