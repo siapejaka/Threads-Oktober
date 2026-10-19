@@ -224,18 +224,12 @@
         </div>
 
         <div class="flex items-center space-x-2">
-          <button @click="openComposer()" class="hidden sm:flex px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl items-center transition shadow-xs">
-            <i data-lucide="plus" class="w-4 h-4 mr-1"></i> Buat Utas
-          </button>
           <div class="hidden sm:flex items-center bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 text-xs">
             <div class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></div>
             <span class="font-bold text-slate-800" x-text="accounts.length + ' Akun Threads'"></span>
           </div>
           <button @click="fetchInitialData()" :disabled="isLoading" title="Muat Ulang Data" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition border border-slate-200 disabled:opacity-50">
             <i data-lucide="refresh-cw" class="w-4 h-4" :class="isLoading ? 'animate-spin' : ''"></i>
-          </button>
-          <button @click="switchTab('settings')" title="Buka Pengaturan Sistem" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition border border-slate-200" :class="activeTab === 'settings' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : ''">
-            <i data-lucide="settings" class="w-4 h-4"></i>
           </button>
         </div>
       </header>
@@ -277,29 +271,22 @@
 
     <!-- TAB: TRUE AI AUTOPILOT ENGINE (RULE-BASED GENERATOR) -->
     <div x-show="activeTab === 'autopilot'" x-cloak class="space-y-6">
-      <!-- Engine Control Header Banner -->
-      <div class="bg-gradient-to-r from-purple-950 via-slate-900 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border border-purple-900/50 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <!-- Standard Compact Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div>
-          <div class="flex items-center space-x-2">
-            <span class="badge badge-secondary badge-sm font-bold flex items-center">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
-              TRUE AUTOPILOT ENGINE
-            </span>
-            <span class="text-xs text-purple-300 font-mono">Autonomous Cron Worker Active</span>
-          </div>
-          <h2 class="text-base sm:text-lg font-bold mt-1">Panel Aturan Autopilot & Generator Otonom</h2>
-          <p class="text-xs text-slate-400 max-w-2xl mt-0.5">
-            Mesin bekerja 100% otomatis di latar belakang. Mengambil aturan aktif, memanggil Sumopod AI untuk meremake Utas 1 & 2, mengunci paket media sesi ulasan utuh, dan menerbitkan ke antrean tanpa campur tangan manual.
-          </p>
+          <h2 class="text-sm font-bold text-slate-900 flex items-center">
+            <i data-lucide="bot" class="w-4 h-4 text-purple-600 mr-2"></i> Panel Aturan Autopilot & Generator Otonom
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">Generator otonom per jendela aktif dengan pemindaian produk real-time dan rotasi sesi ulasan.</p>
         </div>
         <div class="flex items-center space-x-2 flex-shrink-0">
-          <button type="button" @click="executeAutopilotWorkerNow()" :disabled="isRunningWorker" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl flex items-center transition shadow disabled:opacity-50">
-            <span x-show="isRunningWorker" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-4 h-4"></i></span>
-            <i x-show="!isRunningWorker" data-lucide="play" class="w-4 h-4 mr-1.5"></i>
+          <button type="button" @click="executeAutopilotWorkerNow()" :disabled="isRunningWorker" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl flex items-center transition shadow-xs disabled:opacity-50">
+            <span x-show="isRunningWorker" class="animate-spin mr-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5"></i></span>
+            <i x-show="!isRunningWorker" data-lucide="play" class="w-3.5 h-3.5 mr-1.5"></i>
             <span>Jalankan Siklus Sekarang</span>
           </button>
-          <button type="button" @click="openCreateRuleModal()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center transition shadow">
-            <i data-lucide="plus" class="w-4 h-4 mr-1"></i> + Buat Aturan Baru
+          <button type="button" @click="openCreateRuleModal()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center transition shadow-xs">
+            <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> + Buat Aturan Baru
           </button>
         </div>
       </div>
@@ -485,41 +472,24 @@
         </div>
       </div>
 
-      <!-- Bottom Shortcut to Dedicated Viral Reference Bank -->
-      <div class="p-4 bg-purple-50/80 rounded-2xl border border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center flex-shrink-0">
-            <i data-lucide="bookmark" class="w-4 h-4"></i>
-          </div>
-          <div>
-            <span class="font-bold text-purple-950 block">Bank Referensi Viral Kini Memiliki Halaman Mandiri</span>
-            <span class="text-[11px] text-purple-700">Kelola formula hook multi-utas dan remake instan ke Post Composer.</span>
-          </div>
-        </div>
-        <button type="button" @click="switchTab('viral_refs')" class="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl flex items-center transition shadow-2xs flex-shrink-0">
-          <i data-lucide="external-link" class="w-3.5 h-3.5 mr-1.5"></i>
-          <span>Buka Bank Referensi Viral</span>
-        </button>
-      </div>
     </div>
 
     <!-- TAB: BANK REFERENSI VIRAL (HALAMAN MANDIRI DENGAN UTAS DINAMIS & REMAKE COMPOSER) -->
     <div x-show="activeTab === 'viral_refs'" x-cloak class="space-y-6">
-      <!-- Header Banner Bank Referensi Viral -->
-      <div class="bg-gradient-to-r from-amber-950 via-slate-900 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border border-amber-900/50 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <!-- Standard Compact Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <div class="flex items-center space-x-2">
-            <span class="badge badge-warning badge-sm font-bold text-slate-950">SWIPE-FILE VAULT</span>
-            <span class="text-xs text-amber-300 font-mono" x-text="viral_references.length + ' Formula Tersimpan'"></span>
+            <h2 class="text-sm font-bold text-slate-900 flex items-center">
+              <i data-lucide="bookmark" class="w-4 h-4 text-amber-500 mr-2"></i> Bank Referensi Viral & Remake Instan
+            </h2>
+            <span class="badge badge-xs badge-warning font-mono font-bold text-slate-950" x-text="viral_references.length + ' Formula'"></span>
           </div>
-          <h2 class="text-base sm:text-lg font-bold mt-1">Bank Referensi Viral & Remake Instan</h2>
-          <p class="text-xs text-slate-400 max-w-2xl mt-0.5">
-            Penyimpanan formula hook dan ulasan berantai (1 s/d 4+ utas) dari konten FYP Threads. Klik tombol 'Remake di Composer' untuk langsung memicu Sumopod AI menuliskan variasi baru secara otomatis.
-          </p>
+          <p class="text-xs text-slate-500 mt-0.5">Koleksi formula hook dan swipe-file konten viral Threads untuk di-remake ke Composer.</p>
         </div>
         <div class="flex items-center space-x-2 flex-shrink-0">
-          <button type="button" @click="openAddViralRefModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center transition shadow-md">
-            <i data-lucide="plus" class="w-4 h-4 mr-1.5"></i> + Tambah Referensi Baru
+          <button type="button" @click="openAddViralRefModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl flex items-center transition shadow-xs">
+            <i data-lucide="plus" class="w-3.5 h-3.5 mr-1.5"></i> + Tambah Referensi Baru
           </button>
         </div>
       </div>
@@ -673,29 +643,6 @@
         </div>
       </div>
 
-      <!-- Quick Actions Banner -->
-      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-5 sm:p-6 text-white shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div class="space-y-1">
-          <div class="flex items-center space-x-2">
-            <span class="badge badge-success badge-sm font-bold">AUTOMATION ACTIVE</span>
-            <span class="text-xs text-slate-400" x-text="accounts.length + ' Akun Terhubung'"></span>
-          </div>
-          <h2 class="text-base sm:text-lg font-bold">Pusat Operasional Shopee Affiliate di Meta Threads</h2>
-          <p class="text-xs text-slate-400">Jadwalkan utas bertahap, auto-reply link shopee saat views tembus target, dan kelola audiens.</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
-          <button @click="openComposer()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center transition shadow-lg">
-            <i data-lucide="plus-circle" class="w-4 h-4 mr-1.5"></i> + Buat Postingan Baru
-          </button>
-          <button @click="executeQueueAndViewsNow()" :disabled="isExecutingQueueAndViews" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl flex items-center transition border border-slate-700">
-            <i data-lucide="zap" class="w-3.5 h-3.5 mr-1.5 text-amber-400"></i> Cek Views & Antrean
-          </button>
-          <button @click="syncAllMetrics()" :disabled="isCheckingViews" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl flex items-center transition border border-slate-700">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1.5 text-blue-400" :class="isCheckingViews ? 'animate-spin' : ''"></i> Sync Metrik
-          </button>
-        </div>
-      </div>
-
       <!-- Dual Activity Columns -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- Antrean Segera Tayang -->
@@ -705,7 +652,12 @@
               <i data-lucide="clock" class="w-4 h-4 text-indigo-600"></i>
               <h3 class="text-xs font-bold text-slate-900 uppercase">Antrean Segera Tayang</h3>
             </div>
-            <button @click="switchTab('queue')" class="text-xs font-semibold text-emerald-700 hover:underline">Lihat Semua</button>
+            <div class="flex items-center space-x-2">
+              <button @click="executeQueueAndViewsNow()" :disabled="isExecutingQueueAndViews" title="Cek Views & Proses Antrean" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-bold rounded-lg flex items-center transition disabled:opacity-50">
+                <i data-lucide="zap" class="w-3 h-3 mr-1 text-amber-500"></i> Cek Views
+              </button>
+              <button @click="switchTab('queue')" class="text-xs font-semibold text-emerald-700 hover:underline">Lihat Semua</button>
+            </div>
           </div>
           <div class="space-y-2.5">
             <template x-for="q in queuedPosts.slice(0, 4)" :key="q.post_id">
@@ -733,9 +685,14 @@
           <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <div class="flex items-center space-x-2">
               <i data-lucide="message-square" class="w-4 h-4 text-rose-600"></i>
-              <h3 class="text-xs font-bold text-slate-900 uppercase">Komentar Audiens Belum Dibalas</h3>
+              <h3 class="text-xs font-bold text-slate-900 uppercase">Komentar Belum Dibalas</h3>
             </div>
-            <button @click="switchTab('inbox')" class="text-xs font-semibold text-emerald-700 hover:underline">Buka Inbox</button>
+            <div class="flex items-center space-x-2">
+              <button @click="syncAllMetrics()" :disabled="isCheckingViews" title="Sync Metrik Live" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-semibold rounded-lg flex items-center transition disabled:opacity-50">
+                <i data-lucide="refresh-cw" class="w-3 h-3 mr-1 text-blue-500" :class="isCheckingViews ? 'animate-spin' : ''"></i> Sync Metrik
+              </button>
+              <button @click="switchTab('inbox')" class="text-xs font-semibold text-emerald-700 hover:underline">Buka Inbox</button>
+            </div>
           </div>
           <div class="space-y-2.5">
             <template x-for="c in filteredComments.slice(0, 4)" :key="c.comment_id">
@@ -2119,6 +2076,24 @@
           </div>
                 </div>
 
+                <!-- Persona Preview Box -->
+                <div class="p-2.5 bg-white rounded-xl border border-purple-100 space-y-1.5 text-xs">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-50 text-purple-800 border border-purple-200 flex items-center">
+                      <i data-lucide="user-check" class="w-3 h-3 mr-1 text-purple-600"></i>
+                      <span x-text="acc.audience_pov || 'Netral / Storyteller'"></span>
+                    </span>
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200 flex items-center">
+                      <i data-lucide="message-circle" class="w-3 h-3 mr-1 text-blue-600"></i>
+                      <span x-text="acc.pronoun_style || 'aku - kamu'"></span>
+                    </span>
+                  </div>
+                  <div class="text-[11px] text-slate-500 italic truncate" :title="acc.custom_prompt || 'Tidak ada custom prompt'">
+                    <span class="text-slate-400 not-italic font-medium">Prompt:</span>
+                    <span x-text="acc.custom_prompt ? acc.custom_prompt : 'Default standard mirroring'"></span>
+                  </div>
+                </div>
+
                 <!-- Action Toolbar: Persona & Kategori, Ping, Hapus -->
                 <div class="flex items-center justify-between pt-2 border-t border-slate-200/70 text-xs">
                   <button type="button" @click="openEditAccountCategory(acc)" class="px-2 py-1 text-[11px] font-semibold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg flex items-center transition shadow-2xs" title="Atur Karakter & Persona AI Akun">
@@ -3199,6 +3174,8 @@
                   <div class="flex items-center space-x-2">
                     <span class="font-bold text-slate-900 text-xs" x-text="'Sesi Ulasan #' + (sIdx + 1) + ': ' + sess.session_id"></span>
                     <span class="badge badge-xs badge-neutral font-mono font-bold" x-text="sess.media_items.length + ' item'"></span>
+                    <span x-show="isReorderingMedia" class="text-[10px] text-amber-600 font-bold flex items-center"><i data-lucide="loader-2" class="w-3 h-3 mr-1 animate-spin"></i>Menyimpan urutan...</span>
+                    <span x-show="!isReorderingMedia && mediaReorderSaved" class="text-[10px] text-emerald-600 font-bold flex items-center"><i data-lucide="check" class="w-3 h-3 mr-1"></i>Tersimpan</span>
                   </div>
                   <span class="text-[10px] text-slate-400 font-mono" x-text="'Gunakan tombol < > untuk mengatur urutan media tayang'"></span>
                 </div>
@@ -4583,6 +4560,8 @@
         replyContent: '',
         isDeleting: false,
         isUpdatingQueue: false,
+        isReorderingMedia: false,
+        mediaReorderSaved: false,
         cloudinaryUsage: null,
         isLoadingCloudUsage: false,
         confirmData: { title: '', message: '', actionType: '', targetId: '', confirmText: 'Ya, Hapus' },
@@ -6915,6 +6894,11 @@
           }
           var result = [];
           for (var key in sessionMap) {
+            sessionMap[key].media_items.sort(function(a, b) {
+              var oA = (a.order_index !== undefined && a.order_index !== '') ? Number(a.order_index) : 999999;
+              var oB = (b.order_index !== undefined && b.order_index !== '') ? Number(b.order_index) : 999999;
+              return oA - oB;
+            });
             result.push(sessionMap[key]);
           }
           return result;
@@ -6925,35 +6909,30 @@
           var toIndex = fromIndex + direction;
           if (toIndex < 0 || toIndex >= sess.media_items.length) return;
 
-          var movedItem = sess.media_items[fromIndex];
-          var targetItem = sess.media_items[toIndex];
-          if (!movedItem || !targetItem) return;
+          var item = sess.media_items.splice(fromIndex, 1)[0];
+          sess.media_items.splice(toIndex, 0, item);
 
-          var idxA = this.mediaList.findIndex(function(m) { return m.media_id === movedItem.media_id; });
-          var idxB = this.mediaList.findIndex(function(m) { return m.media_id === targetItem.media_id; });
-
-          if (idxA !== -1 && idxB !== -1) {
-            var temp = this.mediaList[idxA];
-            this.mediaList[idxA] = this.mediaList[idxB];
-            this.mediaList[idxB] = temp;
+          var orderedIds = [];
+          for (var i = 0; i < sess.media_items.length; i++) {
+            sess.media_items[i].order_index = i;
+            orderedIds.push(sess.media_items[i].media_id);
+            var mObj = this.mediaList.find(function(m) { return m.media_id === sess.media_items[i].media_id; });
+            if (mObj) mObj.order_index = i;
           }
 
-          var updatedSessions = this.getProductReviewSessions(this.selectedProductForMedia ? this.selectedProductForMedia.product_id : '');
-          var currentSess = updatedSessions.find(function(s) { return s.session_id === sess.session_id; });
-          var orderedIds = currentSess ? currentSess.media_items.map(function(m) { return m.media_id; }) : [];
-
           this.$nextTick(function() { lucide.createIcons(); });
-
           this.persistSessionMediaOrder(sess.session_id, (this.selectedProductForMedia ? this.selectedProductForMedia.product_id : ''), orderedIds);
         },
 
         persistSessionMediaOrder(sessionId, productId, orderedIds) {
           var self = this;
+          this.isReorderingMedia = true;
+          this.mediaReorderSaved = false;
           fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
-              action: 'reorderMediaSession',
+              action: 'saveMediaOrder',
               payload: {
                 session_id: sessionId,
                 product_id: productId,
@@ -6965,11 +6944,15 @@
           .then(function(text) {
             var res;
             try { res = JSON.parse(text); } catch(e) {}
+            self.isReorderingMedia = false;
             if (res && res.ok) {
-              self.showToast('Urutan media sesi berhasil disimpan!');
+              self.mediaReorderSaved = true;
+              self.showToast('Urutan media tersimpan otomatis!');
+              setTimeout(function() { self.mediaReorderSaved = false; }, 2500);
             }
           })
           .catch(function(err) {
+            self.isReorderingMedia = false;
             self.showToast('Gagal menyimpan urutan media: ' + err.message, 'error');
           });
         },
