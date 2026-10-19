@@ -2695,10 +2695,17 @@
           </div>
         </template>
 
-        <div x-show="getCommentsForPost(selectedPostForComments).length === 0" class="text-center py-10 text-xs text-slate-400 space-y-2">
+        <!-- Loading State saat Sinkronisasi Otomatis / Manual -->
+        <div x-show="selectedPostForComments && syncingPostId === selectedPostForComments.post_id" class="text-center py-10 text-xs text-slate-500 space-y-2">
+          <div class="inline-block animate-spin text-emerald-600"><i data-lucide="loader-2" class="w-8 h-8"></i></div>
+          <p class="font-semibold text-slate-700">Menghubungkan ke Meta Threads API...</p>
+          <p class="text-[11px] text-slate-400">Menarik balasan audiens secara langsung</p>
+        </div>
+
+        <div x-show="(!selectedPostForComments || syncingPostId !== selectedPostForComments.post_id) && getCommentsForPost(selectedPostForComments).length === 0" class="text-center py-10 text-xs text-slate-400 space-y-2">
           <i data-lucide="message-square-dashed" class="w-8 h-8 text-slate-300 mx-auto"></i>
           <p>Belum ada komentar audiens tersimpan untuk postingan ini.</p>
-          <button type="button" @click="if (selectedPostForComments) syncPostMetrics(selectedPostForComments.post_id)" :disabled="selectedPostForComments && syncingPostId === selectedPostForComments.post_id" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold inline-flex items-center">
+          <button type="button" @click="if (selectedPostForComments) fetchCommentsForPost(selectedPostForComments.post_id)" :disabled="selectedPostForComments && syncingPostId === selectedPostForComments.post_id" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold inline-flex items-center">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1.5" :class="selectedPostForComments && syncingPostId === selectedPostForComments.post_id ? 'animate-spin' : ''"></i>
             Tarik Komentar dari Threads API
           </button>
@@ -4209,6 +4216,65 @@
         openPostComments(post) {
           this.selectedPostForComments = post;
           this.openModal('postCommentsModal');
+          var count = Number(post ? (post.comments_count || post.replies_count || 0) : 0);
+          var localComments = this.getCommentsForPost(post);
+          if (count > 0 && localComments.length === 0 && post && post.post_id) {
+            this.fetchCommentsForPost(post.post_id);
+          }
+        },
+
+        fetchCommentsForPost(postId) {
+          if (!postId) return;
+          this.syncingPostId = postId;
+          var self = this;
+          fetch(this.getScriptUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'fetchThreadReplies',
+              payload: { post_id: postId }
+            })
+          })
+          .then(function(r) { return r.text(); })
+          .then(function(text) {
+            var res;
+            try { res = JSON.parse(text); } catch(e) {}
+            if (res && res.ok) {
+              var newComments = (res.data && Array.isArray(res.data.comments)) ? res.data.comments : [];
+              if (newComments.length > 0) {
+                for (var j = 0; j < newComments.length; j++) {
+                  var nItem = newComments[j];
+                  var nCid = String(nItem.comment_id || nItem.id || nItem.interaction_id || '');
+                  var existingIdx = self.comments.findIndex(function(c) {
+                    var cid = String(c.comment_id || c.id || c.interaction_id || '');
+                    return cid && cid === nCid;
+                  });
+                  if (existingIdx !== -1) {
+                    self.comments[existingIdx] = Object.assign({}, self.comments[existingIdx], nItem);
+                  } else {
+                    self.comments.push(nItem);
+                  }
+                }
+                self.comments = [].concat(self.comments);
+                var p = self.posts.find(function(it) { return it && it.post_id === postId; });
+                if (p) {
+                  p.replies_count = newComments.length;
+                  p.comments_count = newComments.length;
+                }
+                self.showToast('Berhasil menarik ' + newComments.length + ' komentar audiens!');
+              } else {
+                self.showToast('Tidak ada balasan audiens baru.');
+              }
+            } else {
+              self.showToast(res && res.message ? res.message : 'Gagal menarik komentar', 'error');
+            }
+            self.syncingPostId = null;
+            self.$nextTick(function() { lucide.createIcons(); });
+          })
+          .catch(function(err) {
+            self.syncingPostId = null;
+            self.showToast('Gagal menarik komentar: ' + err.message, 'error');
+          });
         },
 
         // Modals & Toasts

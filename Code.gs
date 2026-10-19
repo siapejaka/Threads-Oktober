@@ -72,6 +72,8 @@ function doPost(e) {
       result = quickReplyComment(payload);
     } else if (action === 'syncInboxComments') {
       result = syncInboxComments(payload);
+    } else if (action === 'fetchThreadReplies') {
+      result = fetchThreadReplies(payload);
     } else if (action === 'saveSettings') {
       result = saveSettings(payload);
     } else if (action === 'checkAndPublishQueue') {
@@ -1940,6 +1942,214 @@ function syncInboxComments(payload) {
   return {
     synced_count: syncedCount,
     message: 'Sinkronisasi selesai: ' + syncedCount + ' interaksi baru dari Meta Threads API.'
+  };
+}
+
+// Penarikan langsung balasan audiens via Meta Threads API dengan filter pemisah pemilik
+function fetchThreadReplies(payload) {
+  var postId = payload ? String(payload.post_id || '').trim() : '';
+  var threadsPostId = payload ? String(payload.threads_post_id || '').trim() : '';
+  if (!postId && !threadsPostId) {
+    throw new Error('post_id atau threads_post_id wajib disertakan.');
+  }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var posts = getSheetRecords('Posts');
+  var targetPost = null;
+  for (var p = 0; p < posts.length; p++) {
+    if ((postId && String(posts[p].post_id) === postId) || (threadsPostId && String(posts[p].threads_post_id) === threadsPostId)) {
+      targetPost = posts[p];
+      break;
+    }
+  }
+
+  if (targetPost) {
+    if (!threadsPostId) threadsPostId = String(targetPost.threads_post_id || '').trim();
+    if (!postId) postId = String(targetPost.post_id || '').trim();
+  }
+
+  if (!threadsPostId) {
+    throw new Error('Postingan ini belum memiliki Threads Media ID (belum terbit di Threads).');
+  }
+
+  var accounts = getSheetRecords('Accounts');
+  var targetAccId = targetPost ? cleanAccountId(targetPost.account_id) : '';
+  var token = '';
+  var ownerUsername = '';
+  var allOwnedUsers = {};
+
+  for (var a = 0; a < accounts.length; a++) {
+    var uName = String(accounts[a].username || '').toLowerCase().trim();
+    if (uName) allOwnedUsers[uName] = true;
+    var aId = cleanAccountId(accounts[a].account_id);
+    if (aId === targetAccId) {
+      token = cleanToken(accounts[a].access_token);
+      ownerUsername = uName;
+    }
+  }
+
+  if (!token && accounts.length > 0) {
+    token = cleanToken(accounts[0].access_token);
+    if (!ownerUsername) ownerUsername = String(accounts[0].username || '').toLowerCase().trim();
+  }
+
+  if (!token) {
+    throw new Error('Access token Threads tidak ditemukan untuk akun ini.');
+  }
+
+  var url = 'https://graph.threads.net/v1.0/' + encodeURIComponent(threadsPostId) + '/replies?fields=id,text,username,timestamp&access_token=' + encodeURIComponent(token);
+  Logger.log('[fetchThreadReplies] Calling Meta API endpoint: ' + url.replace(token, 'REDACTED'));
+
+  var resp;
+  try {
+    resp = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true });
+  } catch (netErr) {
+    Logger.log('[fetchThreadReplies Network Error]: ' + netErr.message);
+    throw new Error('Gagal terhubung ke Meta Threads API: ' + netErr.message);
+  }
+
+  var statusCode = resp.getResponseCode();
+  var rawText = resp.getContentText() || '{}';
+  Logger.log('[fetchThreadReplies] Meta API HTTP ' + statusCode + ' Post ID: ' + threadsPostId + ' Response: ' + rawText);
+
+  var resJson = {};
+  try {
+    resJson = JSON.parse(rawText);
+  } catch (parseErr) {
+    Logger.log('[fetchThreadReplies JSON Parse Error]: ' + rawText);
+    throw new Error('Respons Meta API bukan JSON yang valid.');
+  }
+
+  if (statusCode !== 200 || resJson.error) {
+    var errMsg = (resJson.error && resJson.error.message) ? resJson.error.message : ('HTTP ' + statusCode + ': ' + rawText);
+    Logger.log('[fetchThreadReplies API Error]: ' + errMsg);
+    throw new Error('Meta Threads API Error: ' + errMsg);
+  }
+
+  var dataList = Array.isArray(resJson.data) ? resJson.data : [];
+  if (dataList.length === 0) {
+    Logger.log('[fetchThreadReplies] Endpoint mengembalikan array balasan kosong untuk media ID: ' + threadsPostId + '. Raw response: ' + rawText);
+  } else {
+    Logger.log('[fetchThreadReplies] Berhasil menerima ' + dataList.length + ' balasan mentah dari Meta API.');
+  }
+
+  var interSheet = ss.getSheetByName('Thread_Interactions');
+  var cmtSheet = ss.getSheetByName('Comments');
+  var existingInteractions = getSheetRecords('Thread_Interactions');
+  var existingIdMap = {};
+  for (var ei = 0; ei < existingInteractions.length; ei++) {
+    var key = String(existingInteractions[ei].comment_id || existingInteractions[ei].interaction_id || '').trim();
+    if (key) existingIdMap[key] = true;
+  }
+
+  var audienceComments = [];
+  var newAudienceCount = 0;
+
+  for (var i = 0; i < dataList.length; i++) {
+    var item = dataList[i];
+    var cmtId = String(item.id || '').trim();
+    if (!cmtId) continue;
+
+    var sender = String(item.username || 'user').trim();
+    var senderLower = sender.toLowerCase();
+
+    // Filter pemisahan komentar: Lewati komentar milik pembuat postingan / akun sendiri
+    var isOwner = (senderLower === ownerUsername) || (allOwnedUsers[senderLower]) || (senderLower === 'adminagent');
+    if (isOwner) {
+      Logger.log('[fetchThreadReplies] Melewati komentar dari pemilik/akun sendiri: @' + sender);
+      continue;
+    }
+
+    var text = item.text || '';
+    var timestamp = item.timestamp ? serializeForClient(item.timestamp) : new Date().toISOString();
+    var isIntent = /spill|link|beli|toko|harga|order|checkout|beli di mana|buy|mau/i.test(text);
+
+    var cmtObj = {
+      id: cmtId,
+      comment_id: cmtId,
+      interaction_id: 'INT_' + cmtId.substring(0, 10),
+      post_id: postId,
+      threads_post_id: threadsPostId,
+      account_id: targetAccId,
+      parent_comment_id: '',
+      username: sender,
+      sender_username: sender,
+      author_type: 'AUDIENCE',
+      text: text,
+      content: text,
+      intent_flag: isIntent,
+      reply_status: 'UNREPLIED',
+      timestamp: timestamp,
+      created_at: timestamp,
+      replies: []
+    };
+
+    audienceComments.push(cmtObj);
+
+    if (!existingIdMap[cmtId]) {
+      if (interSheet) {
+        interSheet.appendRow([
+          cmtObj.interaction_id,
+          postId,
+          threadsPostId,
+          targetAccId,
+          cmtId,
+          '',
+          sender,
+          'AUDIENCE',
+          text,
+          isIntent,
+          'UNREPLIED',
+          timestamp
+        ]);
+      }
+      if (cmtSheet) {
+        cmtSheet.appendRow([
+          cmtId,
+          postId,
+          targetAccId,
+          '',
+          sender,
+          text,
+          isIntent,
+          'PUBLISHED',
+          timestamp
+        ]);
+      }
+      existingIdMap[cmtId] = true;
+      newAudienceCount++;
+    }
+  }
+
+  // Perbarui replies_count di sheet Posts
+  if (targetPost && audienceComments.length > 0) {
+    try {
+      var pSheet = ss.getSheetByName('Posts');
+      if (pSheet) {
+        var pData = pSheet.getDataRange().getValues();
+        var pHeaders = pData[0];
+        var pIdCol = pHeaders.indexOf('post_id');
+        var repCol = pHeaders.indexOf('replies_count');
+        if (pIdCol !== -1 && repCol !== -1) {
+          for (var r = 1; r < pData.length; r++) {
+            if (String(pData[r][pIdCol]) === postId) {
+              pSheet.getRange(r + 1, repCol + 1).setValue(audienceComments.length);
+              break;
+            }
+          }
+        }
+      }
+    } catch(eUpdate) {}
+  }
+
+  Logger.log('[fetchThreadReplies] Selesai: ' + audienceComments.length + ' komentar audiens diproses (' + newAudienceCount + ' baru).');
+
+  return {
+    post_id: postId,
+    threads_post_id: threadsPostId,
+    comments: audienceComments,
+    count: audienceComments.length,
+    new_count: newAudienceCount
   };
 }
 
