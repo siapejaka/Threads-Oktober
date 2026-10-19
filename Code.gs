@@ -350,24 +350,32 @@ function getDashboardData(payload) {
     return tB - tA;
   });
 
-  // Peta akun milik sendiri untuk memfilter self-reply / Utas 2 dari komentar audiens
-  var allOwnedUsers = {};
-  var allOwnedIds = {};
+  // Peta akun pemilik per postingan (membedakan self-reply Utas 2 dengan komentar akun lain)
+  var accUserMap = {};
   for (var au = 0; au < accounts.length; au++) {
     var uName = String(accounts[au].username || '').toLowerCase().trim();
-    if (uName) allOwnedUsers[uName] = true;
     var aId = cleanAccountId(accounts[au].account_id);
-    if (aId) allOwnedIds[aId] = true;
+    if (aId) accUserMap[aId] = uName;
   }
 
-  // Gabungkan interactions dan comments (Hanya untuk balasan audiens luar)
+  var postOwnerMap = {};
+  for (var po = 0; po < posts.length; po++) {
+    var pId = String(posts[po].post_id || '').trim();
+    var thId = String(posts[po].threads_post_id || '').trim();
+    var pOwner = accUserMap[cleanAccountId(posts[po].account_id)] || '';
+    if (pId) postOwnerMap[pId] = pOwner;
+    if (thId) postOwnerMap[thId] = pOwner;
+  }
+
+  // Gabungkan interactions dan comments (Hanya untuk balasan audiens luar / non-pemilik postingan)
   var audienceInteractions = [];
   var interactionIdMap = {};
 
   for (var t = 0; t < interactions.length; t++) {
     var inter = interactions[t];
     var senderUser = String(inter.sender_username || '').toLowerCase().trim();
-    var isOwn = (inter.author_type === 'OWNER') || (inter.reply_status === 'OWNER_POST') || (senderUser && allOwnedUsers[senderUser]) || (senderUser === 'adminagent');
+    var interPostOwner = postOwnerMap[String(inter.post_id || '').trim()] || postOwnerMap[String(inter.threads_post_id || '').trim()] || accUserMap[cleanAccountId(inter.account_id)] || '';
+    var isOwn = (inter.author_type === 'OWNER') || (inter.reply_status === 'OWNER_POST') || (interPostOwner && senderUser === interPostOwner) || (senderUser === 'adminagent');
     if (!isOwn) {
       var key = String(inter.comment_id || inter.interaction_id).trim();
       if (key) {
@@ -380,7 +388,8 @@ function getDashboardData(payload) {
   for (var r = 0; r < rawComments.length; r++) {
     var cKey = String(rawComments[r].comment_id).trim();
     var rSender = String(rawComments[r].sender_username || '').toLowerCase().trim();
-    var isOwnComment = (rawComments[r].author_type === 'OWNER') || (rawComments[r].reply_status === 'OWNER_POST') || (rSender && allOwnedUsers[rSender]) || (rSender === 'adminagent');
+    var commentPostOwner = postOwnerMap[String(rawComments[r].post_id || '').trim()] || accUserMap[cleanAccountId(rawComments[r].account_id)] || '';
+    var isOwnComment = (rawComments[r].author_type === 'OWNER') || (rawComments[r].reply_status === 'OWNER_POST') || (commentPostOwner && rSender === commentPostOwner) || (rSender === 'adminagent');
 
     if (!isOwnComment && cKey && !interactionIdMap[cKey]) {
       var audObj = {
@@ -424,7 +433,10 @@ function getDashboardData(payload) {
   // Hitung ulang metrik replies_count per post khusus untuk balasan audiens luar
   var audienceRepliesCountMap = {};
   for (var ai = 0; ai < interactions.length; ai++) {
-    if (interactions[ai].author_type !== 'OWNER' && interactions[ai].reply_status !== 'OWNER_POST') {
+    var aSender = String(interactions[ai].sender_username || '').toLowerCase().trim();
+    var aOwner = postOwnerMap[String(interactions[ai].post_id || '').trim()] || postOwnerMap[String(interactions[ai].threads_post_id || '').trim()] || '';
+    var aIsOwn = (interactions[ai].author_type === 'OWNER') || (interactions[ai].reply_status === 'OWNER_POST') || (aOwner && aSender === aOwner) || (aSender === 'adminagent');
+    if (!aIsOwn) {
       var pIdKey = String(interactions[ai].post_id || '').trim();
       var thIdKey = String(interactions[ai].threads_post_id || '').trim();
       if (pIdKey) audienceRepliesCountMap[pIdKey] = (audienceRepliesCountMap[pIdKey] || 0) + 1;
@@ -1438,13 +1450,12 @@ function syncPostInsights(payload) {
           cmtIdSet[String(existingInter[ei].comment_id || existingInter[ei].interaction_id)] = true;
         }
 
-        var allOwnedUsers = {};
-        var allOwnedIds = {};
+        var postOwnerUser = '';
         for (var au = 0; au < accounts.length; au++) {
-          var uName = String(accounts[au].username || '').toLowerCase().trim();
-          if (uName) allOwnedUsers[uName] = true;
-          var aId = cleanAccountId(accounts[au].account_id);
-          if (aId) allOwnedIds[aId] = true;
+          if (cleanAccountId(accounts[au].account_id) === targetAccId) {
+            postOwnerUser = String(accounts[au].username || '').toLowerCase().trim();
+            break;
+          }
         }
 
         for (var r = 0; r < repJson.data.length; r++) {
@@ -1452,8 +1463,7 @@ function syncPostInsights(payload) {
           var repIdStr = String(repItem.id || '').trim();
           if (repIdStr && !cmtIdSet[repIdStr]) {
             var senderUser = String(repItem.username || '').toLowerCase().trim();
-            var senderUserId = cleanAccountId(repItem.user_id || (repItem.from && repItem.from.id) || '');
-            var isOwn = (senderUser && allOwnedUsers[senderUser]) || (senderUserId && allOwnedIds[senderUserId]) || (senderUser === 'adminagent');
+            var isOwn = (postOwnerUser && senderUser === postOwnerUser) || (senderUser === 'adminagent');
 
             // Jika balasan akun sendiri (self-reply / Utas 2), lewati dan JANGAN masukkan ke database percakapan audiens
             if (isOwn) {
@@ -1968,41 +1978,41 @@ function fetchThreadReplies(payload) {
     if (!postId) postId = String(targetPost.post_id || '').trim();
   }
 
-  if (!threadsPostId) {
-    throw new Error('Postingan ini belum memiliki Threads Media ID (belum terbit di Threads).');
+  // Validasi ID postingan asli Meta Threads (Bukan format internal spreadsheet POST_xxxx)
+  if (!threadsPostId || threadsPostId.indexOf('POST_') === 0) {
+    throw new Error('Postingan ini belum memiliki ID Meta Threads resmi (threads_post_id).');
   }
 
   var accounts = getSheetRecords('Accounts');
   var targetAccId = targetPost ? cleanAccountId(targetPost.account_id) : '';
   var token = '';
-  var ownerUsername = '';
-  var allOwnedUsers = {};
+  var postOwnerUsername = '';
 
   for (var a = 0; a < accounts.length; a++) {
-    var uName = String(accounts[a].username || '').toLowerCase().trim();
-    if (uName) allOwnedUsers[uName] = true;
     var aId = cleanAccountId(accounts[a].account_id);
     if (aId === targetAccId) {
       token = cleanToken(accounts[a].access_token);
-      ownerUsername = uName;
+      postOwnerUsername = String(accounts[a].username || '').toLowerCase().trim();
+      break;
     }
   }
 
   if (!token && accounts.length > 0) {
     token = cleanToken(accounts[0].access_token);
-    if (!ownerUsername) ownerUsername = String(accounts[0].username || '').toLowerCase().trim();
+    if (!postOwnerUsername) postOwnerUsername = String(accounts[0].username || '').toLowerCase().trim();
   }
 
   if (!token) {
-    throw new Error('Access token Threads tidak ditemukan untuk akun ini.');
+    throw new Error('Access token Threads tidak ditemukan untuk akun pemilik postingan ini.');
   }
 
-  var url = 'https://graph.threads.net/v1.0/' + encodeURIComponent(threadsPostId) + '/replies?fields=id,text,username,timestamp&access_token=' + encodeURIComponent(token);
-  Logger.log('[fetchThreadReplies] Calling Meta API endpoint: ' + url.replace(token, 'REDACTED'));
+  // Gunakan endpoint resmi Threads Conversation API
+  var convUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(threadsPostId) + '/conversation?fields=id,text,username,timestamp&access_token=' + encodeURIComponent(token);
+  Logger.log('[fetchThreadReplies] Calling Meta Conversation API: ' + convUrl.replace(token, 'REDACTED'));
 
   var resp;
   try {
-    resp = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true });
+    resp = UrlFetchApp.fetch(convUrl, { method: 'get', muteHttpExceptions: true });
   } catch (netErr) {
     Logger.log('[fetchThreadReplies Network Error]: ' + netErr.message);
     throw new Error('Gagal terhubung ke Meta Threads API: ' + netErr.message);
@@ -2020,13 +2030,24 @@ function fetchThreadReplies(payload) {
     throw new Error('Respons Meta API bukan JSON yang valid.');
   }
 
-  if (statusCode !== 200 || resJson.error) {
-    var errMsg = (resJson.error && resJson.error.message) ? resJson.error.message : ('HTTP ' + statusCode + ': ' + rawText);
-    Logger.log('[fetchThreadReplies API Error]: ' + errMsg);
-    throw new Error('Meta Threads API Error: ' + errMsg);
+  var dataList = Array.isArray(resJson.data) ? resJson.data : [];
+
+  // Fallback ke endpoint /replies bila /conversation mengembalikan data kosong atau ditolak
+  if (dataList.length === 0) {
+    try {
+      var repUrl = 'https://graph.threads.net/v1.0/' + encodeURIComponent(threadsPostId) + '/replies?fields=id,text,username,timestamp&access_token=' + encodeURIComponent(token);
+      Logger.log('[fetchThreadReplies] Trying fallback Meta Replies API: ' + repUrl.replace(token, 'REDACTED'));
+      var repResp = UrlFetchApp.fetch(repUrl, { method: 'get', muteHttpExceptions: true });
+      if (repResp.getResponseCode() === 200) {
+        var repJson = JSON.parse(repResp.getContentText() || '{}');
+        if (Array.isArray(repJson.data) && repJson.data.length > 0) {
+          dataList = repJson.data;
+          Logger.log('[fetchThreadReplies] Fallback /replies berhasil mengambil ' + dataList.length + ' balasan.');
+        }
+      }
+    } catch (eFallback) {}
   }
 
-  var dataList = Array.isArray(resJson.data) ? resJson.data : [];
   if (dataList.length === 0) {
     Logger.log('[fetchThreadReplies] Endpoint mengembalikan array balasan kosong untuk media ID: ' + threadsPostId + '. Raw response: ' + rawText);
   } else {
@@ -2053,10 +2074,12 @@ function fetchThreadReplies(payload) {
     var sender = String(item.username || 'user').trim();
     var senderLower = sender.toLowerCase();
 
-    // Filter pemisahan komentar: Lewati komentar milik pembuat postingan / akun sendiri
-    var isOwner = (senderLower === ownerUsername) || (allOwnedUsers[senderLower]) || (senderLower === 'adminagent');
-    if (isOwner) {
-      Logger.log('[fetchThreadReplies] Melewati komentar dari pemilik/akun sendiri: @' + sender);
+    // Filter pemisahan komentar: HANYA lewati jika komentar berasal dari pemilik postingan itu sendiri (self-thread)
+    if (postOwnerUsername && senderLower === postOwnerUsername) {
+      Logger.log('[fetchThreadReplies] Melewati komentar dari pemilik postingan (@' + postOwnerUsername + '): @' + sender);
+      continue;
+    }
+    if (senderLower === 'adminagent') {
       continue;
     }
 

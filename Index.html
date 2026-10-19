@@ -4029,9 +4029,9 @@
           var self = this;
           return this.comments.filter(function(c) {
             if (!c) return false;
-            var isOwn = (c.author_type === 'OWNER') || (c.reply_status === 'OWNER_POST') || self.accounts.some(function(a) {
-              return (a.username || '').toLowerCase() === (c.sender_username || '').toLowerCase();
-            });
+            var postOwner = self.getAccountName(c.account_id).toLowerCase().trim();
+            var sender = String(c.sender_username || c.username || '').toLowerCase().trim();
+            var isOwn = (c.author_type === 'OWNER') || (c.reply_status === 'OWNER_POST') || (postOwner && sender === postOwner);
             return !isOwn && c.reply_status !== 'REPLIED';
           }).length;
         },
@@ -4203,13 +4203,12 @@
           if (!post) return [];
           var pid = String(post?.post_id || '');
           var thId = String(post?.threads_post_id || '');
-          var self = this;
+          var postOwner = this.getAccountName(post?.account_id).toLowerCase().trim();
           return (this.comments || []).filter(function(c) {
             if (!c) return false;
-            var isOwn = (c.author_type === 'OWNER') || (c.reply_status === 'OWNER_POST') || self.accounts.some(function(a) {
-              return (a.username || '').toLowerCase() === (c.sender_username || '').toLowerCase();
-            });
-            return !isOwn && ((pid && String(c.post_id) === pid) || (thId && String(c.threads_post_id) === thId));
+            var sender = String(c.sender_username || c.username || '').toLowerCase().trim();
+            var isPostOwner = (c.author_type === 'OWNER') || (c.reply_status === 'OWNER_POST') || (postOwner && sender === postOwner);
+            return !isPostOwner && ((pid && String(c.post_id) === pid) || (thId && String(c.threads_post_id) === thId));
           });
         },
 
@@ -5389,9 +5388,9 @@
           var self = this;
           var list = Array.isArray(this.comments) ? this.comments.filter(function(c) {
             if (!c) return false;
-            var isOwn = (c.author_type === 'OWNER') || (c.reply_status === 'OWNER_POST') || self.accounts.some(function(a) {
-              return (a.username || '').toLowerCase() === (c.sender_username || '').toLowerCase();
-            });
+            var postOwner = self.getAccountName(c.account_id).toLowerCase().trim();
+            var sender = String(c.sender_username || c.username || '').toLowerCase().trim();
+            var isOwn = (c.author_type === 'OWNER') || (c.reply_status === 'OWNER_POST') || (postOwner && sender === postOwner);
             return !isOwn;
           }) : [];
 
