@@ -1899,8 +1899,12 @@
                       <span x-show="cmt.intent_flag" class="px-2 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[9px] font-bold flex items-center">
                         <i data-lucide="zap" class="w-3 h-3 mr-0.5"></i> Spill Intent
                       </span>
-                      <span x-show="cmt.author_type !== 'OWNER'" :class="cmt.reply_status === 'REPLIED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'" class="px-2 py-0.2 rounded text-[9px] font-semibold">
-                        <span x-text="cmt.reply_status === 'REPLIED' ? 'Sudah Dibalas' : 'Belum Dibalas'"></span>
+                      <span x-show="cmt.author_type !== 'OWNER'" :class="{
+                        'bg-emerald-50 text-emerald-700 border border-emerald-200': cmt.reply_status === 'REPLIED',
+                        'bg-amber-50 text-amber-800 border border-amber-200 animate-pulse font-bold': cmt.reply_status === 'PROCESSING',
+                        'bg-rose-50 text-rose-700 border border-rose-200': cmt.reply_status !== 'REPLIED' && cmt.reply_status !== 'PROCESSING'
+                      }" class="px-2 py-0.2 rounded text-[9px] font-semibold">
+                        <span x-text="cmt.reply_status === 'REPLIED' ? 'Sudah Dibalas' : (cmt.reply_status === 'PROCESSING' ? 'Sedang Membalas...' : 'Belum Dibalas')"></span>
                       </span>
                     </div>
                     <p class="text-xs text-slate-800 mt-1.5" x-text="cmt.content"></p>
@@ -4470,7 +4474,7 @@
           var y = date.getFullYear();
           var m = ('0' + (date.getMonth() + 1)).slice(-2);
           var d = ('0' + date.getDate()).slice(-2);
-          var h = ('0' + date.getHours()).slice(-2);
+          var h = ('0' + date.getHours()).slice(-2); // 24-Hour format (00-23)
           var min = ('0' + date.getMinutes()).slice(-2);
           return y + '-' + m + '-' + d + 'T' + h + ':' + min;
         },

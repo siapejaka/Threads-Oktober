@@ -796,7 +796,6 @@ function saveMediaBatch(payload) {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName('Media');
   var now = new Date();
-  var cooldown = new Date(now.getTime() + 14 * 24 * 3600 * 1000); // Cooldown 14 hari
   var rowsToAppend = [];
   var savedIds = [];
 
@@ -812,7 +811,7 @@ function saveMediaBatch(payload) {
       it.media_type || 'IMAGE',
       it.file_hash || '',
       now.toISOString(),
-      cooldown.toISOString()
+      now.toISOString() // Smart Choice Batch Media: siap tayang langsung tanpa cooldown kaku
     ]);
   }
 
@@ -1520,6 +1519,21 @@ function syncPostInsights(payload) {
   var dripErrorMessage = '';
 
   if (currentViewsNum >= targetViewsNum && isWaitingDrip) {
+    // 1. Kunci status baris ke PROCESSING segera untuk mencegah auto-reply ganda dari trigger paralel
+    if (dripColIdx !== -1) postSheet.getRange(targetRow, dripColIdx + 1).setValue('PROCESSING');
+    var qSheetLock = ss.getSheetByName('Posting_Queue');
+    if (qSheetLock) {
+      var qLockData = qSheetLock.getDataRange().getValues();
+      for (var ql = 1; ql < qLockData.length; ql++) {
+        var qlPid = String(qLockData[ql][1] || '').trim();
+        var qlStat = String(qLockData[ql][6] || '').toLowerCase().trim();
+        if (qlPid === String(postId) && (qlStat === 'waiting_views_threshold' || qlStat === 'menunggu target' || qlStat === 'waiting_views')) {
+          qSheetLock.getRange(ql + 1, 7).setValue('PROCESSING');
+        }
+      }
+    }
+    SpreadsheetApp.flush();
+
     try {
       if (!threadsPostId) {
         throw new Error('ID Utas #1 (root_thread_id) belum ada di Meta Threads.');
@@ -1642,6 +1656,8 @@ function syncPostInsights(payload) {
         }
       }
     } catch (dripErr) {
+      // Revert status ke WAITING_VIEWS jika eksekusi gagal agar dapat diproses pada siklus berikutnya
+      if (dripColIdx !== -1) postSheet.getRange(targetRow, dripColIdx + 1).setValue('WAITING_VIEWS');
       dripErrorMessage = (dripErr && dripErr.message) ? dripErr.message : String(dripErr);
       Logger.log('[Auto-Drip Views Error post_id: ' + postId + '] ' + dripErrorMessage);
       var qSheetErr = ss.getSheetByName('Posting_Queue');
@@ -1975,16 +1991,44 @@ function quickReplyComment(payload) {
     username = accounts[0].username || username;
   }
 
+  // Anti Double-Reply: Kunci komentar ke PROCESSING sebelum memanggil Threads API
+  var lockedRowIndex = -1;
+  var statusColIdx = -1;
+  if (interSheet && parentCommentId) {
+    var interData = interSheet.getDataRange().getValues();
+    var interHeaders = interData[0];
+    var cmtColIdx = interHeaders.indexOf('comment_id');
+    statusColIdx = interHeaders.indexOf('reply_status');
+
+    if (cmtColIdx !== -1 && statusColIdx !== -1) {
+      for (var ir = 1; ir < interData.length; ir++) {
+        if (String(interData[ir][cmtColIdx]) === String(parentCommentId)) {
+          var curStat = String(interData[ir][statusColIdx] || '').toUpperCase();
+          if (curStat === 'PROCESSING' || curStat === 'REPLIED') {
+            throw new Error('Komentar ini sedang diproses atau sudah pernah dibalas.');
+          }
+          lockedRowIndex = ir + 1;
+          interSheet.getRange(lockedRowIndex, statusColIdx + 1).setValue('PROCESSING');
+          SpreadsheetApp.flush();
+          break;
+        }
+      }
+    }
+  }
+
   var liveReplyId = 'CMT_' + Utilities.getUuid().substring(0, 8);
+  var nowIso = new Date().toISOString();
+
   if (token && parentCommentId) {
     try {
       liveReplyId = publishThreadsNode(targetAccId, token, finalContent, null, parentCommentId);
     } catch (e) {
-      // jika gagal live tetap catat id lokal
+      if (interSheet && lockedRowIndex > 0 && statusColIdx !== -1) {
+        interSheet.getRange(lockedRowIndex, statusColIdx + 1).setValue('UNREPLIED');
+      }
+      throw new Error('Gagal mengirim balasan ke Threads API: ' + e.message);
     }
   }
-
-  var nowIso = new Date().toISOString();
 
   if (cmtSheet) {
     cmtSheet.appendRow([
@@ -2000,23 +2044,11 @@ function quickReplyComment(payload) {
     ]);
   }
 
-  // Update status balasan pada sheet Thread_Interactions
   if (interSheet) {
-    var data = interSheet.getDataRange().getValues();
-    var headers = data[0];
-    var cmtCol = headers.indexOf('comment_id');
-    var statusCol = headers.indexOf('reply_status');
-
-    if (cmtCol !== -1 && statusCol !== -1) {
-      for (var r = 1; r < data.length; r++) {
-        if (String(data[r][cmtCol]) === String(parentCommentId)) {
-          interSheet.getRange(r + 1, statusCol + 1).setValue('REPLIED');
-          break;
-        }
-      }
+    if (lockedRowIndex > 0 && statusColIdx !== -1) {
+      interSheet.getRange(lockedRowIndex, statusColIdx + 1).setValue('REPLIED');
     }
 
-    // Catat baris balasan OWNER
     interSheet.appendRow([
       'INT_' + Utilities.getUuid().substring(0, 8),
       payload.post_id,
@@ -2471,6 +2503,27 @@ function deleteAutopilotRule(payload) {
   throw new Error('Aturan tidak ditemukan');
 }
 
+// Parser waktu absolut 24 Jam murni (0 - 1439 menit) anti-distorsi AM/PM
+function parseTimeToMinutes24(timeStr) {
+  if (!timeStr) return 0;
+  var s = String(timeStr).trim();
+  var isPM = /pm/i.test(s);
+  var isAM = /am/i.test(s);
+  s = s.replace(/am|pm/gi, '').trim();
+
+  var parts = s.split(/[:.]/);
+  var hours = parseInt(parts[0], 10) || 0;
+  var minutes = parseInt(parts[1], 10) || 0;
+
+  if (isPM && hours < 12) hours += 12;
+  if (isAM && hours === 12) hours = 0;
+
+  hours = Math.max(0, Math.min(23, hours));
+  minutes = Math.max(0, Math.min(59, minutes));
+
+  return hours * 60 + minutes;
+}
+
 // Helper pembagian titik jadwal terdistribusi dinamis harian (Batch Daily Scheduling)
 function generateDistributedScheduleSlots(windowsList, targetPosts, jitterMin, accIdx, now) {
   var windows = Array.isArray(windowsList) && windowsList.length > 0
@@ -2482,12 +2535,11 @@ function generateDistributedScheduleSlots(windowsList, targetPosts, jitterMin, a
 
   for (var w = 0; w < windows.length; w++) {
     var parts = String(windows[w]).split('-');
-    var startParts = (parts[0] || '06:00').trim().split(':');
-    var endParts = (parts[1] || '08:30').trim().split(':');
-    var startMin = (parseInt(startParts[0], 10) || 0) * 60 + (parseInt(startParts[1], 10) || 0);
-    var endMin = (parseInt(endParts[0], 10) || 0) * 60 + (parseInt(endParts[1], 10) || 0);
-    if (endMin <= startMin) endMin = startMin + 60;
+    var startMin = parseTimeToMinutes24(parts[0] || '06:00');
+    var endMin = parseTimeToMinutes24(parts[1] || '08:30');
+    if (endMin <= startMin) endMin = Math.min(1439, startMin + 60);
     var dur = endMin - startMin;
+    if (dur <= 0) dur = 60;
     parsedWindows.push({
       startMin: startMin,
       endMin: endMin,
@@ -2528,10 +2580,9 @@ function generateDistributedScheduleSlots(windowsList, targetPosts, jitterMin, a
     var finalMinute = minuteOfDay + randJitter + accOffsetMin;
 
     var slotDate = new Date(baseNow.getTime());
-    slotDate.setHours(Math.floor(finalMinute / 60));
-    slotDate.setMinutes(Math.floor(finalMinute % 60));
-    slotDate.setSeconds(0);
-    slotDate.setMilliseconds(0);
+    var h24 = Math.floor(finalMinute / 60) % 24;
+    var m24 = Math.floor(finalMinute % 60);
+    slotDate.setHours(h24, m24, 0, 0);
 
     // Auto-Roll ke Hari Esok: Pastikan slot waktu selalu di MASA DEPAN
     while (slotDate.getTime() <= (baseNow.getTime() + 5 * 60 * 1000)) {
@@ -2586,6 +2637,9 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
   var totalGenerated = 0;
   var now = new Date();
   var nowMs = now.getTime();
+  var executionStartTime = Date.now();
+  var MAX_AI_CALLS_PER_RUN = 5; // Safe batching: cegah limit 6 menit Google Apps Script
+  var aiCallsMade = 0;
 
   for (var i = 0; i < activeRules.length; i++) {
     var rule = activeRules[i];
@@ -2676,6 +2730,15 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
 
       if (eligibleProductsForAcc.length === 0) continue;
 
+      // Hitung total postingan sebelumnya untuk akun ini agar rotasi produk berkesinambungan
+      var accPostCount = 0;
+      for (var ap = 0; ap < allPosts.length; ap++) {
+        if (cleanAccountId(allPosts[ap].account_id) === targetAccId) accPostCount++;
+      }
+      for (var aq = 0; aq < allQueue.length; aq++) {
+        if (cleanAccountId(allQueue[aq].account_id) === targetAccId) accPostCount++;
+      }
+
       // Hitung titik waktu jadwal terdistribusi proporsional untuk seluruh kuota target_posts
       var distributedSlots = generateDistributedScheduleSlots(ruleWindows, targetPosts, jitterMin, accIdx, now);
 
@@ -2684,9 +2747,12 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         while (scheduledDate.getTime() <= (now.getTime() + 3 * 60 * 1000)) {
           scheduledDate.setDate(scheduledDate.getDate() + 1);
         }
-        var chosenProd = eligibleProductsForAcc[slotIdx % eligibleProductsForAcc.length];
 
-        // Kelompokkan sesi media untuk produk terpilih
+        // Round-Robin rotasi produk bergilir: berganti tiap post jika banyak produk, konsisten jika hanya 1 produk
+        var productIndex = (accPostCount + slotIdx) % eligibleProductsForAcc.length;
+        var chosenProd = eligibleProductsForAcc[productIndex];
+
+        // Smart Choice Batch Media & Winner Media Priority: Pengacakan berbobot tanpa cooldown kaku
         var prodSessions = {};
         var sessionOrder = [];
         for (var m = 0; m < allMedia.length; m++) {
@@ -2694,18 +2760,91 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
           if (med.product_id === chosenProd.product_id) {
             var sId = med.session_id || 'SESI_DEFAULT';
             if (!prodSessions[sId]) {
-              prodSessions[sId] = [];
+              prodSessions[sId] = {
+                session_id: sId,
+                media_ids: [],
+                max_views: 0,
+                last_used_at: 0,
+                weight: 10
+              };
               sessionOrder.push(sId);
             }
-            prodSessions[sId].push(med.media_id);
+            prodSessions[sId].media_ids.push(med.media_id);
           }
         }
 
         if (sessionOrder.length === 0) continue;
 
-        var chosenSessionId = sessionOrder[slotIdx % sessionOrder.length];
-        var chosenMediaIds = prodSessions[chosenSessionId];
+        // Hitung riwayat views dan penggunaan sesi
+        for (var s = 0; s < sessionOrder.length; s++) {
+          var sessObj = prodSessions[sessionOrder[s]];
+          var sessMediaSet = {};
+          for (var sm = 0; sm < sessObj.media_ids.length; sm++) {
+            sessMediaSet[sessObj.media_ids[sm]] = true;
+          }
+
+          for (var pIdx = 0; pIdx < allPosts.length; pIdx++) {
+            var pMediaRaw = String(allPosts[pIdx].media_ids_json || '');
+            for (var mid in sessMediaSet) {
+              if (pMediaRaw.indexOf(mid) !== -1) {
+                var pViews = Number(allPosts[pIdx].current_views || 0);
+                if (pViews > sessObj.max_views) sessObj.max_views = pViews;
+                var pTime = allPosts[pIdx].created_at ? new Date(allPosts[pIdx].created_at).getTime() : 0;
+                if (pTime > sessObj.last_used_at) sessObj.last_used_at = pTime;
+                break;
+              }
+            }
+          }
+
+          for (var qIdx = 0; qIdx < allQueue.length; qIdx++) {
+            var qMediaRaw = String(allQueue[qIdx].media_ids_json || '');
+            for (var qmid in sessMediaSet) {
+              if (qMediaRaw.indexOf(qmid) !== -1) {
+                var qTime = allQueue[qIdx].scheduled_time ? new Date(allQueue[qIdx].scheduled_time).getTime() : 0;
+                if (qTime > sessObj.last_used_at) sessObj.last_used_at = qTime;
+                break;
+              }
+            }
+          }
+
+          // Prioritas Batch Viral (Winner Media): views >= 10.000 mendapat lonjakan bobot prioritas
+          var wVal = 10;
+          if (sessObj.max_views >= 10000) {
+            wVal += 35;
+          } else if (sessObj.max_views >= 3000) {
+            wVal += 15;
+          } else if (sessObj.max_views >= 1000) {
+            wVal += 5;
+          }
+
+          // Anti-monoton: redam bobot jika sesi baru saja digunakan dalam 18 jam terakhir
+          if (sessObj.last_used_at && (nowMs - sessObj.last_used_at) < (18 * 3600 * 1000)) {
+            wVal = Math.max(2, Math.floor(wVal * 0.35));
+          }
+          sessObj.weight = wVal;
+        }
+
+        // Weighted random selection
+        var totalWeight = 0;
+        for (var wIdx = 0; wIdx < sessionOrder.length; wIdx++) {
+          totalWeight += prodSessions[sessionOrder[wIdx]].weight;
+        }
+
+        var rnd = Math.random() * totalWeight;
+        var chosenSession = prodSessions[sessionOrder[0]];
+        for (var rw = 0; rw < sessionOrder.length; rw++) {
+          var candidate = prodSessions[sessionOrder[rw]];
+          if (rnd < candidate.weight) {
+            chosenSession = candidate;
+            break;
+          }
+          rnd -= candidate.weight;
+        }
+
+        var chosenSessionId = chosenSession.session_id;
+        var chosenMediaIds = chosenSession.media_ids;
         ruleLastSession = chosenSessionId;
+        chosenSession.last_used_at = scheduledDate.getTime();
 
         // Ambil referensi viral & context
         var matchingRefs = [];
@@ -2722,15 +2861,21 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK]';
 
         var remakeResult = { hook_1: origHook, spill_2: origSpill };
-        try {
-          remakeResult = generateSumopodRemake({
-            product_name: chosenProd.product_name,
-            selling_points: chosenProd.selling_points || '',
-            hook_thread_1: origHook,
-            spill_thread_2: origSpill
-          });
-        } catch(aiErr) {
-          Logger.log('[Autopilot AI Remake Fallback]: ' + aiErr.message);
+        var elapsedMs = Date.now() - executionStartTime;
+        var canCallAi = (aiCallsMade < MAX_AI_CALLS_PER_RUN) && (elapsedMs < 210000);
+
+        if (canCallAi) {
+          try {
+            remakeResult = generateSumopodRemake({
+              product_name: chosenProd.product_name,
+              selling_points: chosenProd.selling_points || '',
+              hook_thread_1: origHook,
+              spill_thread_2: origSpill
+            });
+            aiCallsMade++;
+          } catch(aiErr) {
+            Logger.log('[Autopilot AI Remake Fallback]: ' + aiErr.message);
+          }
         }
 
         var hook1 = remakeResult.hook_1 || origHook;
