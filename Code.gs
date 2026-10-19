@@ -122,6 +122,8 @@ function doPost(e) {
       result = deleteThreadsAccount(payload);
     } else if (action === 'updateAccountCategory') {
       result = updateAccountCategory(payload);
+    } else if (action === 'saveAccountPersona') {
+      result = saveAccountPersona(payload);
     } else if (action === 'getCloudinaryUsage') {
       result = getCloudinaryUsage(payload);
     } else if (action === 'getAccountScheduleRadar') {
@@ -146,7 +148,7 @@ function doPost(e) {
 function setupDatabase() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var schema = {
-    'Accounts': ['account_id', 'username', 'profile_pic_url', 'access_token', 'token_expires_at', 'status', 'updated_at', 'category'],
+    'Accounts': ['account_id', 'username', 'profile_pic_url', 'access_token', 'token_expires_at', 'status', 'updated_at', 'category', 'audience_pov', 'pronoun_style', 'custom_prompt'],
     'Products': ['product_id', 'product_name', 'category', 'price', 'product_image_url', 'shopee_raw_url', 'shopee_affiliate_url', 'selling_points', 'allowed_accounts', 'created_at'],
     'Media': ['media_id', 'product_id', 'session_id', 'media_url', 'media_type', 'file_hash', 'uploaded_at', 'cooldown_until'],
     'Posts': ['post_id', 'account_id', 'thread_content_json', 'media_ids_json', 'product_id', 'affiliate_sub_id', 'views_threshold', 'current_views', 'status', 'threads_post_id', 'auto_reply_content', 'auto_reply_sent', 'created_at', 'likes_count', 'replies_count', 'permalink', 'drip_status', 'source_type', 'rule_id'],
@@ -341,7 +343,7 @@ function getDashboardData(payload) {
     }
   }
 
-  // Urutkan postingan & antrean dari yang paling baru di atas (Descending)
+  // Urutkan postingan terbit (terbaru di atas) & antrean kronologis waktu terdekat (Ascending)
   posts.sort(function(a, b) {
     var tA = a.created_at ? new Date(a.created_at).getTime() : 0;
     var tB = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -351,7 +353,7 @@ function getDashboardData(payload) {
   queue.sort(function(a, b) {
     var tA = new Date(a.scheduled_time || a.executed_at || 0).getTime();
     var tB = new Date(b.scheduled_time || b.executed_at || 0).getTime();
-    return tB - tA;
+    return tA - tB;
   });
 
   // Peta akun pemilik per postingan (membedakan self-reply Utas 2 dengan komentar akun lain)
@@ -520,15 +522,23 @@ function syncThreadsAccount(payload) {
 
   var foundRow = -1;
   var existingCategory = 'General';
+  var existingPov = 'Netral / Storyteller';
+  var existingPronoun = 'aku - kamu';
+  var existingCustomPrompt = '';
+
+  var povCol = headers.indexOf('audience_pov');
+  var proCol = headers.indexOf('pronoun_style');
+  var cstCol = headers.indexOf('custom_prompt');
 
   for (var i = 1; i < data.length; i++) {
     var rowId = cleanAccountId(data[i][0]);
     var rowUser = String(data[i][userCol] || '').toLowerCase().trim();
     if (rowId === cleanAccountId(rawId) || (newUsername && rowUser === newUsername)) {
       foundRow = i + 1;
-      if (catCol < data[i].length && data[i][catCol]) {
-        existingCategory = String(data[i][catCol]).trim();
-      }
+      if (catCol !== -1 && catCol < data[i].length && data[i][catCol]) existingCategory = String(data[i][catCol]).trim();
+      if (povCol !== -1 && povCol < data[i].length && data[i][povCol]) existingPov = String(data[i][povCol]).trim();
+      if (proCol !== -1 && proCol < data[i].length && data[i][proCol]) existingPronoun = String(data[i][proCol]).trim();
+      if (cstCol !== -1 && cstCol < data[i].length && data[i][cstCol]) existingCustomPrompt = String(data[i][cstCol]).trim();
       break;
     }
   }
@@ -543,7 +553,10 @@ function syncThreadsAccount(payload) {
     expiryIso,
     'ACTIVE',
     nowIso,
-    existingCategory
+    existingCategory,
+    existingPov,
+    existingPronoun,
+    existingCustomPrompt
   ];
 
   if (foundRow > 0) {
@@ -857,6 +870,41 @@ function buildSumopodEndpoint(customEndpoint) {
   return url;
 }
 
+// Helper pengambilan karakter persona akun Threads
+function getAccountPersona(accountId) {
+  if (!accountId) return null;
+  var targetId = cleanAccountId(accountId);
+  var accounts = getSheetRecords('Accounts');
+  for (var a = 0; a < accounts.length; a++) {
+    if (cleanAccountId(accounts[a].account_id) === targetId) {
+      return {
+        username: accounts[a].username || '',
+        category: accounts[a].category || 'General',
+        audience_pov: accounts[a].audience_pov || 'Netral / Storyteller',
+        pronoun_style: accounts[a].pronoun_style || 'aku - kamu',
+        custom_prompt: accounts[a].custom_prompt || ''
+      };
+    }
+  }
+  return null;
+}
+
+// Helper perakitan blok instruksi persona akun Threads
+function buildPersonaSystemInstruction(persona) {
+  var pov = persona && persona.audience_pov ? persona.audience_pov : 'Netral / Storyteller';
+  var pronoun = persona && persona.pronoun_style ? persona.pronoun_style : 'aku - kamu';
+  var custom = persona && persona.custom_prompt ? String(persona.custom_prompt).trim() : '';
+
+  var text = '[KARAKTER & PERSONA AI AKUN PENGIRIM]:\n' +
+    '- Target Audiens / POV: ' + pov + '\n' +
+    '- Gaya Bahasa & Kata Ganti: ' + pronoun + '\n';
+  if (custom) {
+    text += '- Instruksi Khusus Gaya Bicara: ' + custom + '\n';
+  }
+  text += 'Wajib berbicara dalam Bahasa Indonesia percakapan santai harian yang selaras dengan persona akun di atas.\n';
+  return text;
+}
+
 // Helper pemetaan detail error respons SumoPod AI transparan
 function extractSumopodError(code, resJson, endpoint) {
   var detail = '';
@@ -903,18 +951,24 @@ function generateThreadOptions(payload) {
   var endpoint = buildSumopodEndpoint(rawEndpoint);
   var model = (settings.sumopod_model && settings.sumopod_model.trim()) ? settings.sumopod_model.trim() : 'claude-haiku-4-5';
 
-  var systemPrompt = 'Anda adalah copywriter Meta Threads profesional untuk Shopee Affiliate Indonesia dengan prinsip STRICT STYLE MIRRORING. ' +
-    'DILARANG keras membuat bullet list spesifikasi centang atau bahasa iklan kaku. ' +
-    'Gunakan gaya percakapan santai, curhat emosional, pemenggalan jeda baris natural, penekanan kata dengan HURUF BESAR seperlunya, dan emoji yang selaras. ' +
+  var persona = getAccountPersona(payload.account_id);
+  var personaBlock = buildPersonaSystemInstruction(persona);
+
+  var systemPrompt = 'Anda adalah copywriter Meta Threads profesional untuk Shopee Affiliate Indonesia dengan prinsip STRICT STYLE MIRRORING dan ADAPTASI PERSONA.\n\n' +
+    personaBlock + '\n' +
+    'ATURAN KETAT PENULISAN UTAS:\n' +
+    '1. DILARANG keras membuat bullet list spesifikasi, tanda centang (✓), atau bahasa brosur promosi kaku.\n' +
+    '2. Gunakan gaya percakapan santai, curhat emosional, pemenggalan jeda baris natural, penekanan kata seperlunya, dan emoji yang selaras persona.\n' +
+    '3. Fakta/keunggulan produk HANYA digunakan sebagai fakta fungsi/solusi masalah yang diselesaikan, DILARANG menyalin gaya bahasanya.\n' +
     (isHook
-      ? 'Ini adalah Utas #1 (Root Hook). Caption WAJIB BEBAS dari segala link eksternal agar distribusi jangkauan organik Threads maksimal. '
-      : 'Ini adalah Utas Lanjutan/Spill. WAJIB merajut tag [LINK] atau [LINK_AFFILIATE] menyatu secara kontekstual di dalam kalimat (inline embedding), BUKAN ditaruh di baris terbawah seperti footer iklan. Contoh: "Bisa custom nama disini [LINK] biar ga ketuker" atau "aku ambil yg ukuran sedang di [LINK] pas bgt di wastafel". ') +
-    'Keluarkan output HANYA JSON valid berformat: {"options": ["Opsi 1...", "Opsi 2...", "Opsi 3..."]}';
+      ? '4. Ini adalah Utas #1 (Root Hook pembuka). Caption WAJIB 100% BEBAS DARI SEGALA LINK eksternal agar distribusi jangkauan organik Threads maksimal.\n'
+      : '4. Ini adalah Utas #2 (Spill). WAJIB SANGAT RINGKAS (1-2 kalimat santai mengalir) dan menyematkan tag [LINK] atau shortlink affiliate (s.shopee.co.id/... murni tanpa https://) menyatu secara natural di tengah kalimat (inline context), BUKAN di baris paling bawah seperti footer iklan.\n   Contoh yang benar:\n   - "Bisa custom nama disini [LINK] biar ga ketuker sama punya orang kantor"\n   - "aku ambil yg ukuran sedang di [LINK] pas bgt di wastafel mungilku"\n') +
+    '5. Keluarkan output HANYA JSON valid berformat: {"options": ["Opsi 1...", "Opsi 2...", "Opsi 3..."]}';
 
   var userPrompt = 'Target Produk: ' + prodName + '\n' +
-    (sellingPoints ? ('Keunggulan Produk: ' + sellingPoints + '\n') : '') +
-    (currentText ? ('Teks Draf / Referensi Pengguna:\n"' + currentText + '"\nTiru ritme, pemenggalan baris, dan gaya penekanan kata dari teks di atas!\n') : '') +
-    'Buatkan 3 opsi variasi caption yang natural, santai, dan memikat audiens.';
+    (sellingPoints ? ('Fakta Solusi / Keunggulan Produk: ' + sellingPoints + '\n') : '') +
+    (currentText ? ('Teks Draf / Referensi Pengguna:\n"' + currentText + '"\nTiru ritme emosional dan pemenggalan baris dari teks di atas!\n') : '') +
+    'Buatkan 3 opsi variasi caption yang natural, santai, dan memikat audiens sesuai persona akun.';
 
   var body = {
     model: model,
@@ -1156,7 +1210,7 @@ function createPost(payload) {
     payload.media_ids_json || '[]',
     payload.product_id || '',
     subId,
-    Number(payload.views_threshold || 500),
+    Number(payload.views_threshold || 100),
     0,
     status,
     publishedThreadId,
@@ -1524,7 +1578,7 @@ function syncPostInsights(payload) {
   // 5. STANDARISASI NUMERIK & STATUS: Jika current_views >= target_views dan Utas #2 masih menunggu, eksekusi instan
   var currentViewsNum = Number(views || 0);
   var targetViewsNum = Number(rowData[thresholdCol] || 0);
-  if (targetViewsNum <= 0) targetViewsNum = 500;
+  if (targetViewsNum <= 0) targetViewsNum = 100;
 
   var dripColIdx = headers.indexOf('drip_status');
   var dripStatusRaw = String(dripColIdx !== -1 ? rowData[dripColIdx] : '').toLowerCase().trim();
@@ -2410,17 +2464,22 @@ function generateSumopodRemake(payload) {
   var endpoint = buildSumopodEndpoint(rawEndpoint);
   var model = (settings.sumopod_model && settings.sumopod_model.trim()) ? settings.sumopod_model.trim() : 'claude-haiku-4-5';
 
-  var systemPrompt = 'Anda adalah spesialis Meta Threads copywriter Shopee Affiliate dengan metode STRICT STYLE MIRRORING (Meniru Gaya Referensi 1:1).\n' +
-    'ATURAN KETAT:\n' +
-    '1. DILARANG membuat template kaku atau bullet list spesifikasi brosur.\n' +
-    '2. DILARANG memunculkan URL/link mentah apa pun. Gunakan HANYA tag placeholder [LINK] bila dibutuhkan.\n' +
-    '3. Utas 1 (Root Hook): WAJIB 100% BEBAS DARI SEGALA LINK atau tag link agar distribusi jangkauan organik Threads maksimal.\n' +
-    '4. Utas 2 (Lanjutan / Spill): WAJIB SANGAT RINGKAS (maksimal 1-2 kalimat santai mengalir, DILARANG panjang lebar atau berbau brosur/iklan). Sisipkan HANYA tag placeholder [LINK] menyatu secara natural di tengah kalimat (inline context), BUKAN di baris terbawah seperti footer iklan.\n' +
-    '   Contoh pola yang diinginkan:\n' +
-    '   - "Bisa custom nama disini [LINK] biar ga ketuker"\n' +
-    '   - "aku ambil yg ukuran sedang di [LINK] pas bgt di wastafel"\n' +
+  var persona = getAccountPersona(payload ? payload.account_id : null);
+  var personaBlock = buildPersonaSystemInstruction(persona);
+
+  var systemPrompt = 'Anda adalah spesialis Meta Threads copywriter Shopee Affiliate dengan metode STRICT STYLE MIRRORING dan ADAPTASI PERSONA.\n\n' +
+    personaBlock + '\n' +
+    'ATURAN KETAT PENULISAN UTAS:\n' +
+    '1. DILARANG membuat template kaku, bullet list spesifikasi, atau tanda centang (✓).\n' +
+    '2. DILARANG memunculkan URL/link mentah apa pun di Utas 1. Gunakan HANYA tag placeholder [LINK] bila dibutuhkan di Utas 2.\n' +
+    '3. Deskripsi produk HANYA digunakan sebagai fakta fungsi/masalah yang diselesaikan, DILARANG menyalin gaya bahasa kaku atau brosurnya.\n' +
+    '4. Utas 1 (Root Hook): WAJIB 100% BEBAS DARI SEGALA LINK atau tag link agar distribusi jangkauan organik Threads maksimal.\n' +
+    '5. Utas 2 (Lanjutan / Spill): WAJIB SANGAT RINGKAS (maksimal 1-2 kalimat santai mengalir). Sisipkan HANYA tag placeholder [LINK] atau shortlink Shopee (s.shopee.co.id/... tanpa https://) menyatu secara natural di tengah kalimat (inline context), BUKAN di baris terbawah seperti footer iklan.\n' +
+    '   Contoh pola yang benar:\n' +
+    '   - "Bisa custom nama disini [LINK] biar ga ketuker sama punya orang kantor"\n' +
+    '   - "aku ambil yg ukuran sedang di [LINK] pas bgt di wastafel mungilku"\n' +
     '   - "kalo mau checkout lgsg di toko ini ya [LINK] mumpung gratis ongkir"\n' +
-    '5. Format balasan WAJIB berupa JSON valid murni tanpa teks pengantar:\n' +
+    '6. Format balasan WAJIB berupa JSON valid murni tanpa teks pengantar:\n' +
     '{"hook_1": "...", "spill_2": "...", "threads": ["Utas 1...", "Utas 2..."]}';
 
   var winnerContext = '';
@@ -2574,7 +2633,7 @@ function scheduleAutopilotBatch(payload) {
   var baseTime = payload.start_time ? new Date(payload.start_time).getTime() : (Date.now() + 10 * 60 * 1000);
   if (isNaN(baseTime)) baseTime = Date.now() + 10 * 60 * 1000;
   var jitterBaseMin = Number(payload.jitter_minutes || 15);
-  var threshold = Number(payload.views_threshold || 500);
+  var threshold = Number(payload.views_threshold || 100);
 
   var createdPosts = [];
 
@@ -2682,7 +2741,7 @@ function saveAutopilotRule(payload) {
     payload.product_id || '',
     payload.preferred_session_id || '',
     targetPosts,
-    Number(payload.views_threshold || 500),
+    Number(payload.views_threshold || 100),
     Number(payload.jitter_minutes || 15),
     payload.status || 'ACTIVE',
     payload.last_run_at || '',
@@ -2833,7 +2892,7 @@ function generateDistributedScheduleSlots(windowsList, targetPosts, jitterMin, a
   return slots;
 }
 
-// Background Batch Worker: Mesin Autopilot Batch Daily Scheduling
+// Background Worker: Mesin Autopilot Per-Window Dispatcher
 function runAutonomousAutopilotWorker(ruleIdFilter) {
   var rules = getSheetRecords('Autopilot_Rules');
   if (!rules || rules.length === 0) {
@@ -2856,8 +2915,6 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
     return { generated_count: 0, message: 'Tidak ada aturan autopilot yang aktif saat ini.' };
   }
 
-  var allProducts = getSheetRecords('Products');
-  var allMedia = getSheetRecords('Media');
   var allViralRefs = getSheetRecords('Viral_References');
   var allAccounts = getSheetRecords('Accounts');
   var allPosts = getSheetRecords('Posts');
@@ -2873,24 +2930,14 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
 
   var totalGenerated = 0;
   var now = new Date();
-  var nowMs = now.getTime();
+  var curMin = now.getHours() * 60 + now.getMinutes();
   var executionStartTime = Date.now();
-  var MAX_AI_CALLS_PER_RUN = 5; // Safe batching: cegah limit 6 menit Google Apps Script
+  var MAX_AI_CALLS_PER_RUN = 4;
   var aiCallsMade = 0;
 
   for (var i = 0; i < activeRules.length; i++) {
     var rule = activeRules[i];
     var isManualTrigger = !!ruleIdFilter;
-
-    // Baca target_posts harian dinamis dari input user (misal 3, 5, 8, 10, dsb.)
-    var targetPosts = Number(rule.target_posts || rule.max_posts_per_day || rule.frequency_per_day || 3);
-    if (targetPosts <= 0) targetPosts = 3;
-
-    var lastRunTime = rule.last_run_at ? new Date(rule.last_run_at).getTime() : 0;
-    // Throttle cron background: jika bukan manual trigger, batasi eksekusi batch per 12 jam
-    if (!isManualTrigger && lastRunTime && (nowMs - lastRunTime) < (12 * 3600 * 1000)) {
-      continue;
-    }
 
     var rawAccIds = [];
     try {
@@ -2898,21 +2945,7 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
     } catch(eAcc) {
       rawAccIds = String(rule.account_ids_json || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
     }
-    if (!Array.isArray(rawAccIds) || rawAccIds.length === 0) {
-      continue;
-    }
-
-    var jitterMin = Number(rule.jitter_minutes || 15);
-    var thresh = Number(rule.views_threshold || 500);
-    var ruleLastSession = rule.last_session_id || '';
-
-    var mediaToSessionMap = {};
-    for (var mi = 0; mi < allMedia.length; mi++) {
-      var medRow = allMedia[mi];
-      if (medRow.media_id && medRow.session_id) {
-        mediaToSessionMap[String(medRow.media_id).trim()] = String(medRow.session_id).trim();
-      }
-    }
+    if (!Array.isArray(rawAccIds) || rawAccIds.length === 0) continue;
 
     var ruleWindows = [];
     try {
@@ -2921,6 +2954,65 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
     if (!Array.isArray(ruleWindows) || ruleWindows.length === 0) {
       ruleWindows = ['06:00-08:30', '11:30-13:30', '16:30-18:30', '19:30-21:30'];
     }
+
+    var targetPosts = Number(rule.target_posts || rule.max_posts_per_day || rule.frequency_per_day || 3);
+    if (targetPosts <= 0) targetPosts = 3;
+    var postsPerWindow = Math.max(1, Math.round(targetPosts / ruleWindows.length));
+    var jitterMin = Number(rule.jitter_minutes || 15);
+    var thresh = Number(rule.views_threshold || 100);
+    var ruleLastSession = rule.last_session_id || '';
+
+    // Cari jendela aktif saat ini atau mendekati (mulai 35 menit sebelum jam tayang s/d jam berakhir)
+    var targetWindow = null;
+    var targetDate = new Date(now.getTime());
+    var isTomorrow = false;
+
+    for (var w = 0; w < ruleWindows.length; w++) {
+      var wStr = String(ruleWindows[w]);
+      var wParts = wStr.split('-');
+      var sMin = parseTimeToMinutes24(wParts[0] || '06:00');
+      var eMin = parseTimeToMinutes24(wParts[1] || '08:30');
+      if (eMin <= sMin) eMin = Math.min(1439, sMin + 60);
+
+      if (curMin >= (sMin - 35) && curMin <= eMin) {
+        targetWindow = { windowStr: wStr, startMin: sMin, endMin: eMin, index: w };
+        break;
+      }
+    }
+
+    // Jika manual trigger dan tidak ada jendela aktif saat ini, pilih jendela terdekat berikutnya
+    if (!targetWindow && isManualTrigger) {
+      for (var w2 = 0; w2 < ruleWindows.length; w2++) {
+        var wParts2 = String(ruleWindows[w2]).split('-');
+        var sMin2 = parseTimeToMinutes24(wParts2[0] || '06:00');
+        var eMin2 = parseTimeToMinutes24(wParts2[1] || '08:30');
+        if (eMin2 <= sMin2) eMin2 = Math.min(1439, sMin2 + 60);
+
+        if (sMin2 > curMin) {
+          targetWindow = { windowStr: ruleWindows[w2], startMin: sMin2, endMin: eMin2, index: w2 };
+          break;
+        }
+      }
+      if (!targetWindow && ruleWindows.length > 0) {
+        var firstParts = String(ruleWindows[0]).split('-');
+        var fSMin = parseTimeToMinutes24(firstParts[0] || '06:00');
+        var fEMin = parseTimeToMinutes24(firstParts[1] || '08:30');
+        if (fEMin <= fSMin) fEMin = Math.min(1439, fSMin + 60);
+        targetWindow = { windowStr: ruleWindows[0], startMin: fSMin, endMin: fEMin, index: 0 };
+        targetDate.setDate(targetDate.getDate() + 1);
+        isTomorrow = true;
+      }
+    }
+
+    if (!targetWindow) {
+      continue;
+    }
+
+    var targetDateStr = Utilities.formatDate(targetDate, 'Asia/Jakarta', 'yyyy-MM-dd');
+
+    // Pindai ulang produk & media secara real-time dari master database
+    var liveProducts = getSheetRecords('Products');
+    var liveMedia = getSheetRecords('Media');
 
     for (var accIdx = 0; accIdx < rawAccIds.length; accIdx++) {
       var targetAccId = cleanAccountId(rawAccIds[accIdx]);
@@ -2932,10 +3024,10 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         }
       }
 
-      // Filter produk terhubung sah ke akun ini
+      // Filter real-time produk aktif yang diizinkan untuk akun ini
       var eligibleProductsForAcc = [];
-      for (var pr = 0; pr < allProducts.length; pr++) {
-        var pCandidate = allProducts[pr];
+      for (var pr = 0; pr < liveProducts.length; pr++) {
+        var pCandidate = liveProducts[pr];
         var allowedStr = String(pCandidate.allowed_accounts || '').trim();
         if (!allowedStr) continue;
 
@@ -2950,14 +3042,13 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         }
         if (!isAllowed) continue;
 
-        // Syarat Wajib: URL Shopee Affiliate terisi shortlink resmi (s.shopee.co.id / shope.ee)
         var affUrlCandidate = String(pCandidate.shopee_affiliate_url || '').trim().toLowerCase();
         var isAffValid = (affUrlCandidate.indexOf('s.shopee.co.id') !== -1 || affUrlCandidate.indexOf('shope.ee') !== -1);
         if (!isAffValid) continue;
 
         var hasMedia = false;
-        for (var md = 0; md < allMedia.length; md++) {
-          if (allMedia[md].product_id === pCandidate.product_id) {
+        for (var md = 0; md < liveMedia.length; md++) {
+          if (liveMedia[md].product_id === pCandidate.product_id) {
             hasMedia = true;
             break;
           }
@@ -2967,7 +3058,49 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
 
       if (eligibleProductsForAcc.length === 0) continue;
 
-      // Hitung total postingan sebelumnya untuk akun ini agar rotasi produk berkesinambungan
+      // Cek apakah postingan akun ini di jendela jam aktif ini sudah ada untuk targetDate
+      var existingInWindowCount = 0;
+      var wStartCheckMin = targetWindow.startMin - 20;
+      var wEndCheckMin = targetWindow.endMin + 20;
+
+      for (var qC = 0; qC < allQueue.length; qC++) {
+        var qRow = allQueue[qC];
+        if (cleanAccountId(qRow.account_id) === targetAccId && String(qRow.rule_id || '') === String(rule.rule_id)) {
+          var qTimeStr = qRow.scheduled_time || qRow.executed_at;
+          if (qTimeStr) {
+            var qD = new Date(qTimeStr);
+            var qDateStr = Utilities.formatDate(qD, 'Asia/Jakarta', 'yyyy-MM-dd');
+            if (qDateStr === targetDateStr) {
+              var qMin = qD.getHours() * 60 + qD.getMinutes();
+              if (qMin >= wStartCheckMin && qMin <= wEndCheckMin) {
+                existingInWindowCount++;
+              }
+            }
+          }
+        }
+      }
+
+      for (var pC = 0; pC < allPosts.length; pC++) {
+        var pRow = allPosts[pC];
+        if (cleanAccountId(pRow.account_id) === targetAccId && String(pRow.rule_id || '') === String(rule.rule_id)) {
+          var pTimeStr = pRow.created_at;
+          if (pTimeStr) {
+            var pD = new Date(pTimeStr);
+            var pDateStr = Utilities.formatDate(pD, 'Asia/Jakarta', 'yyyy-MM-dd');
+            if (pDateStr === targetDateStr) {
+              var pMin = pD.getHours() * 60 + pD.getMinutes();
+              if (pMin >= wStartCheckMin && pMin <= wEndCheckMin) {
+                existingInWindowCount++;
+              }
+            }
+          }
+        }
+      }
+
+      if (existingInWindowCount >= postsPerWindow) continue;
+
+      var postsToMake = postsPerWindow - existingInWindowCount;
+
       var accPostCount = 0;
       for (var ap = 0; ap < allPosts.length; ap++) {
         if (cleanAccountId(allPosts[ap].account_id) === targetAccId) accPostCount++;
@@ -2976,34 +3109,37 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         if (cleanAccountId(allQueue[aq].account_id) === targetAccId) accPostCount++;
       }
 
-      // Hitung titik waktu jadwal terdistribusi proporsional untuk seluruh kuota target_posts
-      var distributedSlots = generateDistributedScheduleSlots(ruleWindows, targetPosts, jitterMin, accIdx, now);
+      for (var step = 0; step < postsToMake; step++) {
+        var winDuration = targetWindow.endMin - targetWindow.startMin;
+        var stepOffset = postsToMake > 1 ? Math.floor((winDuration / (postsToMake + 1)) * (step + 1)) : Math.floor(winDuration * 0.35);
+        var baseMinute = targetWindow.startMin + stepOffset;
 
-      for (var slotIdx = 0; slotIdx < distributedSlots.length; slotIdx++) {
-        var scheduledDate = distributedSlots[slotIdx];
-        while (scheduledDate.getTime() <= (now.getTime() + 3 * 60 * 1000)) {
+        if (!isTomorrow && baseMinute <= curMin) {
+          baseMinute = curMin + 8 + (step * 25);
+        }
+
+        var randJitter = (Math.random() * 6 - 3) + (accIdx * 2);
+        var finalMinute = Math.min(1439, Math.max(0, Math.floor(baseMinute + randJitter)));
+
+        var scheduledDate = new Date(targetDate.getTime());
+        scheduledDate.setHours(Math.floor(finalMinute / 60) % 24, finalMinute % 60, 0, 0);
+
+        while (scheduledDate.getTime() <= (now.getTime() + 5 * 60 * 1000)) {
           scheduledDate.setDate(scheduledDate.getDate() + 1);
         }
 
-        // Round-Robin rotasi produk bergilir: berganti tiap post jika banyak produk, konsisten jika hanya 1 produk
-        var productIndex = (accPostCount + slotIdx) % eligibleProductsForAcc.length;
+        // Rotasi real-time: jika ada produk baru masuk, langsung ikut terpilih
+        var productIndex = (accPostCount + step) % eligibleProductsForAcc.length;
         var chosenProd = eligibleProductsForAcc[productIndex];
 
-        // Smart Choice Batch Media & Winner Media Priority: Pengacakan berbobot tanpa cooldown kaku
         var prodSessions = {};
         var sessionOrder = [];
-        for (var m = 0; m < allMedia.length; m++) {
-          var med = allMedia[m];
+        for (var m = 0; m < liveMedia.length; m++) {
+          var med = liveMedia[m];
           if (med.product_id === chosenProd.product_id) {
             var sId = med.session_id || 'SESI_DEFAULT';
             if (!prodSessions[sId]) {
-              prodSessions[sId] = {
-                session_id: sId,
-                media_ids: [],
-                max_views: 0,
-                last_used_at: 0,
-                weight: 10
-              };
+              prodSessions[sId] = { session_id: sId, media_ids: [] };
               sessionOrder.push(sId);
             }
             prodSessions[sId].media_ids.push(med.media_id);
@@ -3012,78 +3148,11 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
 
         if (sessionOrder.length === 0) continue;
 
-        // Hitung riwayat views dan penggunaan sesi
-        for (var s = 0; s < sessionOrder.length; s++) {
-          var sessObj = prodSessions[sessionOrder[s]];
-          var sessMediaSet = {};
-          for (var sm = 0; sm < sessObj.media_ids.length; sm++) {
-            sessMediaSet[sessObj.media_ids[sm]] = true;
-          }
-
-          for (var pIdx = 0; pIdx < allPosts.length; pIdx++) {
-            var pMediaRaw = String(allPosts[pIdx].media_ids_json || '');
-            for (var mid in sessMediaSet) {
-              if (pMediaRaw.indexOf(mid) !== -1) {
-                var pViews = Number(allPosts[pIdx].current_views || 0);
-                if (pViews > sessObj.max_views) sessObj.max_views = pViews;
-                var pTime = allPosts[pIdx].created_at ? new Date(allPosts[pIdx].created_at).getTime() : 0;
-                if (pTime > sessObj.last_used_at) sessObj.last_used_at = pTime;
-                break;
-              }
-            }
-          }
-
-          for (var qIdx = 0; qIdx < allQueue.length; qIdx++) {
-            var qMediaRaw = String(allQueue[qIdx].media_ids_json || '');
-            for (var qmid in sessMediaSet) {
-              if (qMediaRaw.indexOf(qmid) !== -1) {
-                var qTime = allQueue[qIdx].scheduled_time ? new Date(allQueue[qIdx].scheduled_time).getTime() : 0;
-                if (qTime > sessObj.last_used_at) sessObj.last_used_at = qTime;
-                break;
-              }
-            }
-          }
-
-          // Prioritas Batch Viral (Winner Media): views >= 10.000 mendapat lonjakan bobot prioritas
-          var wVal = 10;
-          if (sessObj.max_views >= 10000) {
-            wVal += 35;
-          } else if (sessObj.max_views >= 3000) {
-            wVal += 15;
-          } else if (sessObj.max_views >= 1000) {
-            wVal += 5;
-          }
-
-          // Anti-monoton: redam bobot jika sesi baru saja digunakan dalam 18 jam terakhir
-          if (sessObj.last_used_at && (nowMs - sessObj.last_used_at) < (18 * 3600 * 1000)) {
-            wVal = Math.max(2, Math.floor(wVal * 0.35));
-          }
-          sessObj.weight = wVal;
-        }
-
-        // Weighted random selection
-        var totalWeight = 0;
-        for (var wIdx = 0; wIdx < sessionOrder.length; wIdx++) {
-          totalWeight += prodSessions[sessionOrder[wIdx]].weight;
-        }
-
-        var rnd = Math.random() * totalWeight;
-        var chosenSession = prodSessions[sessionOrder[0]];
-        for (var rw = 0; rw < sessionOrder.length; rw++) {
-          var candidate = prodSessions[sessionOrder[rw]];
-          if (rnd < candidate.weight) {
-            chosenSession = candidate;
-            break;
-          }
-          rnd -= candidate.weight;
-        }
-
+        var chosenSession = prodSessions[sessionOrder[step % sessionOrder.length]];
         var chosenSessionId = chosenSession.session_id;
         var chosenMediaIds = chosenSession.media_ids;
         ruleLastSession = chosenSessionId;
-        chosenSession.last_used_at = scheduledDate.getTime();
 
-        // Ambil referensi viral & context
         var matchingRefs = [];
         for (var v = 0; v < allViralRefs.length; v++) {
           if (allViralRefs[v].product_id === chosenProd.product_id) {
@@ -3091,8 +3160,8 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
           }
         }
         var chosenRef = matchingRefs.length > 0
-          ? matchingRefs[slotIdx % matchingRefs.length]
-          : (allViralRefs.length > 0 ? allViralRefs[slotIdx % allViralRefs.length] : null);
+          ? matchingRefs[step % matchingRefs.length]
+          : (allViralRefs.length > 0 ? allViralRefs[step % allViralRefs.length] : null);
 
         var origHook = chosenRef ? (chosenRef.hook_thread_1 || '') : ('Rekomendasi ' + chosenProd.product_name + ' paling worth it!');
         var origSpill = chosenRef ? (chosenRef.spill_thread_2 || '') : 'Spill belinya di toko resmi ini: [LINK]';
@@ -3104,6 +3173,7 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         if (canCallAi) {
           try {
             remakeResult = generateSumopodRemake({
+              account_id: targetAccId,
               product_name: chosenProd.product_name,
               selling_points: chosenProd.selling_points || '',
               hook_thread_1: origHook,
@@ -3118,7 +3188,6 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         var hook1 = remakeResult.hook_1 || origHook;
         var spill2 = remakeResult.spill_2 || origSpill;
 
-        // Ambil HANYA shopee_affiliate_url murni (shortlink terverifikasi) tanpa fallback URL palsu
         var rawAff = String(chosenProd.shopee_affiliate_url || '').trim();
         var cleanShortAff = stripProtocol(rawAff).replace(/^https?:\/\//i, '').trim();
 
@@ -3149,7 +3218,6 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
           }
         ];
 
-        // Masukkan ke database & Posting_Queue berstatus Pending_Scheduled (TIDAK terbit saat itu juga)
         createPost({
           account_id: targetAccId,
           product_id: chosenProd.product_id,
@@ -3185,8 +3253,8 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
   return {
     generated_count: totalGenerated,
     message: totalGenerated > 0
-      ? ('Autopilot Batch Scheduling berhasil: ' + totalGenerated + ' postingan terjadwal dimasukkan ke antrean (Pending_Scheduled) sesuai jendela jam aktif.')
-      : 'Semua akun autopilot berada dalam batas aman atau belum memiliki produk terhubung.'
+      ? ('Autopilot Per-Window Dispatcher berhasil: ' + totalGenerated + ' postingan terjadwal disiapkan untuk jendela jam aktif.')
+      : 'Jendela jam aktif saat ini sudah terpenuhi kuotanya atau belum memasuki waktu tayang jendela berikutnya.'
   };
 }
 
@@ -3830,13 +3898,13 @@ function checkAndPublishQueue() {
       // Cek apakah postingan berantai ini dalam mode drip waiting views
       var postRecords = getSheetRecords('Posts');
       var isDripWaiting = false;
-      var postThreshold = 500;
+      var postThreshold = 100;
       for (var prIdx = 0; prIdx < postRecords.length; prIdx++) {
         if (String(postRecords[prIdx].post_id) === String(postId)) {
           if (postRecords[prIdx].drip_status === 'WAITING_VIEWS') {
             isDripWaiting = true;
           }
-          postThreshold = Number(postRecords[prIdx].views_threshold || 500);
+          postThreshold = Number(postRecords[prIdx].views_threshold || 100);
           break;
         }
       }
@@ -4375,11 +4443,14 @@ function deleteThreadsAccount(payload) {
   throw new Error('Akun tidak ditemukan di database');
 }
 
-// Perbarui kategori portofolio akun Threads
-function updateAccountCategory(payload) {
+// Simpan Konfigurasi Kategori & Persona AI Akun Threads
+function saveAccountPersona(payload) {
   var accId = cleanAccountId(payload.account_id);
   if (!accId) throw new Error('Account ID wajib diisi');
   var category = String(payload.category || 'General').trim();
+  var audiencePov = String(payload.audience_pov || 'Netral / Storyteller').trim();
+  var pronounStyle = String(payload.pronoun_style || 'aku - kamu').trim();
+  var customPrompt = String(payload.custom_prompt || '').trim();
 
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName('Accounts');
@@ -4387,20 +4458,45 @@ function updateAccountCategory(payload) {
 
   var data = sheet.getDataRange().getValues();
   var headers = data[0];
-  var catCol = headers.indexOf('category');
-  if (catCol === -1) {
-    catCol = headers.length;
-    sheet.getRange(1, catCol + 1).setValue('category');
+
+  var requiredCols = ['category', 'audience_pov', 'pronoun_style', 'custom_prompt'];
+  for (var c = 0; c < requiredCols.length; c++) {
+    if (headers.indexOf(requiredCols[c]) === -1) {
+      headers.push(requiredCols[c]);
+      sheet.getRange(1, headers.length).setValue(requiredCols[c]);
+    }
   }
 
+  var idCol = headers.indexOf('account_id');
+  if (idCol === -1) idCol = 0;
+  var catCol = headers.indexOf('category');
+  var povCol = headers.indexOf('audience_pov');
+  var proCol = headers.indexOf('pronoun_style');
+  var cstCol = headers.indexOf('custom_prompt');
+
   for (var i = 1; i < data.length; i++) {
-    if (cleanAccountId(data[i][0]) === accId) {
+    if (cleanAccountId(data[i][idCol]) === accId) {
       sheet.getRange(i + 1, catCol + 1).setValue(category);
-      return { success: true, account_id: accId, category: category };
+      sheet.getRange(i + 1, povCol + 1).setValue(audiencePov);
+      sheet.getRange(i + 1, proCol + 1).setValue(pronounStyle);
+      sheet.getRange(i + 1, cstCol + 1).setValue(customPrompt);
+      return {
+        success: true,
+        account_id: accId,
+        category: category,
+        audience_pov: audiencePov,
+        pronoun_style: pronounStyle,
+        custom_prompt: customPrompt
+      };
     }
   }
 
   throw new Error('Akun tidak ditemukan di database');
+}
+
+// Perbarui kategori portofolio akun Threads (Legacy wrapper)
+function updateAccountCategory(payload) {
+  return saveAccountPersona(payload);
 }
 
 // Mengambil statistik pemakaian storage & kuota dari Cloudinary Usage Admin API
@@ -4521,7 +4617,7 @@ function getAccountScheduleRadar(payload) {
           lastPostedTime = execT;
           lastPostedIso = qRow.executed_at;
         }
-      } else if (qStatus === 'scheduled' || qStatus === 'pending') {
+      } else if (qStatus === 'scheduled' || qStatus === 'pending' || qStatus === 'pending_scheduled') {
         var sTime = qRow.scheduled_time ? new Date(qRow.scheduled_time).getTime() : 0;
         if (sTime > now) {
           allUpcomingTimes.push(sTime);
@@ -4536,44 +4632,49 @@ function getAccountScheduleRadar(payload) {
 
   allUpcomingTimes.sort(function(a, b) { return a - b; });
 
-  // Algoritma Rekomendasi Slot Kosong (Rentang jam aktif audiens 07:00 - 21:00, jeda aman >= 60 menit)
-  var candidate = new Date(now + 20 * 60 * 1000);
-  if (candidate.getHours() < 7) {
-    candidate.setHours(7, 15, 0, 0);
-  } else if (candidate.getHours() >= 21) {
-    candidate.setDate(candidate.getDate() + 1);
-    candidate.setHours(7, 15, 0, 0);
-  }
+  // Algoritma Rekomendasi Slot Kosong (Celah jam aktif audiens 45-60 menit, strictly per-account)
+  var activeWindows = [
+    [6, 45, 9, 30],
+    [11, 30, 13, 45],
+    [16, 30, 18, 45],
+    [19, 30, 21, 45]
+  ];
 
+  var minGapMs = 45 * 60 * 1000;
   var foundSlot = null;
-  var minGapMs = 60 * 60 * 1000;
-  for (var step = 0; step < 48; step++) {
-    var candTime = candidate.getTime();
-    var cHour = candidate.getHours();
+  var nowDate = new Date(now);
 
-    if (cHour >= 7 && cHour <= 21) {
-      var isConflict = false;
-      if (lastPostedTime && Math.abs(candTime - lastPostedTime) < minGapMs) {
-        isConflict = true;
-      }
-      if (!isConflict) {
-        for (var u = 0; u < allUpcomingTimes.length; u++) {
-          if (Math.abs(candTime - allUpcomingTimes[u]) < minGapMs) {
-            isConflict = true;
-            break;
+  for (var dayOffset = 0; dayOffset <= 2 && !foundSlot; dayOffset++) {
+    for (var w = 0; w < activeWindows.length && !foundSlot; w++) {
+      var win = activeWindows[w];
+      var startMin = win[0] * 60 + win[1];
+      var endMin = win[2] * 60 + win[3];
+
+      for (var curMin = startMin; curMin <= endMin; curMin += 15) {
+        var cand = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + dayOffset, Math.floor(curMin / 60), curMin % 60, 0, 0);
+        var candTime = cand.getTime();
+
+        if (candTime <= (now + 10 * 60 * 1000)) continue;
+
+        var isConflict = false;
+        if (lastPostedTime && Math.abs(candTime - lastPostedTime) < minGapMs) {
+          isConflict = true;
+        }
+
+        if (!isConflict) {
+          for (var u = 0; u < allUpcomingTimes.length; u++) {
+            if (Math.abs(candTime - allUpcomingTimes[u]) < minGapMs) {
+              isConflict = true;
+              break;
+            }
           }
         }
-      }
-      if (!isConflict && candTime > (now + 10 * 60 * 1000)) {
-        foundSlot = new Date(candTime);
-        break;
-      }
-    }
 
-    candidate = new Date(candidate.getTime() + 45 * 60 * 1000);
-    if (candidate.getHours() > 21) {
-      candidate.setDate(candidate.getDate() + 1);
-      candidate.setHours(7, 15, 0, 0);
+        if (!isConflict) {
+          foundSlot = cand;
+          break;
+        }
+      }
     }
   }
 
