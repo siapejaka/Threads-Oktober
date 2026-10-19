@@ -8,7 +8,11 @@ function doGet(e) {
       if (action === 'getDashboardData') {
         result = getDashboardData(e.parameter);
       } else if (action === 'getProducts') {
-        result = getSheetRecords('Products');
+        result = getSheetRecords('Products').reverse();
+      } else if (action === 'getMediaByProduct') {
+        var allMediaGet = getSheetRecords('Media').reverse();
+        var pIdGet = e.parameter.product_id || '';
+        result = pIdGet ? allMediaGet.filter(function(m) { return m.product_id === pIdGet; }) : allMediaGet;
       } else if (action === 'ping') {
         result = { status: 'ok', timestamp: new Date().toISOString() };
       } else {
@@ -39,7 +43,11 @@ function doPost(e) {
     if (action === 'getDashboardData') {
       result = getDashboardData(payload);
     } else if (action === 'getProducts') {
-      result = getSheetRecords('Products');
+      result = getSheetRecords('Products').reverse();
+    } else if (action === 'getMediaByProduct') {
+      var allMediaPost = getSheetRecords('Media').reverse();
+      var pIdPost = payload.product_id || '';
+      result = pIdPost ? allMediaPost.filter(function(m) { return m.product_id === pIdPost; }) : allMediaPost;
     } else if (action === 'syncThreadsAccount') {
       result = syncThreadsAccount(payload);
     } else if (action === 'pingThreadsAccount') {
@@ -294,8 +302,8 @@ function getSheetRecords(tabName) {
 
 function getDashboardData(payload) {
   var accounts = getSheetRecords('Accounts');
-  var products = getSheetRecords('Products');
-  var media = getSheetRecords('Media');
+  var products = getSheetRecords('Products').reverse();
+  var media = getSheetRecords('Media').reverse();
   var posts = getSheetRecords('Posts');
   var rawComments = getSheetRecords('Comments');
   var settingsRows = getSheetRecords('Settings');
@@ -310,6 +318,22 @@ function getDashboardData(payload) {
   var viralRefs = getSheetRecords('Viral_References');
   var autopilotRules = getSheetRecords('Autopilot_Rules');
   var interactions = getSheetRecords('Thread_Interactions');
+
+  // Sinkronkan jadwal tayang riil dari antrean ke daftar postingan
+  var queueSchedMap = {};
+  for (var qi = 0; qi < queue.length; qi++) {
+    var qPid = String(queue[qi].post_id || '').trim();
+    if (qPid && queue[qi].scheduled_time) {
+      queueSchedMap[qPid] = queue[qi].scheduled_time;
+    }
+  }
+
+  for (var pi = 0; pi < posts.length; pi++) {
+    var pId = String(posts[pi].post_id || '').trim();
+    if (queueSchedMap[pId]) {
+      posts[pi].scheduled_time = queueSchedMap[pId];
+    }
+  }
 
   // Urutkan postingan & antrean dari yang paling baru di atas (Descending)
   posts.sort(function(a, b) {
@@ -628,6 +652,11 @@ function saveProduct(payload) {
   var rawUrl = String(payload.shopee_raw_url || '').trim();
   if (rawUrl && rawUrl.indexOf('affiliate.shopee.co.id/offer/product_offer') === -1) {
     throw new Error('URL Halaman Produk wajib berformat resmi Shopee Affiliate Offer (https://affiliate.shopee.co.id/offer/product_offer/...)');
+  }
+
+  var affUrl = String(payload.shopee_affiliate_url || '').trim().toLowerCase();
+  if (!affUrl || (affUrl.indexOf('s.shopee.co.id') === -1 && affUrl.indexOf('shope.ee') === -1)) {
+    throw new Error('URL Shopee Affiliate (Shortlink) wajib diisi dengan shortlink resmi yang valid (s.shopee.co.id atau shope.ee).');
   }
 
   var idCol = headers.indexOf('product_id');
@@ -1149,7 +1178,14 @@ function createPost(payload) {
       ]);
     } else if (status === 'SCHEDULED' || status === 'Pending_Scheduled') {
       var qIdSched = 'Q_' + Utilities.getUuid().substring(0, 8);
-      var schedIso = payload.scheduled_time ? new Date(payload.scheduled_time).toISOString() : new Date().toISOString();
+      var schedDateObj = payload.scheduled_time ? new Date(payload.scheduled_time) : new Date(Date.now() + 10 * 60 * 1000);
+      if (isNaN(schedDateObj.getTime())) schedDateObj = new Date(Date.now() + 10 * 60 * 1000);
+      if ((status === 'Pending_Scheduled' || payload.source_type === 'autopilot') && schedDateObj.getTime() <= Date.now()) {
+        while (schedDateObj.getTime() <= (Date.now() + 3 * 60 * 1000)) {
+          schedDateObj.setDate(schedDateObj.getDate() + 1);
+        }
+      }
+      var schedIso = schedDateObj.toISOString();
       qSheet.appendRow([
         qIdSched,
         postId,
@@ -2260,6 +2296,10 @@ function scheduleAutopilotBatch(payload) {
     if (!rawAllowed) {
       throw new Error('Produk "' + (prodObj.product_name || prodId) + '" berstatus Belum Terhubung dan tidak diizinkan untuk diposting.');
     }
+    var pAffUrl = String(prodObj.shopee_affiliate_url || '').trim().toLowerCase();
+    if (!pAffUrl || (pAffUrl.indexOf('s.shopee.co.id') === -1 && pAffUrl.indexOf('shope.ee') === -1)) {
+      throw new Error('Produk "' + (prodObj.product_name || prodId) + '" belum memiliki link Shopee Affiliate valid (s.shopee.co.id atau shope.ee).');
+    }
   }
 
   var baseTime = payload.start_time ? new Date(payload.start_time).getTime() : (Date.now() + 10 * 60 * 1000);
@@ -2493,8 +2533,8 @@ function generateDistributedScheduleSlots(windowsList, targetPosts, jitterMin, a
     slotDate.setSeconds(0);
     slotDate.setMilliseconds(0);
 
-    // Jika waktu pada hari ini sudah lewat dari sekarang, jadwalkan untuk besok di jam yang sama
-    if (slotDate.getTime() <= (baseNow.getTime() + 2 * 60 * 1000)) {
+    // Auto-Roll ke Hari Esok: Pastikan slot waktu selalu di MASA DEPAN
+    while (slotDate.getTime() <= (baseNow.getTime() + 5 * 60 * 1000)) {
       slotDate.setDate(slotDate.getDate() + 1);
     }
 
@@ -2619,6 +2659,11 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         }
         if (!isAllowed) continue;
 
+        // Syarat Wajib: URL Shopee Affiliate terisi shortlink resmi (s.shopee.co.id / shope.ee)
+        var affUrlCandidate = String(pCandidate.shopee_affiliate_url || '').trim().toLowerCase();
+        var isAffValid = (affUrlCandidate.indexOf('s.shopee.co.id') !== -1 || affUrlCandidate.indexOf('shope.ee') !== -1);
+        if (!isAffValid) continue;
+
         var hasMedia = false;
         for (var md = 0; md < allMedia.length; md++) {
           if (allMedia[md].product_id === pCandidate.product_id) {
@@ -2636,6 +2681,9 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
 
       for (var slotIdx = 0; slotIdx < distributedSlots.length; slotIdx++) {
         var scheduledDate = distributedSlots[slotIdx];
+        while (scheduledDate.getTime() <= (now.getTime() + 3 * 60 * 1000)) {
+          scheduledDate.setDate(scheduledDate.getDate() + 1);
+        }
         var chosenProd = eligibleProductsForAcc[slotIdx % eligibleProductsForAcc.length];
 
         // Kelompokkan sesi media untuk produk terpilih
@@ -2688,9 +2736,8 @@ function runAutonomousAutopilotWorker(ruleIdFilter) {
         var hook1 = remakeResult.hook_1 || origHook;
         var spill2 = remakeResult.spill_2 || origSpill;
 
-        // Isolasi ketat: ambil HANYA shopee_affiliate_url murni (shortlink), JANGAN PERNAH gunakan raw offer url
-        var rawAff = chosenProd.shopee_affiliate_url ? String(chosenProd.shopee_affiliate_url).trim() : '';
-        if (!rawAff) rawAff = 's.shopee.co.id/affiliate';
+        // Ambil HANYA shopee_affiliate_url murni (shortlink terverifikasi) tanpa fallback URL palsu
+        var rawAff = String(chosenProd.shopee_affiliate_url || '').trim();
         var cleanShortAff = stripProtocol(rawAff).replace(/^https?:\/\//i, '').trim();
 
         var cleanSpill = spill2;
@@ -3347,6 +3394,29 @@ function checkAndPublishQueue() {
     if (isNaN(schedTime) || schedTime > now) continue;
 
     var postId = qData[i][1];
+
+    // PENGAMAN KETERLAMBATAN: Jangan langsung terbitkan jika terlewat > 30 menit dari jadwal seharusnya
+    var maxLatenessMs = 30 * 60 * 1000;
+    if ((now - schedTime) > maxLatenessMs) {
+      var diffMinutes = Math.round((now - schedTime) / 60000);
+      var lateMsg = 'Terlambat ' + diffMinutes + ' menit dari jadwal. Ditandai Rescheduled demi keamanan.';
+      qSheet.getRange(i + 1, 7).setValue('Rescheduled');
+      qSheet.getRange(i + 1, 8).setValue(lateMsg);
+
+      if (postId) {
+        var pSheet = ss.getSheetByName('Posts');
+        if (pSheet) {
+          var pData = pSheet.getDataRange().getValues();
+          for (var kp = 1; kp < pData.length; kp++) {
+            if (String(pData[kp][0]) === String(postId)) {
+              pSheet.getRange(kp + 1, 9).setValue('Rescheduled');
+              break;
+            }
+          }
+        }
+      }
+      continue;
+    }
     var accountId = cleanAccountId(qData[i][2]);
     var token = tokenMap[accountId];
 
