@@ -143,9 +143,7 @@ function doPost(e) {
       result = saveMediaOrder(payload);
     } else if (action === 'saveMediaOrder') {
       result = saveMediaOrder(payload);
-    } else if (action === 'generateVariationsFromReference') {
-      result = handleGenerateVariationsFromReference(payload);
-    } else if (action === 'handleGenerateVariationsFromReference') {
+    } else if (action === 'generateVariationsFromReference' || action === 'handleGenerateVariationsFromReference' || action === 'generateVariations') {
       result = handleGenerateVariationsFromReference(payload);
     } else if (action === 'saveAutopilotAmmo') {
       result = saveAutopilotAmmo(payload);

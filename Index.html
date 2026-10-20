@@ -7605,25 +7605,45 @@
           this.showToast('SumoPod AI sedang meracik 3 variasi konten...');
           var self = this;
 
+          var payloadBody = {
+            reference_id: refId,
+            utas1_ref: refU1,
+            utas2_ref: refU2,
+            ref_text: refU1 + (refU2 ? ('\n' + refU2) : ''),
+            product_id: this.factoryTargetProductId,
+            account_id: this.factoryTargetAccountId,
+            account_username: accUser
+          };
+
           fetch(this.getScriptUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
               action: 'generateVariationsFromReference',
-              payload: {
-                reference_id: refId,
-                utas1_ref: refU1,
-                utas2_ref: refU2,
-                ref_text: refU1 + (refU2 ? ('\n' + refU2) : ''),
-                product_id: this.factoryTargetProductId,
-                account_id: this.factoryTargetAccountId,
-                account_username: accUser
-              }
+              payload: payloadBody
             })
           })
           .then(function(r) { return r.text(); })
           .then(function(text) {
-            var res = JSON.parse(text);
+            var res = {};
+            try { res = JSON.parse(text); } catch(e) {}
+            if (res.ok && res.data && Array.isArray(res.data.variations)) {
+              return res;
+            }
+            // Fallback jika backend lama masih merespons action dengan alias
+            if (!res.ok && res.message && res.message.indexOf('Aksi tidak dikenali') !== -1) {
+              return fetch(self.getScriptUrl(), {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                  action: 'handleGenerateVariationsFromReference',
+                  payload: payloadBody
+                })
+              }).then(function(r2) { return r2.text(); }).then(function(t2) { return JSON.parse(t2); });
+            }
+            return res;
+          })
+          .then(function(res) {
             if (res.ok && res.data && Array.isArray(res.data.variations)) {
               self.factoryResults = res.data.variations.map(function(v) {
                 return {
